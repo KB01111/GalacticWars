@@ -1,0 +1,12 @@
+{
+  "id": "kingdomwarsmiddleearth:mordor",
+  "display_name": "Mordor",
+  "hire_cost": 30,
+  "minimum_hiring_alignment": 15,
+  "max_owned_recruits": 16,
+  "allies": [],
+  "enemies": [
+    "kingdomwarsmiddleearth:gondor",
+    "kingdomwarsmiddleearth:rohan"
+  ]
+}

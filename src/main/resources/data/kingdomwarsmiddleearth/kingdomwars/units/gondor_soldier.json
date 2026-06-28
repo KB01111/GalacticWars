@@ -1,0 +1,10 @@
+{
+  "id": "kingdomwarsmiddleearth:gondor_soldier",
+  "display_name": "Gondor Soldier",
+  "faction": "kingdomwarsmiddleearth:gondor",
+  "role": "infantry",
+  "hire_cost": 25,
+  "max_health": 24,
+  "attack_damage": 5,
+  "default_formation": "line"
+}

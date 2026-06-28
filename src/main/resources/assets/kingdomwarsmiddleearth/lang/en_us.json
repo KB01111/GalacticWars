@@ -1,0 +1,14 @@
+{
+  "itemGroup.kingdomwarsmiddleearth.middle_earth": "KingdomWars: Middle-earth",
+
+  "block.kingdomwarsmiddleearth.middle_earth_stone": "Middle-earth Stone",
+  "block.kingdomwarsmiddleearth.mithril_ore": "Mithril Ore",
+  "block.kingdomwarsmiddleearth.mallorn_log": "Mallorn Log",
+  "item.kingdomwarsmiddleearth.mithril_ingot": "Mithril Ingot",
+
+  "kingdomwarsmiddleearth.configuration.title": "KingdomWars-Middle-Earth Configs",
+  "kingdomwarsmiddleearth.configuration.section.kingdomwarsmiddleearth.common.toml": "KingdomWars-Middle-Earth Configs",
+  "kingdomwarsmiddleearth.configuration.section.kingdomwarsmiddleearth.common.toml.title": "KingdomWars-Middle-Earth Configs",
+  "kingdomwarsmiddleearth.configuration.logStartup": "Log Startup",
+  "kingdomwarsmiddleearth.configuration.enableContentSeed": "Enable Content Seed"
+}

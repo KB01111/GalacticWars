@@ -1,0 +1,13 @@
+{
+  "id": "kingdomwarsmiddleearth:rohan",
+  "display_name": "Rohan",
+  "hire_cost": 20,
+  "minimum_hiring_alignment": 8,
+  "max_owned_recruits": 10,
+  "allies": [
+    "kingdomwarsmiddleearth:gondor"
+  ],
+  "enemies": [
+    "kingdomwarsmiddleearth:mordor"
+  ]
+}

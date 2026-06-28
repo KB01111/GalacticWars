@@ -20,7 +20,7 @@ public final class ArmyCommandPolicy {
         if (group == null) {
             return ArmyCommandValidation.rejected("missing_group");
         }
-        if (alignment == null) {
+        if (alignment == null || !alignment.playerId().equals(command.issuedBy())) {
             return ArmyCommandValidation.rejected("unknown_player");
         }
         if (unitFaction == null) {

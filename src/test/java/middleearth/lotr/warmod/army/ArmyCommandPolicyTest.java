@@ -138,10 +138,6 @@ public final class ArmyCommandPolicyTest {
         return alignment(ownerId(), score);
     }
 
-    private static FactionAlignment alignment(int score) {
-        return alignment(ownerId(), score);
-    }
-
     private static FactionAlignment alignment(UUID playerId, int score) {
         return FactionAlignment.empty(playerId).withAddedScore(FactionId.of("gondor"), score);
     }

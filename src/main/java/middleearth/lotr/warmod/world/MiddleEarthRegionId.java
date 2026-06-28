@@ -2,9 +2,11 @@ package middleearth.lotr.warmod.world;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 public record MiddleEarthRegionId(String namespace, String path) {
     public static final String DEFAULT_NAMESPACE = "kingdomwarsmiddleearth";
+    private static final Pattern VALID_PART = Pattern.compile("[a-z0-9_.-]+");
 
     public MiddleEarthRegionId {
         namespace = normalizePart(namespace, "namespace");
@@ -34,7 +36,7 @@ public record MiddleEarthRegionId(String namespace, String path) {
     private static String normalizePart(String value, String label) {
         Objects.requireNonNull(value, label);
         String normalized = value.trim().toLowerCase(Locale.ROOT);
-        if (!normalized.matches("[a-z0-9_.-]+")) {
+        if (!VALID_PART.matcher(normalized).matches()) {
             throw new IllegalArgumentException("Invalid Middle-earth region id " + label + ": " + value);
         }
         return normalized;

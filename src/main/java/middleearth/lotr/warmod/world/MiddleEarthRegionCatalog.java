@@ -17,7 +17,18 @@ public record MiddleEarthRegionCatalog(Map<MiddleEarthRegionId, MiddleEarthRegio
 
     public MiddleEarthRegionCatalog {
         Objects.requireNonNull(definitions, "definitions");
-        definitions = Collections.unmodifiableMap(new LinkedHashMap<>(definitions));
+        LinkedHashMap<MiddleEarthRegionId, MiddleEarthRegionDefinition> copied = new LinkedHashMap<>();
+        for (Map.Entry<MiddleEarthRegionId, MiddleEarthRegionDefinition> entry : definitions.entrySet()) {
+            MiddleEarthRegionId id = Objects.requireNonNull(entry.getKey(), "catalog key cannot be null");
+            MiddleEarthRegionDefinition definition =
+                    Objects.requireNonNull(entry.getValue(), "catalog value cannot be null");
+            if (!id.equals(definition.id())) {
+                throw new IllegalArgumentException("Mismatched region catalog key and definition id: "
+                        + id + " vs " + definition.id());
+            }
+            copied.put(id, definition);
+        }
+        definitions = Collections.unmodifiableMap(copied);
     }
 
     public Optional<MiddleEarthRegionDefinition> definition(MiddleEarthRegionId regionId) {

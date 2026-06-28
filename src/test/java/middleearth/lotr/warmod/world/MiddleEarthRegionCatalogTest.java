@@ -1,6 +1,8 @@
 package middleearth.lotr.warmod.world;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -15,6 +17,7 @@ public final class MiddleEarthRegionCatalogTest {
         storesRegionDefinitionValues();
         looksUpRegionsByIdFactionAndClimate();
         rejectsDuplicateRegionIds();
+        rejectsInvalidCatalogMapEntries();
         rejectsInvalidRegionValues();
 
         System.out.println("MiddleEarthRegionCatalogTest passed");
@@ -60,6 +63,21 @@ public final class MiddleEarthRegionCatalogTest {
     private static void rejectsDuplicateRegionIds() {
         assertThrows(IllegalArgumentException.class, () -> new MiddleEarthRegionCatalog(List.of(gondor(), gondor())),
                 "duplicate region ids");
+    }
+
+    private static void rejectsInvalidCatalogMapEntries() {
+        assertThrows(IllegalArgumentException.class, () -> new MiddleEarthRegionCatalog(Map.of(
+                MiddleEarthRegionId.of("rohan"), gondor())), "mismatched region catalog map entry");
+
+        LinkedHashMap<MiddleEarthRegionId, MiddleEarthRegionDefinition> nullKey = new LinkedHashMap<>();
+        nullKey.put(null, gondor());
+        assertThrows(NullPointerException.class, () -> new MiddleEarthRegionCatalog(nullKey),
+                "null region catalog key");
+
+        LinkedHashMap<MiddleEarthRegionId, MiddleEarthRegionDefinition> nullValue = new LinkedHashMap<>();
+        nullValue.put(MiddleEarthRegionId.of("gondor"), null);
+        assertThrows(NullPointerException.class, () -> new MiddleEarthRegionCatalog(nullValue),
+                "null region catalog value");
     }
 
     private static void rejectsInvalidRegionValues() {

@@ -108,6 +108,13 @@ public final class ArmyCommandPolicyTest {
                 FactionId.of("gondor"),
                 10), "missing alignment");
 
+        assertRejected("unknown_player", ArmyCommandPolicy.canIssue(
+                ArmyCommand.followOwner(ownerId(), groupId()),
+                populatedGroup(),
+                alignment(otherPlayerId(), 12),
+                FactionId.of("gondor"),
+                10), "mismatched alignment player");
+
         assertRejected("unknown_faction", ArmyCommandPolicy.canIssue(
                 ArmyCommand.followOwner(ownerId(), groupId()),
                 populatedGroup(),
@@ -121,7 +128,11 @@ public final class ArmyCommandPolicyTest {
     }
 
     private static FactionAlignment alignment(int score) {
-        return FactionAlignment.empty(ownerId()).withAddedScore(FactionId.of("gondor"), score);
+        return alignment(ownerId(), score);
+    }
+
+    private static FactionAlignment alignment(UUID playerId, int score) {
+        return FactionAlignment.empty(playerId).withAddedScore(FactionId.of("gondor"), score);
     }
 
     private static UUID ownerId() {

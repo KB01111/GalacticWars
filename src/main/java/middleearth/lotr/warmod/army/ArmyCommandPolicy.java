@@ -32,6 +32,9 @@ public final class ArmyCommandPolicy {
         if (!group.groupId().equals(command.groupId())) {
             return ArmyCommandValidation.rejected("group_mismatch");
         }
+        if (!alignment.playerId().equals(command.issuedBy())) {
+            return ArmyCommandValidation.rejected("unknown_player");
+        }
         if (group.recruitIds().isEmpty()) {
             return ArmyCommandValidation.rejected("empty_group");
         }

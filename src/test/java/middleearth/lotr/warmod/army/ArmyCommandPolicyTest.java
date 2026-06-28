@@ -115,6 +115,13 @@ public final class ArmyCommandPolicyTest {
                 FactionId.of("gondor"),
                 10), "mismatched alignment player");
 
+        assertRejected("unknown_player", ArmyCommandPolicy.canIssue(
+                ArmyCommand.followOwner(ownerId(), groupId()),
+                populatedGroup(),
+                alignment(otherPlayerId(), 12),
+                FactionId.of("gondor"),
+                10), "mismatched alignment player");
+
         assertRejected("unknown_faction", ArmyCommandPolicy.canIssue(
                 ArmyCommand.followOwner(ownerId(), groupId()),
                 populatedGroup(),

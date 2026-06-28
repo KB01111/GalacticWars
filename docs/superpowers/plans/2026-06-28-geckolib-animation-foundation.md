@@ -27,7 +27,7 @@ Create `GeckoLibDependencyMetadataTest` with a `main` method that checks:
 
 - `gradle.properties` declares `geckolib_version=5.5.3`.
 - `build.gradle` declares the GeckoLib Cloudsmith Maven repository.
-- `build.gradle` declares `implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"`.
+- `build.gradle` declares `implementation "com.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"`.
 - `neoforge.mods.toml` declares a required `geckolib` dependency with `${geckolib_version}` in the version range.
 - `NOTICE.md` and `README.md` mention GeckoLib.
 
@@ -50,14 +50,14 @@ Add `geckolib_version=5.5.3` to `gradle.properties`.
 
 - [ ] **Step 2: Add GeckoLib Maven repository**
 
-Add a `maven` block named `GeckoLib` to `repositories` with URL `https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/` and group filter `software.bernie.geckolib`.
+Add a `maven` block named `GeckoLib` to `repositories` with URL `https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/` and group filter `com.geckolib`.
 
 - [ ] **Step 3: Add NeoForge GeckoLib dependency**
 
 Add:
 
 ```groovy
-implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+implementation "com.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
 ```
 
 - [ ] **Step 4: Add mod metadata dependency**

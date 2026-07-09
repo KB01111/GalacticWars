@@ -12,6 +12,7 @@ public final class RecruitWorkerAiIntegrationTest {
         recruitRegistersWorkerGoal();
         recruitPersistsWorkerResourceState();
         recruitCanAdvanceWorkerCycle();
+        recruitHarvestsRealWorksiteBlocks();
         recruitUsesCourierLogisticsPlanner();
         workerGoalDelegatesToRecruitCycle();
 
@@ -44,6 +45,18 @@ public final class RecruitWorkerAiIntegrationTest {
         assertContains(entity, "WorkerResourceAction.DEPOSIT_TO_STORAGE", "deposit action handling");
         assertContains(entity, "KingdomBaseBuildAction.PLACE_BLOCK", "base place action handling");
         assertContains(entity, "completeNextStarterBaseBlock", "base placement method");
+    }
+
+    private static void recruitHarvestsRealWorksiteBlocks() throws IOException {
+        String entity = read("src/main/java/middleearth/lotr/warmod/entity/MiddleEarthRecruitEntity.java");
+
+        assertContains(entity, "tryHarvestWorksiteResource", "world resource harvest method");
+        assertContains(entity, "findHarvestTarget", "worksite scan method");
+        assertContains(entity, "this.level().destroyBlock", "world block harvest call");
+        assertContains(entity, "CropBlock", "farmer crop handling");
+        assertContains(entity, "Blocks.OAK_LOG", "lumberjack target block");
+        assertContains(entity, "Blocks.STONE", "miner target block");
+        assertContains(entity, "Blocks.WHEAT", "farmer target block");
     }
 
     private static void recruitUsesCourierLogisticsPlanner() throws IOException {

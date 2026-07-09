@@ -62,6 +62,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
@@ -538,6 +540,9 @@ public class MiddleEarthRecruitEntity extends TamableAnimal {
 
         WorkerResourceDecision decision = this.planResourceDecision().orElseThrow();
         if (decision.action() == WorkerResourceAction.GATHER_RESOURCE) {
+            if (this.tryHarvestWorksiteResource(this.getWorkerProfession().orElseThrow(), decision)) {
+                return true;
+            }
             this.carriedResources = this.carriedResources.withAdded(decision.itemId(), decision.quantity());
             return true;
         }
@@ -565,6 +570,55 @@ public class MiddleEarthRecruitEntity extends TamableAnimal {
         this.storageResources = this.storageResources.withRemoved(placement.itemId(), 1);
         this.starterBaseCompletedBlocks++;
         return true;
+    }
+
+    private boolean tryHarvestWorksiteResource(WorkerProfession profession, WorkerResourceDecision decision) {
+        Optional<BlockPos> target = this.findHarvestTarget(profession);
+        if (target.isEmpty()) {
+            return false;
+        }
+
+        BlockPos harvestAt = target.get();
+        BlockState state = this.level().getBlockState(harvestAt);
+        if (profession == WorkerProfession.FARMER && state.getBlock() instanceof CropBlock cropBlock) {
+            this.level().destroyBlock(harvestAt, true, this, 16);
+            this.level().setBlock(harvestAt, cropBlock.getStateForAge(0), 3);
+        } else {
+            this.level().destroyBlock(harvestAt, true, this, 16);
+        }
+        this.carriedResources = this.carriedResources.withAdded(decision.itemId(), decision.quantity());
+        return true;
+    }
+
+    private Optional<BlockPos> findHarvestTarget(WorkerProfession profession) {
+        if (this.workTarget == null) {
+            return Optional.empty();
+        }
+        int radius = 4;
+        BlockPos min = this.workTarget.offset(-radius, -1, -radius);
+        BlockPos max = this.workTarget.offset(radius, 3, radius);
+        for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
+            BlockState state = this.level().getBlockState(pos);
+            if (isHarvestableFor(profession, state)) {
+                return Optional.of(pos.immutable());
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isHarvestableFor(WorkerProfession profession, BlockState state) {
+        Block block = state.getBlock();
+        return switch (profession) {
+            case LUMBERJACK -> block == Blocks.OAK_LOG || block == ModBlocks.MALLORN_LOG.get();
+            case MINER -> block == Blocks.STONE
+                    || block == Blocks.COBBLESTONE
+                    || block == ModBlocks.MIDDLE_EARTH_STONE.get()
+                    || block == ModBlocks.MITHRIL_ORE.get();
+            case FARMER -> block == Blocks.WHEAT
+                    && block instanceof CropBlock cropBlock
+                    && cropBlock.isMaxAge(state);
+            default -> false;
+        };
     }
 
     private void depositCarriedResources() {

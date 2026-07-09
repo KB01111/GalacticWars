@@ -1,0 +1,730 @@
+package middleearth.lotr.warmod.entity;
+
+import middleearth.lotr.warmod.entity.ai.RecruitMoveToCommandGoal;
+import middleearth.lotr.warmod.entity.ai.RecruitWorkerGoal;
+import middleearth.lotr.warmod.menu.RecruitCommandMenu;
+import middleearth.lotr.warmod.menu.RecruitCommandMenuProvider;
+import middleearth.lotr.warmod.recruitment.RecruitmentAction;
+import middleearth.lotr.warmod.registry.ModBlocks;
+import middleearth.lotr.warmod.settlement.BaseBlockPlacement;
+import middleearth.lotr.warmod.settlement.KingdomBaseBlueprint;
+import middleearth.lotr.warmod.settlement.KingdomBaseBuildAction;
+import middleearth.lotr.warmod.settlement.KingdomBaseBuildDecision;
+import middleearth.lotr.warmod.settlement.KingdomBaseBuildPlanner;
+import middleearth.lotr.warmod.settlement.KingdomSettlementPlanner;
+import middleearth.lotr.warmod.settlement.KingdomSettlementState;
+import middleearth.lotr.warmod.settlement.KingdomWorkOrder;
+import middleearth.lotr.warmod.workforce.ResourceInventory;
+import middleearth.lotr.warmod.workforce.WorkAreaType;
+import middleearth.lotr.warmod.workforce.WorkerLogisticsDecision;
+import middleearth.lotr.warmod.workforce.WorkerLogisticsPlanner;
+import middleearth.lotr.warmod.workforce.WorkerLogisticsRoute;
+import middleearth.lotr.warmod.workforce.WorkerProfession;
+import middleearth.lotr.warmod.workforce.WorkerProfessionCatalog;
+import middleearth.lotr.warmod.workforce.WorkerProfessionDefinition;
+import middleearth.lotr.warmod.workforce.WorkerResourceAction;
+import middleearth.lotr.warmod.workforce.WorkerResourceDecision;
+import middleearth.lotr.warmod.workforce.WorkerResourcePlanner;
+import middleearth.lotr.warmod.workforce.WorkerTaskDecision;
+import middleearth.lotr.warmod.workforce.WorkerTaskPlanner;
+import middleearth.lotr.warmod.workforce.WorkerWorksite;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.FollowOwnerGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.OwnerHurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.OwnerHurtTargetGoal;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+public class MiddleEarthRecruitEntity extends TamableAnimal {
+    public static final int HIRE_COST_EMERALDS = 25;
+
+    private static final EntityDataAccessor<Integer> DATA_COMMAND =
+            SynchedEntityData.defineId(MiddleEarthRecruitEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_WORKER_PROFESSION =
+            SynchedEntityData.defineId(MiddleEarthRecruitEntity.class, EntityDataSerializers.INT);
+
+    private @Nullable BlockPos moveTarget;
+    private @Nullable BlockPos workTarget;
+    private @Nullable BlockPos storageTarget;
+    private @Nullable BlockPos baseTarget;
+    private ResourceInventory carriedResources = ResourceInventory.empty();
+    private ResourceInventory storageResources = ResourceInventory.empty();
+    private int starterBaseCompletedBlocks;
+
+    public MiddleEarthRecruitEntity(EntityType<? extends TamableAnimal> entityType, Level level) {
+        super(entityType, level);
+        this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        return Animal.createAnimalAttributes()
+                .add(Attributes.MAX_HEALTH, 20.0)
+                .add(Attributes.MOVEMENT_SPEED, 0.28)
+                .add(Attributes.ATTACK_DAMAGE, 5.0)
+                .add(Attributes.FOLLOW_RANGE, 24.0);
+    }
+
+    @Override
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.05, true));
+        this.goalSelector.addGoal(2, new RecruitMoveToCommandGoal(this, 1.0));
+        this.goalSelector.addGoal(3, new FollowOwnerGoal(this, 1.0, 8.0F, 3.0F) {
+            @Override
+            public boolean canUse() {
+                return MiddleEarthRecruitEntity.this.shouldFollowOwner() && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return MiddleEarthRecruitEntity.this.shouldFollowOwner() && super.canContinueToUse();
+            }
+        });
+        this.goalSelector.addGoal(4, new RecruitWorkerGoal(this));
+        this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8));
+        this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
+        this.targetSelector.addGoal(1, new OwnerHurtByTargetGoal(this));
+        this.targetSelector.addGoal(2, new OwnerHurtTargetGoal(this));
+        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<Monster>(
+                this,
+                Monster.class,
+                10,
+                true,
+                false,
+                (target, level) -> this.getRecruitCommand() == RecruitmentAction.ATTACK_TARGET));
+        this.targetSelector.addGoal(4, new HurtByTargetGoal(this));
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder entityData) {
+        super.defineSynchedData(entityData);
+        entityData.define(DATA_COMMAND, RecruitmentAction.FOLLOW_OWNER.ordinal());
+        entityData.define(DATA_WORKER_PROFESSION, -1);
+    }
+
+    @Override
+    protected void addAdditionalSaveData(ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        output.putString("RecruitCommand", this.getRecruitCommand().name());
+        this.getWorkerProfession().ifPresent(profession -> output.putString("WorkerProfession", profession.id()));
+        output.putString("WorkerCarriedResources", encodeResources(this.carriedResources));
+        output.putString("WorkerStorageResources", encodeResources(this.storageResources));
+        output.putInt("StarterBaseCompletedBlocks", this.starterBaseCompletedBlocks);
+        if (this.workTarget != null) {
+            output.putInt("WorkTargetX", this.workTarget.getX());
+            output.putInt("WorkTargetY", this.workTarget.getY());
+            output.putInt("WorkTargetZ", this.workTarget.getZ());
+        }
+        if (this.storageTarget != null) {
+            output.putInt("StorageTargetX", this.storageTarget.getX());
+            output.putInt("StorageTargetY", this.storageTarget.getY());
+            output.putInt("StorageTargetZ", this.storageTarget.getZ());
+        }
+        if (this.baseTarget != null) {
+            output.putInt("BaseTargetX", this.baseTarget.getX());
+            output.putInt("BaseTargetY", this.baseTarget.getY());
+            output.putInt("BaseTargetZ", this.baseTarget.getZ());
+        }
+        if (this.moveTarget != null) {
+            output.putInt("MoveTargetX", this.moveTarget.getX());
+            output.putInt("MoveTargetY", this.moveTarget.getY());
+            output.putInt("MoveTargetZ", this.moveTarget.getZ());
+        }
+    }
+
+    @Override
+    protected void readAdditionalSaveData(ValueInput input) {
+        super.readAdditionalSaveData(input);
+        this.setRecruitCommand(parseCommand(input.getStringOr("RecruitCommand", RecruitmentAction.FOLLOW_OWNER.name())));
+        WorkerProfession.byId(input.getStringOr("WorkerProfession", ""))
+                .ifPresentOrElse(this::setWorkerProfession, () -> this.entityData.set(DATA_WORKER_PROFESSION, -1));
+        this.carriedResources = decodeResources(input.getStringOr("WorkerCarriedResources", ""));
+        this.storageResources = decodeResources(input.getStringOr("WorkerStorageResources", ""));
+        this.starterBaseCompletedBlocks = Math.max(0, input.getIntOr("StarterBaseCompletedBlocks", 0));
+        if (input.getInt("WorkTargetX").isPresent()
+                && input.getInt("WorkTargetY").isPresent()
+                && input.getInt("WorkTargetZ").isPresent()) {
+            this.workTarget = new BlockPos(
+                    input.getIntOr("WorkTargetX", this.blockPosition().getX()),
+                    input.getIntOr("WorkTargetY", this.blockPosition().getY()),
+                    input.getIntOr("WorkTargetZ", this.blockPosition().getZ()));
+        }
+        if (input.getInt("StorageTargetX").isPresent()
+                && input.getInt("StorageTargetY").isPresent()
+                && input.getInt("StorageTargetZ").isPresent()) {
+            this.storageTarget = new BlockPos(
+                    input.getIntOr("StorageTargetX", this.blockPosition().getX()),
+                    input.getIntOr("StorageTargetY", this.blockPosition().getY()),
+                    input.getIntOr("StorageTargetZ", this.blockPosition().getZ()));
+        }
+        if (input.getInt("BaseTargetX").isPresent()
+                && input.getInt("BaseTargetY").isPresent()
+                && input.getInt("BaseTargetZ").isPresent()) {
+            this.baseTarget = new BlockPos(
+                    input.getIntOr("BaseTargetX", this.blockPosition().getX()),
+                    input.getIntOr("BaseTargetY", this.blockPosition().getY()),
+                    input.getIntOr("BaseTargetZ", this.blockPosition().getZ()));
+        }
+        if (input.getInt("MoveTargetX").isPresent()
+                && input.getInt("MoveTargetY").isPresent()
+                && input.getInt("MoveTargetZ").isPresent()) {
+            this.moveTarget = new BlockPos(
+                    input.getIntOr("MoveTargetX", this.blockPosition().getX()),
+                    input.getIntOr("MoveTargetY", this.blockPosition().getY()),
+                    input.getIntOr("MoveTargetZ", this.blockPosition().getZ()));
+        }
+    }
+
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (hand != InteractionHand.MAIN_HAND) {
+            return InteractionResult.PASS;
+        }
+        if (player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.openMenu(new RecruitCommandMenuProvider(this));
+            return InteractionResult.SUCCESS_SERVER;
+        }
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public boolean isFood(ItemStack itemStack) {
+        return false;
+    }
+
+    @Override
+    public @Nullable AgeableMob getBreedOffspring(ServerLevel level, AgeableMob partner) {
+        return null;
+    }
+
+    public RecruitmentAction getRecruitCommand() {
+        int command = this.entityData.get(DATA_COMMAND);
+        RecruitmentAction[] values = RecruitmentAction.values();
+        if (command < 0 || command >= values.length) {
+            return RecruitmentAction.FOLLOW_OWNER;
+        }
+        return values[command];
+    }
+
+    public @Nullable BlockPos getMoveTarget() {
+        return this.moveTarget;
+    }
+
+    public @Nullable BlockPos getWorkTarget() {
+        return this.workTarget;
+    }
+
+    public @Nullable BlockPos getStorageTarget() {
+        return this.storageTarget;
+    }
+
+    public @Nullable BlockPos getBaseTarget() {
+        return this.baseTarget;
+    }
+
+    public List<Component> recruitStatusLines() {
+        ArrayList<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable(
+                "screen.kingdomwarsmiddleearth.recruit.status.command",
+                Component.literal(this.getRecruitCommand().name().toLowerCase())));
+        lines.add(Component.translatable(
+                "screen.kingdomwarsmiddleearth.recruit.status.profession",
+                this.getWorkerProfession()
+                        .map(profession -> Component.translatable(profession.translationKey()))
+                        .orElseGet(() -> Component.translatable("screen.kingdomwarsmiddleearth.recruit.status.none"))));
+        this.planResourceDecision().ifPresent(decision -> lines.add(Component.translatable(
+                "screen.kingdomwarsmiddleearth.recruit.status.resource_action",
+                Component.translatable("screen.kingdomwarsmiddleearth.recruit.workaction."
+                        + decision.action().name().toLowerCase()),
+                decision.itemId().isBlank() ? Component.literal("-") : Component.literal(decision.itemId()))));
+        lines.add(Component.translatable(
+                "screen.kingdomwarsmiddleearth.recruit.status.worksite",
+                targetLabel(this.workTarget)));
+        lines.add(Component.translatable(
+                "screen.kingdomwarsmiddleearth.recruit.status.storage",
+                targetLabel(this.storageTarget),
+                this.storageResources.totalCount()));
+        if (this.baseTarget != null) {
+            lines.add(Component.translatable(
+                    "screen.kingdomwarsmiddleearth.recruit.status.base_progress",
+                    this.starterBaseCompletedBlocks,
+                    KingdomBaseBlueprint.starterKeep().placements().size()));
+            this.planKingdomWorkOrder().ifPresent(order -> lines.add(Component.translatable(
+                    "screen.kingdomwarsmiddleearth.recruit.status.kingdom_order",
+                    Component.translatable("screen.kingdomwarsmiddleearth.recruit.kingdom_order."
+                            + order.type().name().toLowerCase()),
+                    order.profession() == null
+                            ? Component.translatable("screen.kingdomwarsmiddleearth.recruit.status.none")
+                            : Component.translatable(order.profession().translationKey()),
+                    order.itemId().isBlank() ? Component.literal("-") : Component.literal(order.itemId()))));
+        }
+        return List.copyOf(lines);
+    }
+
+    public boolean handleMenuButton(ServerPlayer player, int buttonId) {
+        if (buttonId == RecruitCommandMenu.BUTTON_HIRE) {
+            return this.tryHire(player);
+        }
+        if (!this.isOwnedBy(player)) {
+            player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.not_owner"));
+            return false;
+        }
+        Optional<WorkerProfession> profession = WorkerProfessionCatalog.professionForButton(buttonId);
+        if (profession.isPresent()) {
+            this.setWorkerProfession(profession.get());
+            this.setRecruitCommand(RecruitmentAction.FOLLOW_OWNER);
+            player.sendSystemMessage(Component.translatable(
+                    "message.kingdomwarsmiddleearth.recruit.profession",
+                    Component.translatable(profession.get().translationKey())));
+            return true;
+        }
+
+        return switch (buttonId) {
+            case RecruitCommandMenu.BUTTON_FOLLOW -> {
+                this.setRecruitCommand(RecruitmentAction.FOLLOW_OWNER);
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.follow"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_HOLD -> {
+                this.moveTarget = this.blockPosition();
+                this.setRecruitCommand(RecruitmentAction.HOLD_POSITION);
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.hold"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_MOVE -> {
+                this.moveTarget = player.blockPosition();
+                this.setRecruitCommand(RecruitmentAction.MOVE_TO_POSITION);
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.move"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_SET_WORKSITE -> {
+                if (this.getWorkerProfession().isEmpty()) {
+                    player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.worksite.missing_profession"));
+                    yield false;
+                }
+                this.workTarget = player.blockPosition();
+                this.moveTarget = this.workTarget;
+                this.setRecruitCommand(RecruitmentAction.WORK_AT_SITE);
+                WorkerTaskDecision decision = this.planWorkerTask().orElseThrow();
+                player.sendSystemMessage(Component.translatable(
+                        "message.kingdomwarsmiddleearth.recruit.worksite.set",
+                        Component.translatable("screen.kingdomwarsmiddleearth.recruit.worktask."
+                                + decision.taskType().name().toLowerCase())));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_RETURN_WORKSITE -> {
+                if (this.workTarget == null) {
+                    player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.worksite.missing"));
+                    yield false;
+                }
+                this.moveTarget = this.workTarget;
+                this.setRecruitCommand(RecruitmentAction.WORK_AT_SITE);
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.worksite.return"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_CLEAR_WORKSITE -> {
+                this.workTarget = null;
+                if (this.getRecruitCommand() == RecruitmentAction.WORK_AT_SITE) {
+                    this.setRecruitCommand(RecruitmentAction.FOLLOW_OWNER);
+                }
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.worksite.clear"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_SET_STORAGE -> {
+                this.storageTarget = player.blockPosition();
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.storage.set"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_BUILD_STARTER_KEEP -> {
+                this.setWorkerProfession(WorkerProfession.BUILDER);
+                this.baseTarget = player.blockPosition();
+                this.workTarget = this.baseTarget;
+                this.moveTarget = this.baseTarget;
+                this.setRecruitCommand(RecruitmentAction.WORK_AT_SITE);
+                KingdomBaseBuildDecision buildDecision = this.planStarterBaseBuild().orElseThrow();
+                WorkerResourceDecision resourceDecision = this.planResourceDecision().orElseThrow();
+                player.sendSystemMessage(Component.translatable(
+                        "message.kingdomwarsmiddleearth.recruit.base.starter_keep",
+                        Component.translatable("screen.kingdomwarsmiddleearth.recruit.basebuild."
+                                + buildDecision.action().name().toLowerCase()),
+                        Component.translatable("screen.kingdomwarsmiddleearth.recruit.workaction."
+                                + resourceDecision.action().name().toLowerCase())));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_PROTECT -> {
+                this.setRecruitCommand(RecruitmentAction.PROTECT_OWNER);
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.protect"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_ATTACK -> {
+                this.setRecruitCommand(RecruitmentAction.ATTACK_TARGET);
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.attack"));
+                yield true;
+            }
+            case RecruitCommandMenu.BUTTON_CLEAR -> {
+                this.setTarget(null);
+                this.setRecruitCommand(RecruitmentAction.CLEAR_TARGET);
+                player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.clear"));
+                yield true;
+            }
+            default -> false;
+        };
+    }
+
+    public boolean shouldMoveToCommandTarget() {
+        return this.isTame()
+                && (this.getRecruitCommand() == RecruitmentAction.MOVE_TO_POSITION
+                || this.getRecruitCommand() == RecruitmentAction.WORK_AT_SITE)
+                && this.moveTarget != null;
+    }
+
+    public Optional<WorkerProfession> getWorkerProfession() {
+        int profession = this.entityData.get(DATA_WORKER_PROFESSION);
+        WorkerProfession[] values = WorkerProfession.values();
+        if (profession < 0 || profession >= values.length) {
+            return Optional.empty();
+        }
+        return Optional.of(values[profession]);
+    }
+
+    public void setWorkerProfession(WorkerProfession profession) {
+        this.entityData.set(DATA_WORKER_PROFESSION, profession.ordinal());
+        this.applyWorkerEquipment(profession);
+    }
+
+    public Optional<WorkerTaskDecision> planWorkerTask() {
+        return this.getWorkerProfession()
+                .map(profession -> WorkerTaskPlanner.plan(profession, this.createWorksite(profession).orElse(null)));
+    }
+
+    public Optional<WorkerResourceDecision> planResourceDecision() {
+        return this.getWorkerProfession().map(profession -> {
+            if (profession == WorkerProfession.COURIER) {
+                return this.planCourierLogistics()
+                        .map(WorkerLogisticsDecision::asResourceDecision)
+                        .orElseGet(() -> WorkerResourceDecision.idle("missing_courier_route"));
+            }
+            return WorkerResourcePlanner.plan(
+                    profession,
+                    this.createWorksite(profession).orElse(null),
+                    this.carriedResources,
+                    this.storageResources,
+                    128);
+        });
+    }
+
+    public Optional<WorkerLogisticsDecision> planCourierLogistics() {
+        if (this.getWorkerProfession().filter(profession -> profession == WorkerProfession.COURIER).isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(WorkerLogisticsPlanner.planAnyAvailableSupply(
+                this.createCourierRoute().orElse(null),
+                this.carriedResources,
+                this.storageResources,
+                128));
+    }
+
+    public Optional<KingdomBaseBuildDecision> planStarterBaseBuild() {
+        if (this.baseTarget == null) {
+            return Optional.empty();
+        }
+        return Optional.of(KingdomBaseBuildPlanner.planNext(
+                KingdomBaseBlueprint.starterKeep(),
+                this.storageResources,
+                this.starterBaseCompletedBlocks));
+    }
+
+    public Optional<KingdomWorkOrder> planKingdomWorkOrder() {
+        if (this.baseTarget == null) {
+            return Optional.empty();
+        }
+        Map<WorkerProfession, Integer> workers;
+        Optional<WorkerProfession> profession = this.getWorkerProfession();
+        if (profession.isPresent()) {
+            workers = Map.of(profession.get(), 1);
+        } else {
+            workers = Map.of();
+        }
+        int population = this.isTame() ? 1 : 0;
+        return Optional.of(KingdomSettlementPlanner.planNextWorkOrder(
+                new KingdomSettlementState(
+                        this.storageResources,
+                        workers,
+                        population,
+                        Math.max(1, population + 1),
+                        this.starterBaseCompletedBlocks,
+                        true),
+                KingdomBaseBlueprint.starterKeep()));
+    }
+
+    public boolean shouldRunWorkerCycle() {
+        return this.isTame()
+                && this.getRecruitCommand() == RecruitmentAction.WORK_AT_SITE
+                && this.getWorkerProfession().isPresent()
+                && this.workTarget != null;
+    }
+
+    public boolean performWorkerCycle() {
+        if (!this.shouldRunWorkerCycle()) {
+            return false;
+        }
+        if (this.getWorkerProfession().orElseThrow() == WorkerProfession.BUILDER && this.baseTarget != null) {
+            KingdomBaseBuildDecision buildDecision = this.planStarterBaseBuild().orElseThrow();
+            if (buildDecision.action() == KingdomBaseBuildAction.PLACE_BLOCK) {
+                return this.completeNextStarterBaseBlock(buildDecision);
+            }
+            if (buildDecision.action() == KingdomBaseBuildAction.GATHER_SUPPLIES) {
+                this.carriedResources = this.carriedResources.withAdded(buildDecision.itemId(), 1);
+                this.depositCarriedResources();
+                return true;
+            }
+            return false;
+        }
+        if (this.getWorkerProfession().orElseThrow() == WorkerProfession.COURIER) {
+            WorkerLogisticsDecision decision = this.planCourierLogistics().orElseThrow();
+            if (decision.action() == WorkerResourceAction.WITHDRAW_FROM_STORAGE) {
+                this.storageResources = this.storageResources.withRemoved(decision.itemId(), decision.quantity());
+                this.carriedResources = this.carriedResources.withAdded(decision.itemId(), decision.quantity());
+                return true;
+            }
+            if (decision.action() == WorkerResourceAction.DELIVER_TO_WORKSITE) {
+                this.carriedResources = this.carriedResources.withRemoved(decision.itemId(), decision.quantity());
+                return true;
+            }
+            if (decision.action() == WorkerResourceAction.DEPOSIT_TO_STORAGE) {
+                this.depositCarriedResources();
+                return true;
+            }
+            return false;
+        }
+
+        WorkerResourceDecision decision = this.planResourceDecision().orElseThrow();
+        if (decision.action() == WorkerResourceAction.GATHER_RESOURCE) {
+            this.carriedResources = this.carriedResources.withAdded(decision.itemId(), decision.quantity());
+            return true;
+        }
+        if (decision.action() == WorkerResourceAction.DEPOSIT_TO_STORAGE) {
+            this.depositCarriedResources();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean completeNextStarterBaseBlock(KingdomBaseBuildDecision buildDecision) {
+        BaseBlockPlacement placement = buildDecision.placement();
+        if (placement == null || this.baseTarget == null) {
+            return false;
+        }
+        Optional<Block> block = blockForPlacement(placement.blockId());
+        if (block.isEmpty()) {
+            return false;
+        }
+        BlockPos placeAt = this.baseTarget.offset(placement.x(), placement.y(), placement.z());
+        if (!this.level().isEmptyBlock(placeAt)) {
+            return false;
+        }
+        this.level().setBlock(placeAt, block.get().defaultBlockState(), 3);
+        this.storageResources = this.storageResources.withRemoved(placement.itemId(), 1);
+        this.starterBaseCompletedBlocks++;
+        return true;
+    }
+
+    private void depositCarriedResources() {
+        for (Map.Entry<String, Integer> entry : this.carriedResources.resources().entrySet()) {
+            this.storageResources = this.storageResources.withAdded(entry.getKey(), entry.getValue());
+        }
+        this.carriedResources = ResourceInventory.empty();
+    }
+
+    private boolean tryHire(ServerPlayer player) {
+        if (this.isTame()) {
+            player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.already_hired"));
+            return false;
+        }
+        if (!player.hasInfiniteMaterials() && emeraldCount(player) < HIRE_COST_EMERALDS) {
+            player.sendSystemMessage(Component.translatable(
+                    "message.kingdomwarsmiddleearth.recruit.need_emeralds",
+                    HIRE_COST_EMERALDS));
+            return false;
+        }
+        if (!player.hasInfiniteMaterials()) {
+            player.getInventory().clearOrCountMatchingItems(
+                    stack -> stack.is(Items.EMERALD),
+                    HIRE_COST_EMERALDS,
+                    new SimpleContainer(0));
+        }
+
+        this.tame(player);
+        this.setRecruitCommand(RecruitmentAction.FOLLOW_OWNER);
+        this.setTarget(null);
+        this.navigation.stop();
+        this.level().broadcastEntityEvent(this, (byte) 7);
+        player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.hired"));
+        return true;
+    }
+
+    private void setRecruitCommand(RecruitmentAction command) {
+        this.entityData.set(DATA_COMMAND, command.ordinal());
+        this.setOrderedToSit(command == RecruitmentAction.HOLD_POSITION || command == RecruitmentAction.CLEAR_TARGET);
+        if (command != RecruitmentAction.MOVE_TO_POSITION
+                && command != RecruitmentAction.WORK_AT_SITE
+                && command != RecruitmentAction.HOLD_POSITION) {
+            this.moveTarget = null;
+        }
+        if (command != RecruitmentAction.ATTACK_TARGET) {
+            this.setTarget(null);
+        }
+    }
+
+    private Optional<WorkerWorksite> createWorksite(WorkerProfession profession) {
+        if (this.workTarget == null) {
+            return Optional.empty();
+        }
+        return WorkerProfessionCatalog.definition(profession)
+                .map(WorkerProfessionDefinition::workAreaType)
+                .map(area -> new WorkerWorksite(
+                        area,
+                        this.workTarget.getX(),
+                        this.workTarget.getY(),
+                        this.workTarget.getZ(),
+                        8));
+    }
+
+    private Optional<WorkerLogisticsRoute> createCourierRoute() {
+        if (this.storageTarget == null || this.workTarget == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new WorkerLogisticsRoute(
+                new WorkerWorksite(
+                        WorkAreaType.STORAGE,
+                        this.storageTarget.getX(),
+                        this.storageTarget.getY(),
+                        this.storageTarget.getZ(),
+                        8),
+                new WorkerWorksite(
+                        WorkAreaType.COURIER_ROUTE,
+                        this.workTarget.getX(),
+                        this.workTarget.getY(),
+                        this.workTarget.getZ(),
+                        8)));
+    }
+
+    private void applyWorkerEquipment(WorkerProfession profession) {
+        ItemStack heldItem = switch (profession) {
+            case FARMER -> new ItemStack(Items.IRON_HOE);
+            case LUMBERJACK -> new ItemStack(Items.IRON_AXE);
+            case FISHERMAN -> new ItemStack(Items.FISHING_ROD);
+            case ANIMAL_FARMER -> new ItemStack(Items.WHEAT);
+            case MINER -> new ItemStack(Items.IRON_PICKAXE);
+            case BUILDER -> new ItemStack(Items.BRICKS);
+            case COOK -> new ItemStack(Items.BREAD);
+            case MERCHANT -> new ItemStack(Items.EMERALD);
+            case COURIER -> new ItemStack(Items.CHEST);
+        };
+        this.setItemSlot(EquipmentSlot.MAINHAND, heldItem);
+    }
+
+    private boolean shouldFollowOwner() {
+        RecruitmentAction command = this.getRecruitCommand();
+        return this.isTame()
+                && (command == RecruitmentAction.FOLLOW_OWNER || command == RecruitmentAction.PROTECT_OWNER);
+    }
+
+    private static int emeraldCount(ServerPlayer player) {
+        return player.getInventory().clearOrCountMatchingItems(
+                stack -> stack.is(Items.EMERALD),
+                0,
+                new SimpleContainer(0));
+    }
+
+    private static RecruitmentAction parseCommand(String value) {
+        try {
+            return RecruitmentAction.valueOf(value);
+        } catch (IllegalArgumentException ignored) {
+            return RecruitmentAction.FOLLOW_OWNER;
+        }
+    }
+
+    private static String encodeResources(ResourceInventory inventory) {
+        StringBuilder encoded = new StringBuilder();
+        for (Map.Entry<String, Integer> entry : inventory.resources().entrySet()) {
+            if (!encoded.isEmpty()) {
+                encoded.append(',');
+            }
+            encoded.append(entry.getKey()).append('=').append(entry.getValue());
+        }
+        return encoded.toString();
+    }
+
+    private static ResourceInventory decodeResources(String encoded) {
+        if (encoded == null || encoded.isBlank()) {
+            return ResourceInventory.empty();
+        }
+        LinkedHashMap<String, Integer> resources = new LinkedHashMap<>();
+        for (String part : encoded.split(",")) {
+            String[] pieces = part.split("=", 2);
+            if (pieces.length == 2) {
+                try {
+                    resources.put(pieces[0], Integer.parseInt(pieces[1]));
+                } catch (NumberFormatException ignored) {
+                    resources.remove(pieces[0]);
+                }
+            }
+        }
+        return new ResourceInventory(resources);
+    }
+
+    private static Component targetLabel(@Nullable BlockPos target) {
+        if (target == null) {
+            return Component.translatable("screen.kingdomwarsmiddleearth.recruit.status.none");
+        }
+        return Component.literal(target.getX() + ", " + target.getY() + ", " + target.getZ());
+    }
+
+    private static Optional<Block> blockForPlacement(String blockId) {
+        return switch (blockId) {
+            case "kingdomwarsmiddleearth:middle_earth_stone" -> Optional.of(ModBlocks.MIDDLE_EARTH_STONE.get());
+            case "kingdomwarsmiddleearth:mallorn_log" -> Optional.of(ModBlocks.MALLORN_LOG.get());
+            case "minecraft:oak_planks" -> Optional.of(Blocks.OAK_PLANKS);
+            default -> Optional.empty();
+        };
+    }
+}

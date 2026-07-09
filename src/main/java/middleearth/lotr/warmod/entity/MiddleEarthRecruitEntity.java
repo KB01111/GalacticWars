@@ -378,12 +378,7 @@ public class MiddleEarthRecruitEntity extends TamableAnimal implements GeoEntity
         }
         Optional<WorkerProfession> profession = WorkerProfessionCatalog.professionForButton(buttonId);
         if (profession.isPresent()) {
-            this.setWorkerProfession(profession.get());
-            this.resumeWorkAfterProfessionAssignment();
-            player.sendSystemMessage(Component.translatable(
-                    "message.kingdomwarsmiddleearth.recruit.profession",
-                    Component.translatable(profession.get().translationKey())));
-            return true;
+            return this.tryAssignWorkerProfession(player, profession.get());
         }
 
         return switch (buttonId) {
@@ -868,6 +863,38 @@ public class MiddleEarthRecruitEntity extends TamableAnimal implements GeoEntity
         this.navigation.stop();
         this.level().broadcastEntityEvent(this, (byte) 7);
         player.sendSystemMessage(Component.translatable("message.kingdomwarsmiddleearth.recruit.hired"));
+        return true;
+    }
+
+    private boolean tryAssignWorkerProfession(ServerPlayer player, WorkerProfession profession) {
+        WorkerProfessionDefinition definition = WorkerProfessionCatalog.definition(profession).orElseThrow();
+        int cost = definition.hireCostEmeralds();
+        if (this.getWorkerProfession().filter(current -> current == profession).isPresent()) {
+            this.resumeWorkAfterProfessionAssignment();
+            player.sendSystemMessage(Component.translatable(
+                    "message.kingdomwarsmiddleearth.recruit.profession",
+                    Component.translatable(profession.translationKey())));
+            return true;
+        }
+        if (!player.hasInfiniteMaterials() && emeraldCount(player) < cost) {
+            player.sendSystemMessage(Component.translatable(
+                    "message.kingdomwarsmiddleearth.recruit.profession.need_emeralds",
+                    cost,
+                    Component.translatable(profession.translationKey())));
+            return false;
+        }
+        if (!player.hasInfiniteMaterials()) {
+            player.getInventory().clearOrCountMatchingItems(
+                    stack -> stack.is(Items.EMERALD),
+                    cost,
+                    new SimpleContainer(0));
+        }
+        this.setWorkerProfession(profession);
+        this.resumeWorkAfterProfessionAssignment();
+        player.sendSystemMessage(Component.translatable(
+                "message.kingdomwarsmiddleearth.recruit.profession.contract",
+                Component.translatable(profession.translationKey()),
+                cost));
         return true;
     }
 

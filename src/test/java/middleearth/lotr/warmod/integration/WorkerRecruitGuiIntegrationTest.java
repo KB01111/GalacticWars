@@ -55,7 +55,9 @@ public final class WorkerRecruitGuiIntegrationTest {
 
         assertContains(entity, "DATA_WORKER_PROFESSION", "synched worker profession");
         assertContains(entity, "WorkerProfessionCatalog.professionForButton(buttonId)", "button to profession mapping");
-        assertContains(entity, "setWorkerProfession", "profession setter");
+        assertContains(entity, "tryAssignWorkerProfession(player, profession.get())", "paid profession assignment");
+        assertContains(entity, "WorkerProfessionDefinition definition", "profession definition cost lookup");
+        assertContains(entity, "definition.hireCostEmeralds()", "profession emerald contract cost");
         assertContains(entity, "resumeWorkAfterProfessionAssignment", "profession assignment resumes work");
         assertContains(entity, "RecruitmentAction.WORK_AT_SITE", "profession assignment can activate work mode");
         assertContains(entity, "\"WorkerProfession\"", "profession save data");
@@ -81,6 +83,8 @@ public final class WorkerRecruitGuiIntegrationTest {
         for (String key : PROFESSION_TRANSLATIONS) {
             assertContains(language, "\"" + key + "\"", "language role key " + key);
         }
+        assertContains(language, "\"message.kingdomwarsmiddleearth.recruit.profession.need_emeralds\"", "profession cost failure message");
+        assertContains(language, "\"message.kingdomwarsmiddleearth.recruit.profession.contract\"", "profession contract message");
     }
 
     private static String read(String path) throws IOException {

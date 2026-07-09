@@ -83,6 +83,8 @@
   "message.kingdomwarsmiddleearth.recruit.need_emeralds": "You need %s emeralds to hire this recruit.",
   "message.kingdomwarsmiddleearth.recruit.hired": "The recruit has joined your kingdom.",
   "message.kingdomwarsmiddleearth.recruit.profession": "Recruit assigned as %s.",
+  "message.kingdomwarsmiddleearth.recruit.profession.need_emeralds": "You need %s emeralds to train this recruit as %s.",
+  "message.kingdomwarsmiddleearth.recruit.profession.contract": "Recruit trained as %s for %s emeralds.",
   "message.kingdomwarsmiddleearth.recruit.worksite.set": "Worksite set. Recruit task: %s.",
   "message.kingdomwarsmiddleearth.recruit.worksite.return": "Recruit ordered back to the worksite.",
   "message.kingdomwarsmiddleearth.recruit.worksite.missing": "This recruit has no worksite.",

@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a Java 25 NeoForge mod. Production code lives in `src/main/java/middleearth/lotr/warmod`, grouped by gameplay domain such as `army`, `faction`, `recruitment`, `settlement`, and `workforce`. Mod metadata is generated from `src/main/templates`; static assets, data packs, mixins, models, textures, and localization belong under `src/main/resources`. Keep resource paths namespaced with `kingdomwarsmiddleearth`. Test harnesses mirror the production packages in `src/test/java`. Design notes and implementation plans are stored in `docs/superpowers`. Treat `build/`, `.gradle/`, and `run/` as generated local state.
+This is a Java 25 NeoForge mod. Production code lives in `src/main/java/middleearth/lotr/warmod`, grouped by gameplay domain such as `army`, `faction`, `recruitment`, `settlement`, and `workforce`. Mod metadata is generated from `src/main/templates`; static assets, data packs, mixins, models, textures, and localization belong under `src/main/resources`. Keep resource paths namespaced with `kingdomwarsmiddleearth`. Test harnesses mirror the production packages in `src/test/java`. Design notes and implementation plans are stored in `docs`. Treat `build/`, `.gradle/`, and `run/` as generated local state.
 
 ## Build, Test, and Development Commands
 

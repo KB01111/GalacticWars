@@ -5,6 +5,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.util.List;
+
 public final class RecruitmentPaymentService {
     private RecruitmentPaymentService() {
     }
@@ -27,14 +29,15 @@ public final class RecruitmentPaymentService {
             return false;
         }
         int removed = 0;
-        for (int i = 0; i < player.getInventory().items.size(); i++) {
-            ItemStack stack = player.getInventory().items.get(i);
+        List<ItemStack> paymentSlots = player.getInventory().getNonEquipmentItems();
+        for (int i = 0; i < paymentSlots.size(); i++) {
+            ItemStack stack = paymentSlots.get(i);
             if (!stack.is(Items.EMERALD)) {
                 continue;
             }
             int taken = Math.min(amount - removed, stack.getCount());
             if (taken == stack.getCount()) {
-                player.getInventory().setItem(i, ItemStack.EMPTY);
+                paymentSlots.set(i, ItemStack.EMPTY);
             } else {
                 stack.shrink(taken);
             }

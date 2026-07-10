@@ -1643,11 +1643,6 @@ public class MiddleEarthRecruitEntity extends TamableAnimal implements GeoEntity
                     "message.kingdomwarsmiddleearth.recruit.base.cancel_missing"));
             return false;
         }
-        if (this.level() instanceof ServerLevel serverLevel) {
-            List<ItemStack> carriedItems = this.workerInventory.stream().map(ItemStack::copy).toList();
-            this.workerInventory = NonNullList.withSize(9, ItemStack.EMPTY);
-            RecruitLifecycleService.dropCarriedItems(serverLevel, this, carriedItems);
-        }
         this.pauseWorkerNavigation();
         this.setBaseTarget(null);
         this.setWorkTarget(null);

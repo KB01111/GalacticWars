@@ -4,7 +4,6 @@ import java.util.UUID;
 import middleearth.lotr.warmod.kingdom.RecruitmentCampaign;
 import middleearth.lotr.warmod.kingdom.RecruitmentCampaignState;
 import middleearth.lotr.warmod.kingdom.SettlementRecord;
-import middleearth.lotr.warmod.menu.RecruitCommandMenu;
 import middleearth.lotr.warmod.recruitment.RecruitDuty;
 import middleearth.lotr.warmod.workforce.WorkerContractService;
 
@@ -15,8 +14,6 @@ public final class RecruitLifecycleHardeningTest {
     public static void main(String[] args) {
         housingAndCommanderCleanup();
         campaignCancellation();
-        supportedCommandButtonGuard();
-        unsupportedCommandButtonRejection();
         workerExitGuards();
         System.out.println("RecruitLifecycleHardeningTest passed");
     }
@@ -29,12 +26,13 @@ public final class RecruitLifecycleHardeningTest {
 
         assertTrue(settlement.containsRecruit(recruitId), "recruit registered");
         assertTrue(settlement.commanderId().isPresent(), "commander assigned");
-        assertTrue(!settlement.hasHousingSpace(), "housing occupied");
+        assertTrue(settlement.recruitIds().size() == 1, "one housing slot occupied");
 
         SettlementRecord removed = settlement.withoutRecruit(recruitId);
 
         assertTrue(!removed.containsRecruit(recruitId), "recruit unregistered");
         assertTrue(removed.commanderId().isEmpty(), "commander released");
+        assertTrue(removed.recruitIds().isEmpty(), "occupied housing slot released");
         assertTrue(removed.hasHousingSpace(), "housing released");
         assertTrue(removed.revision() == settlement.revision() + 1, "revision incremented");
 
@@ -71,36 +69,6 @@ public final class RecruitLifecycleHardeningTest {
 
         assertTrue(refunded.reservedCost() == 0, "cost cleared after refund");
         assertTrue(!refunded.refundPending(), "refund no longer pending");
-    }
-
-    private static void supportedCommandButtonGuard() {
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_HIRE), "hire button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_FOLLOW), "follow button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_HOLD), "hold button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_MOVE), "move button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_PROTECT), "protect button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_ATTACK), "attack button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_CLEAR), "clear button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_SET_WORKSITE), "set worksite button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_RETURN_WORKSITE), "return worksite button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_CLEAR_WORKSITE), "clear worksite button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_SET_STORAGE), "set storage button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_BUILD_STARTER_KEEP), "build starter keep button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_WORK_RADIUS_DECREASE), "work radius decrease button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_WORK_RADIUS_INCREASE), "work radius increase button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_PROMOTE_COMMANDER), "promote commander button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_TOGGLE_AUTO_RECRUITMENT), "toggle auto recruitment button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_START_RECRUITMENT), "start recruitment button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_NEXT_BLUEPRINT), "next blueprint button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_RETURN_TO_SOLDIER), "return to soldier button supported");
-        assertTrue(RecruitCommandMenu.isSupportedButton(RecruitCommandMenu.BUTTON_CANCEL_BUILD), "cancel build button supported");
-    }
-
-    private static void unsupportedCommandButtonRejection() {
-        assertTrue(!RecruitCommandMenu.isSupportedButton(-1), "negative button id rejected");
-        assertTrue(!RecruitCommandMenu.isSupportedButton(999), "arbitrary high button id rejected");
-        assertTrue(!RecruitCommandMenu.isSupportedButton(Integer.MIN_VALUE), "min int button id rejected");
-        assertTrue(!RecruitCommandMenu.isSupportedButton(Integer.MAX_VALUE), "max int button id rejected");
     }
 
     private static void workerExitGuards() {

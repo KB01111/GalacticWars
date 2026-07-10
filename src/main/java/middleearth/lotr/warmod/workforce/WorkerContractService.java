@@ -12,7 +12,7 @@ public final class WorkerContractService {
             boolean inventoryEmpty,
             boolean buildActive
     ) {
-        if (duty == RecruitDuty.COMMANDER || !hasWorkerProfession) {
+        if (duty != RecruitDuty.WORKER || !hasWorkerProfession) {
             return ExitDecision.NOT_WORKER;
         }
         if (!inventoryEmpty) {

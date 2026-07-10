@@ -9,6 +9,9 @@ import middleearth.lotr.warmod.KingdomWarsMiddleEarth;
 import middleearth.lotr.warmod.entity.MiddleEarthRecruitEntity;
 import middleearth.lotr.warmod.kingdom.KingdomRecord;
 import middleearth.lotr.warmod.kingdom.KingdomSavedData;
+import middleearth.lotr.warmod.kingdom.RecruitmentCampaign;
+import middleearth.lotr.warmod.kingdom.RecruitmentCampaignDecision;
+import middleearth.lotr.warmod.kingdom.RecruitmentCampaignState;
 import middleearth.lotr.warmod.recruitment.RecruitDuty;
 import middleearth.lotr.warmod.registry.ModBlockTags;
 import middleearth.lotr.warmod.registry.ModBlocks;
@@ -82,6 +85,10 @@ public final class ModGameTests {
         if (!hall.claim(owner) || hall.claim(intruder) || !hall.isOwner(owner)) {
             helper.fail("Kingdom Hall ownership guard rejected the owner or accepted an intruder");
         }
+        long claimGameTime = helper.getLevel().getGameTime();
+        if (!hall.chargeDailyUpkeep(Math.addExact(claimGameTime, 23999L), 1)) {
+            helper.fail("New Kingdom Hall was charged upkeep before its first full day elapsed");
+        }
         hall.setFaction("kingdomwarsmiddleearth:rohan");
         if (hall.getUpdatePacket() == null
                 || !hall.getUpdateTag(helper.getLevel().registryAccess())
@@ -97,14 +104,34 @@ public final class ModGameTests {
         if (!hall.reserveEmeralds(27) || hall.getItem(0) != ItemStack.EMPTY) {
             helper.fail("Kingdom Hall treasury did not normalize a depleted slot to ItemStack.EMPTY");
         }
-        KingdomRecord kingdom = KingdomSavedData.get(helper.getLevel()).foundKingdom(
+        KingdomSavedData data = KingdomSavedData.get(helper.getLevel());
+        KingdomRecord kingdom = data.foundKingdom(
                 owner.getUUID(),
                 hall.factionId(),
                 helper.getLevel().dimension().identifier().toString(),
                 helper.absolutePos(hallPos));
         if (!kingdom.ownerId().equals(owner.getUUID())
-                || KingdomSavedData.get(helper.getLevel()).kingdomForOwner(owner.getUUID()).isEmpty()) {
+                || data.kingdomForOwner(owner.getUUID()).isEmpty()) {
             helper.fail("Kingdom state was not stored authoritatively in overworld SavedData");
+        }
+        RecruitmentCampaign campaign = new RecruitmentCampaign(
+                UUID.randomUUID(),
+                "kingdomwarsmiddleearth:rohan_rider",
+                "",
+                12,
+                claimGameTime + 24000L,
+                RecruitmentCampaignState.RESERVED,
+                "reserved");
+        if (!data.beginCampaign(owner.getUUID(), RecruitmentCampaignDecision.accepted(campaign))
+                || !data.replaceCampaign(owner.getUUID(), campaign.cancel("commander_lost"))
+                || hall.settlePendingCampaignRefunds(helper.getLevel()) != 12
+                || hall.treasuryEmeralds() != 12
+                || data.kingdomForOwner(owner.getUUID()).orElseThrow().settlement().recruitmentCampaigns().stream()
+                        .filter(stored -> stored.id().equals(campaign.id()))
+                        .findFirst()
+                        .orElseThrow()
+                        .reservedCost() != 0) {
+            helper.fail("Cancelled commander campaign refund was not conserved through SavedData and Hall storage");
         }
         helper.succeed();
     }

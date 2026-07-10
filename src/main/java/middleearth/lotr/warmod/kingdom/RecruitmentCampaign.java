@@ -11,8 +11,21 @@ public record RecruitmentCampaign(
         int reservedCost,
         long readyGameTime,
         RecruitmentCampaignState state,
-        String reasonCode
+        String reasonCode,
+        boolean refundPending
 ) {
+    public RecruitmentCampaign(
+            UUID id,
+            String unitId,
+            String professionId,
+            int reservedCost,
+            long readyGameTime,
+            RecruitmentCampaignState state,
+            String reasonCode
+    ) {
+        this(id, unitId, professionId, reservedCost, readyGameTime, state, reasonCode, false);
+    }
+
     public RecruitmentCampaign {
         Objects.requireNonNull(id, "id");
         unitId = normalizeId(unitId, "unitId");
@@ -25,6 +38,9 @@ public record RecruitmentCampaign(
         }
         Objects.requireNonNull(state, "state");
         reasonCode = requireText(reasonCode, "reasonCode");
+        if (refundPending && (state != RecruitmentCampaignState.CANCELLED || reservedCost == 0)) {
+            throw new IllegalArgumentException("refundPending requires a cancelled campaign with reserved funds");
+        }
     }
 
     public boolean active() {
@@ -33,12 +49,23 @@ public record RecruitmentCampaign(
 
     public RecruitmentCampaign complete() {
         return new RecruitmentCampaign(id, unitId, professionId, reservedCost, readyGameTime,
-                RecruitmentCampaignState.COMPLETE, "complete");
+                RecruitmentCampaignState.COMPLETE, "complete", false);
     }
 
     public RecruitmentCampaign cancel(String reasonCode) {
         return new RecruitmentCampaign(id, unitId, professionId, reservedCost, readyGameTime,
-                RecruitmentCampaignState.CANCELLED, reasonCode);
+                RecruitmentCampaignState.CANCELLED, reasonCode, reservedCost > 0);
+    }
+
+    public RecruitmentCampaign applyRefund(int refundedAmount) {
+        if (refundedAmount < 0 || refundedAmount > reservedCost) {
+            throw new IllegalArgumentException("refundedAmount must be between zero and the reserved cost");
+        }
+        if (!refundPending() || refundedAmount == 0) {
+            return this;
+        }
+        return new RecruitmentCampaign(id, unitId, professionId, reservedCost - refundedAmount,
+                readyGameTime, state, reasonCode, reservedCost - refundedAmount > 0);
     }
 
     public RecruitmentCampaign delay(long ticks) {
@@ -46,7 +73,7 @@ public record RecruitmentCampaign(
             return this;
         }
         return new RecruitmentCampaign(id, unitId, professionId, reservedCost,
-                Math.addExact(readyGameTime, ticks), state, "settlement_unloaded");
+                Math.addExact(readyGameTime, ticks), state, "settlement_unloaded", refundPending);
     }
 
     private static String normalizeId(String value, String label) {

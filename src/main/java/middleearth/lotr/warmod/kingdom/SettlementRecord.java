@@ -2,10 +2,10 @@ package middleearth.lotr.warmod.kingdom;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import middleearth.lotr.warmod.settlement.KingdomBaseBlueprint;
 
 public record SettlementRecord(
         UUID id,
@@ -26,7 +26,7 @@ public record SettlementRecord(
 ) {
     public SettlementRecord {
         Objects.requireNonNull(id, "id");
-        dimensionId = KingdomCodecs.normalize(dimensionId, "dimensionId");
+        dimensionId = KingdomNormalizers.normalize(dimensionId, "dimensionId");
         if (claimRadius < 8 || claimRadius > 256) {
             throw new IllegalArgumentException("claimRadius must be between 8 and 256");
         }
@@ -64,7 +64,7 @@ public record SettlementRecord(
     }
 
     public boolean hasCommanderSlot() {
-        return buildProjects.stream().anyMatch(project -> project.blueprintId().equals(middleearth.lotr.warmod.settlement.KingdomBaseBlueprint.STARTER_KEEP_ID));
+        return buildProjects.stream().anyMatch(project -> project.blueprintId().equals(KingdomBaseBlueprint.STARTER_KEEP_ID));
     }
 
     public boolean containsCompletedProject(BuildProject project) {

@@ -86,6 +86,7 @@ public final class KingdomHallBlock extends BaseEntityBlock {
                 hall.factionId(),
                 serverLevel.dimension().identifier().toString(),
                 pos);
+        hall.settlePendingCampaignRefunds(serverLevel);
         player.openMenu(hall);
         player.sendSystemMessage(Component.translatable(
                 "message.kingdomwarsmiddleearth.kingdom_hall.overview",

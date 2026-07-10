@@ -18,7 +18,9 @@ public final class CommanderRuntimeIntegrationTest {
         assertContains(entity, "linkLoadedSoldiersToCommander", "army group delegation");
         assertContains(entity, "applyCommanderOrderToLoadedGroup", "commander group orders");
         assertContains(entity, "reserveEmeralds", "atomic campaign reservation");
-        assertContains(entity, ".delay(elapsedGameTime)", "unloaded settlement campaign pause");
+        assertContains(entity, "campaignDelayApplied", "large-gap campaign pause accounting");
+        assertContains(entity, "remainingDelay", "single-application unloaded settlement delay");
+        assertContains(entity, "applyPendingCampaignRefunds", "commander-loss pending refund");
         assertContains(entity, "findSafeRallyPosition", "safe recruit arrivals");
         assertContains(entity, "cancelActiveCommanderCampaign", "death cancellation");
         assertContains(savedData, "clearCommander", "commander replacement requirement");

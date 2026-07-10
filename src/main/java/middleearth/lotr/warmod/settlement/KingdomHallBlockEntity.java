@@ -3,6 +3,8 @@ package middleearth.lotr.warmod.settlement;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import middleearth.lotr.warmod.kingdom.KingdomRecord;
+import middleearth.lotr.warmod.kingdom.KingdomSavedData;
 import middleearth.lotr.warmod.registry.ModBlockEntityTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -13,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -39,6 +42,7 @@ public final class KingdomHallBlockEntity extends BaseContainerBlockEntity {
     private @Nullable UUID ownerId;
     private String factionId = FACTIONS.getFirst();
     private long lastUpkeepGameTime;
+    private boolean upkeepClockInitialized;
     private boolean upkeepPaid = true;
 
     public KingdomHallBlockEntity(BlockPos pos, BlockState state) {
@@ -59,6 +63,8 @@ public final class KingdomHallBlockEntity extends BaseContainerBlockEntity {
         }
         if (ownerId == null) {
             ownerId = player.getUUID();
+            this.lastUpkeepGameTime = this.level == null ? 0L : this.level.getGameTime();
+            this.upkeepClockInitialized = true;
             this.setChangedAndSync();
         }
         return true;
@@ -97,6 +103,15 @@ public final class KingdomHallBlockEntity extends BaseContainerBlockEntity {
     }
 
     public boolean chargeDailyUpkeep(long gameTime, int population) {
+        if (this.level instanceof ServerLevel serverLevel) {
+            this.settlePendingCampaignRefunds(serverLevel);
+        }
+        if (!this.upkeepClockInitialized) {
+            this.lastUpkeepGameTime = gameTime;
+            this.upkeepClockInitialized = true;
+            this.setChangedAndSync();
+            return this.upkeepPaid;
+        }
         if (gameTime - this.lastUpkeepGameTime < 24000) {
             return this.upkeepPaid;
         }
@@ -150,6 +165,31 @@ public final class KingdomHallBlockEntity extends BaseContainerBlockEntity {
         return amount - remaining;
     }
 
+    public int settlePendingCampaignRefunds(ServerLevel level) {
+        if (this.ownerId == null) {
+            return 0;
+        }
+        KingdomSavedData data = KingdomSavedData.get(level);
+        boolean isAuthoritativeHall = data.kingdomForOwner(this.ownerId)
+                .map(KingdomRecord::settlement)
+                .filter(settlement -> settlement.dimensionId().equals(level.dimension().identifier().toString()))
+                .filter(settlement -> settlement.hallX() == this.worldPosition.getX()
+                        && settlement.hallY() == this.worldPosition.getY()
+                        && settlement.hallZ() == this.worldPosition.getZ())
+                .isPresent();
+        return isAuthoritativeHall
+                ? data.applyPendingCampaignRefunds(this.ownerId, this::refundEmeralds)
+                : 0;
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (this.level instanceof ServerLevel serverLevel) {
+            this.settlePendingCampaignRefunds(serverLevel);
+        }
+    }
+
     @Override
     protected Component getDefaultName() {
         return Component.translatable("container.kingdomwarsmiddleearth.kingdom_hall");
@@ -191,6 +231,9 @@ public final class KingdomHallBlockEntity extends BaseContainerBlockEntity {
             this.factionId = FACTIONS.getFirst();
         }
         this.lastUpkeepGameTime = Math.max(0L, input.getLongOr("LastUpkeepGameTime", 0L));
+        this.upkeepClockInitialized = input.getBooleanOr(
+                "UpkeepClockInitialized",
+                this.lastUpkeepGameTime > 0L);
         this.upkeepPaid = input.getBooleanOr("UpkeepPaid", true);
     }
 
@@ -201,6 +244,7 @@ public final class KingdomHallBlockEntity extends BaseContainerBlockEntity {
         output.storeNullable("KingdomOwner", UUIDUtil.CODEC, this.ownerId);
         output.putString("KingdomFaction", this.factionId);
         output.putLong("LastUpkeepGameTime", this.lastUpkeepGameTime);
+        output.putBoolean("UpkeepClockInitialized", this.upkeepClockInitialized);
         output.putBoolean("UpkeepPaid", this.upkeepPaid);
     }
 

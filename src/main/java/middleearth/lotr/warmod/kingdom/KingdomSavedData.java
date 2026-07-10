@@ -5,8 +5,10 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.IntUnaryOperator;
 import middleearth.lotr.warmod.KingdomWarsMiddleEarth;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -176,5 +178,30 @@ public final class KingdomSavedData extends SavedData {
         kingdomsByOwner.put(ownerId, kingdom.withSettlement(updated));
         this.setDirty();
         return true;
+    }
+
+    public int applyPendingCampaignRefunds(UUID ownerId, IntUnaryOperator refundSink) {
+        Objects.requireNonNull(refundSink, "refundSink");
+        KingdomRecord kingdom = kingdomsByOwner.get(ownerId);
+        if (kingdom == null) {
+            return 0;
+        }
+        SettlementRecord updated = kingdom.settlement();
+        int totalRefunded = 0;
+        for (RecruitmentCampaign campaign : kingdom.settlement().recruitmentCampaigns()) {
+            if (!campaign.refundPending()) {
+                continue;
+            }
+            int refunded = Math.max(0, Math.min(campaign.reservedCost(), refundSink.applyAsInt(campaign.reservedCost())));
+            if (refunded > 0) {
+                updated = updated.replaceCampaign(campaign.applyRefund(refunded));
+                totalRefunded = Math.addExact(totalRefunded, refunded);
+            }
+        }
+        if (totalRefunded > 0) {
+            kingdomsByOwner.put(ownerId, kingdom.withSettlement(updated));
+            this.setDirty();
+        }
+        return totalRefunded;
     }
 }

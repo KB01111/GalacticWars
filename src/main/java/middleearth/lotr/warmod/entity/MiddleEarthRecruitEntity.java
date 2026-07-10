@@ -1719,19 +1719,20 @@ public class MiddleEarthRecruitEntity extends TamableAnimal implements GeoEntity
         Optional<RecruitmentCampaign> activeCampaign = kingdom.settlement().recruitmentCampaigns().stream()
                 .filter(RecruitmentCampaign::active)
                 .findFirst();
-        boolean campaignAlreadyAdjusted = false;
+        long campaignDelayApplied = 0L;
         if (activeCampaign.isPresent() && elapsedGameTime > 40L) {
-            data.replaceCampaign(ownerId, activeCampaign.get().delay(elapsedGameTime - 20L));
+            campaignDelayApplied = elapsedGameTime - 20L;
+            data.replaceCampaign(ownerId, activeCampaign.get().delay(campaignDelayApplied));
             kingdom = data.kingdomForOwner(ownerId).orElse(kingdom);
             activeCampaign = kingdom.settlement().recruitmentCampaigns().stream()
                     .filter(RecruitmentCampaign::active)
                     .findFirst();
-            campaignAlreadyAdjusted = true;
         }
         Optional<KingdomHallBlockEntity> hallOptional = this.findKingdomHall(serverLevel, kingdom);
         if (hallOptional.isEmpty()) {
-            if (activeCampaign.isPresent() && !campaignAlreadyAdjusted) {
-                data.replaceCampaign(ownerId, activeCampaign.get().delay(elapsedGameTime));
+            long remainingDelay = elapsedGameTime - campaignDelayApplied;
+            if (activeCampaign.isPresent() && remainingDelay > 0L) {
+                data.replaceCampaign(ownerId, activeCampaign.get().delay(remainingDelay));
             }
             return;
         }
@@ -1828,10 +1829,15 @@ public class MiddleEarthRecruitEntity extends TamableAnimal implements GeoEntity
         }
         KingdomSavedData data = KingdomSavedData.get(serverLevel);
         data.kingdomForOwner(owner.getUUID()).ifPresent(kingdom -> {
-            this.findKingdomHall(serverLevel, kingdom).ifPresent(hall -> kingdom.settlement().recruitmentCampaigns().stream()
+            kingdom.settlement().recruitmentCampaigns().stream()
                     .filter(RecruitmentCampaign::active)
                     .findFirst()
-                    .ifPresent(campaign -> this.cancelCommanderCampaign(serverLevel, kingdom, hall, campaign, reason)));
+                    .ifPresent(campaign -> {
+                        if (data.replaceCampaign(kingdom.ownerId(), campaign.cancel(reason))) {
+                            this.findKingdomHall(serverLevel, kingdom).ifPresent(
+                                    hall -> data.applyPendingCampaignRefunds(kingdom.ownerId(), hall::refundEmeralds));
+                        }
+                    });
         });
     }
 
@@ -1842,14 +1848,10 @@ public class MiddleEarthRecruitEntity extends TamableAnimal implements GeoEntity
             RecruitmentCampaign campaign,
             String reason
     ) {
-        int refunded = hall.refundEmeralds(campaign.reservedCost());
-        int remainder = campaign.reservedCost() - refunded;
-        if (remainder > 0) {
-            Block.popResource(level,
-                    new BlockPos(kingdom.settlement().hallX(), kingdom.settlement().hallY(), kingdom.settlement().hallZ()),
-                    new ItemStack(Items.EMERALD, remainder));
+        KingdomSavedData data = KingdomSavedData.get(level);
+        if (data.replaceCampaign(kingdom.ownerId(), campaign.cancel(reason))) {
+            data.applyPendingCampaignRefunds(kingdom.ownerId(), hall::refundEmeralds);
         }
-        KingdomSavedData.get(level).replaceCampaign(kingdom.ownerId(), campaign.cancel(reason));
     }
 
     private Optional<KingdomHallBlockEntity> findKingdomHall(ServerLevel level, KingdomRecord kingdom) {

@@ -17,6 +17,8 @@ public record KingdomBaseBlueprint(
         int worksiteCapacity,
         int commanderSlotReward
 ) {
+    public static final String STARTER_KEEP_ID = "starter_keep";
+
     public KingdomBaseBlueprint {
         id = requireNonBlank(id, "id");
         displayName = requireNonBlank(displayName, "displayName");
@@ -58,7 +60,7 @@ public record KingdomBaseBlueprint(
         placements.add(new BaseBlockPlacement(2, 1, 4, "minecraft:oak_planks", "minecraft:oak_planks"));
         placements.add(new BaseBlockPlacement(0, 1, 2, "minecraft:oak_planks", "minecraft:oak_planks"));
         placements.add(new BaseBlockPlacement(4, 1, 2, "minecraft:oak_planks", "minecraft:oak_planks"));
-        return new KingdomBaseBlueprint("starter_keep", "Starter Keep", placements, 2, 0, "", 0, 1);
+        return new KingdomBaseBlueprint(STARTER_KEEP_ID, "Starter Keep", placements, 2, 0, "", 0, 1);
     }
 
     public static KingdomBaseBlueprint house() {

@@ -6,21 +6,12 @@ import java.util.List;
 import net.minecraft.core.UUIDUtil;
 
 final class KingdomCodecs {
-    static String normalize(String value, String label) {
-        java.util.Objects.requireNonNull(value, label);
-        String normalized = value.trim().toLowerCase(java.util.Locale.ROOT);
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(label + " cannot be blank");
-        }
-        return normalized;
-    }
-
     static final Codec<CommanderPolicy> COMMANDER_POLICY = RecordCodecBuilder.create(instance -> instance.group(
             Codec.BOOL.optionalFieldOf("automatic_recruitment", false).forGetter(CommanderPolicy::automaticRecruitment),
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("target_recruit_count", 4).forGetter(CommanderPolicy::targetRecruitCount),
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("maximum_campaign_spend", 64).forGetter(CommanderPolicy::maximumCampaignSpend),
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("minimum_treasury_reserve", 16).forGetter(CommanderPolicy::minimumTreasuryReserve),
-            Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("campaign_delay_ticks", 24000).forGetter(CommanderPolicy::campaignDelayTicks)
+            Codec.intRange(20, Integer.MAX_VALUE).optionalFieldOf("campaign_delay_ticks", 24000).forGetter(CommanderPolicy::campaignDelayTicks)
     ).apply(instance, CommanderPolicy::new));
 
     static final Codec<RecruitmentCampaign> RECRUITMENT_CAMPAIGN = RecordCodecBuilder.create(instance -> instance.group(
@@ -31,7 +22,8 @@ final class KingdomCodecs {
             Codec.LONG.fieldOf("ready_game_time").forGetter(RecruitmentCampaign::readyGameTime),
             Codec.STRING.xmap(RecruitmentCampaignState::byId, RecruitmentCampaignState::id)
                     .fieldOf("state").forGetter(RecruitmentCampaign::state),
-            Codec.STRING.optionalFieldOf("reason_code", "reserved").forGetter(RecruitmentCampaign::reasonCode)
+            Codec.STRING.optionalFieldOf("reason_code", "reserved").forGetter(RecruitmentCampaign::reasonCode),
+            Codec.BOOL.optionalFieldOf("refund_pending", false).forGetter(RecruitmentCampaign::refundPending)
     ).apply(instance, RecruitmentCampaign::new));
 
     static final Codec<WorksiteRecord> WORKSITE = RecordCodecBuilder.create(instance -> instance.group(
@@ -41,8 +33,8 @@ final class KingdomCodecs {
             Codec.INT.fieldOf("x").forGetter(WorksiteRecord::x),
             Codec.INT.fieldOf("y").forGetter(WorksiteRecord::y),
             Codec.INT.fieldOf("z").forGetter(WorksiteRecord::z),
-            Codec.intRange(0, Integer.MAX_VALUE).fieldOf("radius").forGetter(WorksiteRecord::radius),
-            Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("capacity", 1).forGetter(WorksiteRecord::capacity)
+            Codec.intRange(1, 32).fieldOf("radius").forGetter(WorksiteRecord::radius),
+            Codec.intRange(1, Integer.MAX_VALUE).optionalFieldOf("capacity", 1).forGetter(WorksiteRecord::capacity)
     ).apply(instance, WorksiteRecord::new));
 
     static final Codec<BuildProject> BUILD_PROJECT = RecordCodecBuilder.create(instance -> instance.group(
@@ -76,7 +68,7 @@ final class KingdomCodecs {
             Codec.INT.fieldOf("hall_x").forGetter(SettlementRecord::hallX),
             Codec.INT.fieldOf("hall_y").forGetter(SettlementRecord::hallY),
             Codec.INT.fieldOf("hall_z").forGetter(SettlementRecord::hallZ),
-            Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("claim_radius", 48).forGetter(SettlementRecord::claimRadius),
+            Codec.intRange(8, 256).optionalFieldOf("claim_radius", 48).forGetter(SettlementRecord::claimRadius),
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("housing_capacity", 4).forGetter(SettlementRecord::housingCapacity),
             UUIDUtil.CODEC.listOf().optionalFieldOf("recruit_ids", List.of()).forGetter(SettlementRecord::recruitIds),
             UUIDUtil.CODEC.optionalFieldOf("commander_id").forGetter(SettlementRecord::commanderId),

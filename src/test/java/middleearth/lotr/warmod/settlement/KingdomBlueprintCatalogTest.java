@@ -27,6 +27,7 @@ public final class KingdomBlueprintCatalogTest {
             validateDataResource(blueprint);
         }
         assertTrue(KingdomBaseBlueprint.byId("house").isPresent(), "house lookup");
+        assertEquals("starter_keep", KingdomBaseBlueprint.STARTER_KEEP_ID, "shared starter keep id");
         assertTrue(KingdomBaseBlueprint.byId("unknown").isEmpty(), "unknown lookup");
         System.out.println("KingdomBlueprintCatalogTest passed");
     }

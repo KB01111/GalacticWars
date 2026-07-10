@@ -12,6 +12,7 @@ public final class CommanderRecruitmentTest {
         rejectsHostileAndUnderfundedCampaigns();
         directHiringUsesTheSameFactionCapacityAndUpkeepRules();
         pausesCampaignWhileSettlementIsUnloaded();
+        invalidCampaignStatesFailClosedAndRefundsRemainPending();
         System.out.println("CommanderRecruitmentTest passed");
     }
 
@@ -78,6 +79,34 @@ public final class CommanderRecruitmentTest {
         assertEquals("settlement_unloaded", delayed.reasonCode(), "pause reason");
         RecruitmentCampaign completed = delayed.complete();
         assertEquals(completed, completed.delay(400), "completed campaigns do not delay");
+    }
+
+    private static void invalidCampaignStatesFailClosedAndRefundsRemainPending() {
+        assertEquals(RecruitmentCampaignState.CANCELLED,
+                RecruitmentCampaignState.byId("future_unknown_state"),
+                "unknown campaign state");
+        RecruitmentCampaign campaign = new RecruitmentCampaign(
+                UUID.randomUUID(),
+                "kingdomwarsmiddleearth:gondor_soldier",
+                "",
+                25,
+                1200,
+                RecruitmentCampaignState.RESERVED,
+                "reserved");
+        RecruitmentCampaign cancelled = campaign.cancel("commander_lost");
+        assertTrue(cancelled.refundPending(), "cancelled reservation remains refundable");
+        RecruitmentCampaign partiallyRefunded = cancelled.applyRefund(10);
+        assertEquals(15, partiallyRefunded.reservedCost(), "partial refund remainder");
+        assertEquals(0, partiallyRefunded.applyRefund(15).reservedCost(), "completed refund remainder");
+        RecruitmentCampaign legacyCancelled = new RecruitmentCampaign(
+                UUID.randomUUID(),
+                "kingdomwarsmiddleearth:gondor_soldier",
+                "",
+                25,
+                1200,
+                RecruitmentCampaignState.CANCELLED,
+                "legacy_cancelled");
+        assertTrue(!legacyCancelled.refundPending(), "legacy cancelled campaign does not duplicate a refund");
     }
 
     private static void directHiringUsesTheSameFactionCapacityAndUpkeepRules() {

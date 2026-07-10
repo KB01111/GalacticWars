@@ -32,12 +32,14 @@ public final class KingdomSavedDataTest {
         assertContains(source, "hasCommanderSlot", "commander unlock guard");
         assertContains(source, "expectedRevision", "stale revision guard");
         assertContains(source, "beginCampaign", "campaign reservation");
+        assertContains(source, "applyPendingCampaignRefunds", "persisted campaign refund settlement");
     }
 
     private static void recordsKeepRuntimeCodecsOutOfThePureDomainLayer() throws IOException {
         String record = read("src/main/java/middleearth/lotr/warmod/kingdom/SettlementRecord.java");
         String codecs = read("src/main/java/middleearth/lotr/warmod/kingdom/KingdomCodecs.java");
         assertNotContains(record, "com.mojang.serialization", "pure settlement record");
+        assertNotContains(record, "KingdomCodecs", "runtime codec holder in pure settlement record");
         assertContains(codecs, "Codec<SettlementRecord>", "settlement persistence codec");
         assertContains(codecs, "Codec<KingdomRecord>", "kingdom persistence codec");
     }

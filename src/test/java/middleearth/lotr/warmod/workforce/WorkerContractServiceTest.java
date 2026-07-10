@@ -19,6 +19,9 @@ public final class WorkerContractServiceTest {
         assertEquals(WorkerContractService.ExitDecision.NOT_WORKER,
                 WorkerContractService.evaluateExit(RecruitDuty.COMMANDER, false, true, false),
                 "commander guard");
+        assertEquals(WorkerContractService.ExitDecision.NOT_WORKER,
+                WorkerContractService.evaluateExit(RecruitDuty.WORKER, false, true, false),
+                "worker without profession guard");
         System.out.println("WorkerContractServiceTest passed");
     }
 

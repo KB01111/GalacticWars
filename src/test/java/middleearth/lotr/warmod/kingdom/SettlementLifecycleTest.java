@@ -15,9 +15,11 @@ public final class SettlementLifecycleTest {
     private static void recruitRemovalReleasesHousingAndCommanderSlot() {
         UUID recruitId = UUID.randomUUID();
         SettlementRecord settlement = SettlementRecord.create("minecraft:overworld", 1, 2, 3)
-                .withRecruit(recruitId);
+                .withRecruit(recruitId)
+                .withCommander(recruitId);
         SettlementRecord removed = settlement.withoutRecruit(recruitId);
         assertTrue(!removed.containsRecruit(recruitId), "removed recruit");
+        assertTrue(removed.commanderId().isEmpty(), "released commander");
         assertTrue(removed.hasHousingSpace(), "released housing");
         assertTrue(removed.revision() == settlement.revision() + 1, "removal revision");
         assertTrue(removed.withoutRecruit(recruitId) == removed, "idempotent removal");

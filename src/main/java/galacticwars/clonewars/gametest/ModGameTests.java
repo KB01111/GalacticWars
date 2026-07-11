@@ -8,6 +8,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import galacticwars.clonewars.GalacticWars;
+import galacticwars.clonewars.army.ArmyFormation;
+import galacticwars.clonewars.army.ArmyGroupLifecycleState;
+import galacticwars.clonewars.army.ArmyLocation;
+import galacticwars.clonewars.army.ArmyTravelService;
 import galacticwars.clonewars.combat.BlasterCombatEvents;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
 import galacticwars.clonewars.combat.BlasterHeatPolicy;
@@ -139,6 +143,7 @@ public final class ModGameTests {
         tests.put(id("ungrouped_recruit_ranged_goal"), ModGameTests::ungroupedRecruitRangedGoal);
         tests.put(id("planet_travel_failure_atomicity"), ModGameTests::planetTravelFailureAtomicity);
         tests.put(id("planet_arrival_runtime"), ModGameTests::planetArrivalRuntime);
+        tests.put(id("army_planet_transfer_transaction"), ModGameTests::armyPlanetTransferTransaction);
         return Map.copyOf(tests);
     }
 
@@ -271,6 +276,86 @@ public final class ModGameTests {
                 Arrow.class, archer.getBoundingBox().inflate(8.0D), arrow -> arrow.getOwner() == archer);
         if (arrows.size() != 1 || !arrows.getFirst().getWeaponItem().is(ModItems.NIGHTSISTER_BOW.get())) {
             helper.fail("Nightsister Archer did not spawn one owned, bow-tagged ranged projectile");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void armyPlanetTransferTransaction(GameTestHelper helper) {
+        BlockPos relativeHall = new BlockPos(1, 1, 1);
+        helper.setBlock(relativeHall, ModBlocks.COMMAND_CENTER.get());
+        CommandCenterBlockEntity hall = helper.getBlockEntity(relativeHall, CommandCenterBlockEntity.class);
+        ServerPlayer owner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
+        hall.claim(owner);
+        hall.setFaction("galacticwars:republic");
+        BlockPos hallPos = hall.getBlockPos();
+        KingdomSavedData data = KingdomSavedData.get(helper.getLevel());
+        data.foundKingdom(owner.getUUID(), hall.factionId(),
+                helper.getLevel().dimension().identifier().toString(), hallPos);
+        KingdomBaseBlueprint forwardBase = GameplayDataManager.snapshot()
+                .blueprint("galacticwars:forward_base").orElseThrow();
+        BuildProject completedBase = fullyProgressProject(
+                data, owner.getUUID(), forwardBase,
+                helper.getLevel().dimension().identifier().toString(), hallPos.offset(0, 16, 0));
+        if (!data.completeBuildProject(owner.getUUID(), completedBase, forwardBase)) {
+            helper.fail("Army travel setup could not unlock a commander slot");
+            return;
+        }
+
+        FactionAlignmentSavedData.get(helper.getLevel()).setScore(
+                owner.getUUID(), FactionId.of("republic"), 100);
+        GalacticRecruitEntity commander = helper.spawn(
+                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(2, 1, 2));
+        GalacticRecruitEntity member = helper.spawn(
+                ModEntityTypes.ARC_TROOPER.get(), new BlockPos(3, 1, 2));
+        commander.tick();
+        member.tick();
+        owner.setPos(commander.getX(), commander.getY(), commander.getZ());
+        if (!commander.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE)
+                || !member.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE)
+                || !data.promoteCommander(owner.getUUID(), commander.getUUID())) {
+            helper.fail("Army travel setup could not hire and promote its squad");
+            return;
+        }
+        var group = data.createOrReclaimArmyGroup(
+                owner.getUUID(), commander.getUUID(), ArmyFormation.LINE,
+                new ArmyLocation(helper.getLevel().dimension().identifier().toString(),
+                        commander.getX(), commander.getY(), commander.getZ()),
+                helper.getLevel().getGameTime()).orElseThrow();
+        BlockPos arrival = hallPos.offset(0, 32, 0);
+
+        ArmyTravelService.TravelPlan rollbackPlan = ArmyTravelService.prepare(
+                data, owner, helper.getLevel(), arrival);
+        boolean reserved = rollbackPlan.reserve();
+        boolean rolledBack = reserved && rollbackPlan.rollback(helper.getLevel().getGameTime());
+        if (!rollbackPlan.accepted() || !rollbackPlan.transfersSquad() || !reserved || !rolledBack) {
+            helper.fail("Army travel reservation could not be rolled back atomically; accepted="
+                    + rollbackPlan.accepted() + ", reason=" + rollbackPlan.reason()
+                    + ", transfers=" + rollbackPlan.transfersSquad()
+                    + ", reserved=" + reserved + ", rolledBack=" + rolledBack);
+            return;
+        }
+        var restored = data.armyGroup(group.id()).orElseThrow();
+        if (restored.simulation().lifecycleState() != ArmyGroupLifecycleState.LIVE
+                || commander.isRemoved() || member.isRemoved()) {
+            helper.fail("Army travel rollback changed live squad entities");
+            return;
+        }
+
+        ArmyTravelService.TravelPlan committedPlan = ArmyTravelService.prepare(
+                data, owner, helper.getLevel(), arrival);
+        if (!committedPlan.reserve()) {
+            helper.fail("Army travel transaction could not reserve its second attempt");
+            return;
+        }
+        committedPlan.commit();
+        var transferred = data.armyGroup(group.id()).orElseThrow();
+        if (transferred.simulation().lifecycleState() != ArmyGroupLifecycleState.VIRTUAL
+                || transferred.snapshots().size() != 2
+                || transferred.simulation().anchor().blockPosition().x() != arrival.getX()
+                || !commander.isRemoved()
+                || !member.isRemoved()) {
+            helper.fail("Army travel commit did not virtualize, relocate, and remove the source squad");
             return;
         }
         helper.succeed();

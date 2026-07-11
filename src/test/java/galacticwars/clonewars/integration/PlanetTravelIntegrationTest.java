@@ -13,6 +13,7 @@ public final class PlanetTravelIntegrationTest {
         String menu = read("src/main/java/galacticwars/clonewars/menu/CommandCenterNavigationMenu.java");
         String service = read("src/main/java/galacticwars/clonewars/world/PlanetTravelService.java");
         String arrival = read("src/main/java/galacticwars/clonewars/world/PlanetArrivalService.java");
+        String armyTravel = read("src/main/java/galacticwars/clonewars/army/ArmyTravelService.java");
         String navigator = read("src/main/java/galacticwars/clonewars/world/HyperspaceNavigatorItem.java");
         String items = read("src/main/java/galacticwars/clonewars/registry/ModItems.java");
 
@@ -21,6 +22,9 @@ public final class PlanetTravelIntegrationTest {
         assertContains(service, "state.unlocks().contains(\"planet_travel\")", "Forward Base unlock validation");
         assertContains(service, "hall != null && hall.upkeepPaid()", "upkeep validation");
         assertContains(service, "player.teleportTo", "server dimension transfer");
+        assertContains(service, "squadTravel.reserve()", "pre-teleport squad reservation");
+        assertContains(service, "squadTravel.rollback", "failed-teleport squad rollback");
+        assertContains(service, "setRespawnPosition", "planet arrival respawn configuration");
         assertContains(service, "resolveCommandCenter", "cross-dimension Command Center authority");
         assertContains(service, "hallLevel.getChunkAt(hallPos)", "remote Command Center chunk resolution");
         assertBefore(service, "player.teleportTo", "ProgressionEventType.PLANET_VISITED",
@@ -28,6 +32,9 @@ public final class PlanetTravelIntegrationTest {
         assertContains(arrival, "state.canBeReplaced()", "non-destructive landing pad preflight");
         assertContains(arrival, "findExistingPlatform", "stable arrival reuse");
         assertContains(arrival, "state.getFluidState().isEmpty()", "fluid-free arrival volume");
+        assertContains(armyTravel, "ArmyGroupLifecycleState.VIRTUAL", "cross-dimension squad virtualization");
+        assertContains(armyTravel, "createArmySnapshot", "live squad snapshot preflight");
+        assertContains(armyTravel, "liveMembers.forEach", "source squad removal after commit");
         assertContains(navigator, "PlanetTravelService.hasActiveCommandCenter", "remote navigator authority");
         assertContains(items, "HYPERSPACE_NAVIGATOR", "navigator item registration");
         assertFile("src/main/resources/data/galacticwars/recipe/hyperspace_navigator.json");

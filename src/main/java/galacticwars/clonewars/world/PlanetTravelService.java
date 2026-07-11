@@ -1,6 +1,7 @@
 package galacticwars.clonewars.world;
 
 import galacticwars.clonewars.GalacticWars;
+import galacticwars.clonewars.army.ArmyTravelService;
 import galacticwars.clonewars.kingdom.KingdomRecord;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.progression.ProgressionDecision;
@@ -17,6 +18,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Relative;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.LevelData;
 
 import java.util.Optional;
 import java.util.Set;
@@ -52,6 +54,14 @@ public final class PlanetTravelService {
             return TravelResult.rejected("safe_arrival_unavailable");
         }
         BlockPos target = arrival.orElseThrow();
+        ArmyTravelService.TravelPlan squadTravel = ArmyTravelService.prepare(
+                kingdoms, player, destination, target);
+        if (!squadTravel.accepted()) {
+            return TravelResult.rejected(squadTravel.reason());
+        }
+        if (!squadTravel.reserve()) {
+            return TravelResult.rejected("squad_transfer_conflict");
+        }
         boolean teleported = player.teleportTo(
                 destination,
                 target.getX() + 0.5D,
@@ -62,8 +72,15 @@ public final class PlanetTravelService {
                 player.getXRot(),
                 false);
         if (!teleported) {
+            if (!squadTravel.rollback(source.getGameTime())) {
+                GalacticWars.LOGGER.error("Failed to roll back squad travel after player teleport failure for {}",
+                        player.getGameProfile().name());
+            }
             return TravelResult.rejected("teleport_failed");
         }
+        squadTravel.commit();
+        player.setRespawnPosition(new ServerPlayer.RespawnConfig(
+                LevelData.RespawnData.of(destinationKey, target, player.getYRot(), player.getXRot()), true), false);
 
         ProgressionState afterTravel = progression.state(player.getUUID());
         if (!afterTravel.hasSubject(ProgressionEventType.PLANET_VISITED, planetId)) {
@@ -74,7 +91,7 @@ public final class PlanetTravelService {
                         player.getGameProfile().name(), visit.reason());
             }
         }
-        return TravelResult.accepted(planetId, target);
+        return TravelResult.accepted(planetId, target, squadTravel.transfersSquad());
     }
 
     public static boolean hasActiveCommandCenter(ServerPlayer player) {
@@ -113,13 +130,19 @@ public final class PlanetTravelService {
                 Identifier.fromNamespaceAndPath(GalacticWars.MODID, planetId));
     }
 
-    public record TravelResult(boolean accepted, String reason, String planetId, BlockPos arrival) {
-        private static TravelResult accepted(String planetId, BlockPos arrival) {
-            return new TravelResult(true, "accepted", planetId, arrival);
+    public record TravelResult(
+            boolean accepted,
+            String reason,
+            String planetId,
+            BlockPos arrival,
+            boolean squadTransferred
+    ) {
+        private static TravelResult accepted(String planetId, BlockPos arrival, boolean squadTransferred) {
+            return new TravelResult(true, "accepted", planetId, arrival, squadTransferred);
         }
 
         private static TravelResult rejected(String reason) {
-            return new TravelResult(false, reason, "", BlockPos.ZERO);
+            return new TravelResult(false, reason, "", BlockPos.ZERO, false);
         }
     }
 

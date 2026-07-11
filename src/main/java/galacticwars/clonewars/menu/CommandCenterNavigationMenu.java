@@ -33,7 +33,9 @@ public final class CommandCenterNavigationMenu extends AbstractContainerMenu {
                 serverPlayer, planetId);
         if (result.accepted()) {
             player.sendSystemMessage(Component.translatable(
-                    "message.galacticwars.travel.success",
+                    result.squadTransferred()
+                            ? "message.galacticwars.travel.success_with_squad"
+                            : "message.galacticwars.travel.success",
                     Component.translatable("planet.galacticwars." + result.planetId())));
         } else {
             player.sendSystemMessage(Component.translatable(

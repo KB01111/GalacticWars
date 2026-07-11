@@ -9,6 +9,7 @@ import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.arrow.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.jspecify.annotations.Nullable;
 
 public final class FactionRangedWeaponService {
     private static final double NIGHTSISTER_BOW_DAMAGE = 5.0D;
@@ -18,11 +19,12 @@ public final class FactionRangedWeaponService {
     private FactionRangedWeaponService() {
     }
 
-    public static boolean supportsRecruitRangedCombat(ItemStack weapon) {
-        return weapon.getItem() instanceof BlasterItem || weapon.is(ModItems.NIGHTSISTER_BOW.get());
+    public static boolean supportsRecruitRangedCombat(@Nullable ItemStack weapon) {
+        return weapon != null
+                && (weapon.getItem() instanceof BlasterItem || weapon.is(ModItems.NIGHTSISTER_BOW.get()));
     }
 
-    public static boolean isProtectedFactionProjectile(ItemStack weapon) {
+    public static boolean isProtectedFactionProjectile(@Nullable ItemStack weapon) {
         return supportsRecruitRangedCombat(weapon);
     }
 

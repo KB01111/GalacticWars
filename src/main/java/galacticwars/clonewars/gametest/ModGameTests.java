@@ -64,6 +64,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.projectile.arrow.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -265,6 +266,14 @@ public final class ModGameTests {
         BlasterCombatEvents.onProjectileImpact(bowImpact);
         if (!bowImpact.isCanceled() || !bowArrow.isRemoved()) {
             helper.fail("Same-owner squadmate was not protected from a Nightsister bow projectile");
+            return;
+        }
+        Arrow vanillaArrow = new Arrow(EntityTypes.ARROW, helper.getLevel());
+        ProjectileImpactEvent vanillaImpact = new ProjectileImpactEvent(
+                vanillaArrow, new EntityHitResult(recruit));
+        BlasterCombatEvents.onProjectileImpact(vanillaImpact);
+        if (vanillaImpact.isCanceled() || vanillaArrow.isRemoved()) {
+            helper.fail("Untagged vanilla arrow was incorrectly handled as a faction projectile");
             return;
         }
         helper.succeed();

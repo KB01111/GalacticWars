@@ -2,6 +2,7 @@ package galacticwars.clonewars.registry;
 
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.menu.RecruitCommandMenu;
+import galacticwars.clonewars.menu.CommandCenterNavigationMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.bus.api.IEventBus;
@@ -15,6 +16,9 @@ public final class ModMenuTypes {
 
     public static final DeferredHolder<MenuType<?>, MenuType<RecruitCommandMenu>> RECRUIT_COMMAND =
             MENU_TYPES.register("recruit_command", () -> IMenuTypeExtension.create(RecruitCommandMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<CommandCenterNavigationMenu>> COMMAND_CENTER_NAVIGATION =
+            MENU_TYPES.register("command_center_navigation",
+                    () -> IMenuTypeExtension.create(CommandCenterNavigationMenu::new));
 
     private ModMenuTypes() {
     }

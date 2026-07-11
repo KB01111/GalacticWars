@@ -24,7 +24,8 @@ This is a clean-break conversion. Existing KingdomWars-Middle-Earth worlds and r
 - Interact with a recruit to open the command screen. Hire first, then choose combat orders, formations, a worksite, storage, a profession, or construction controls.
 - Use a blaster to fire; each accepted shot consumes one Energy Cell, applies weapon durability and a short server-authoritative cooldown.
 - Place blueprint structures through the recruit command screen. Builders withdraw real blocks from Command Center or linked storage before placing them.
-- Planet navigation, vehicles, and Force bindings are tracked below and are not presented as playable controls until their runtime milestones are complete.
+- After pledging and completing a Forward Base, sneak-use your active Command Center to open planetary navigation. Craft and carry a Hyperspace Navigator to reopen the console away from home. Every jump still requires your active Command Center and paid upkeep, and prepares a reusable non-destructive arrival platform.
+- Vehicle and Force bindings are tracked below and are not presented as playable controls until their runtime milestones are complete.
 
 ## Core gameplay loop
 
@@ -55,7 +56,7 @@ Credits, unlocks, quest milestones, vehicles, Force choices, and conquest use an
 - [x] Complete the manifest-driven original art pass for five faction kits, fifteen units, planets, combat effects, GUI, and five vehicle UV atlases, with provenance and executable asset validation.
 - [x] Register and data-drive all fifteen launch-unit IDs while retaining formation, command, hiring, worker, commander, and persistence foundations.
 - [ ] Finish player-facing blaster heat feedback and autonomous ranged AI goals; grouped recruits now fire their data-driven blasters with server-authoritative heat/cooldown handling, while player projectiles, Energy Cell consumption, durability, configurable PvP, and faction/owner friendly-fire protection are implemented.
-- [ ] Finish safe arrival structures, navigation UI, travel/respawn, and cross-dimension squad transfer for the four registered dimensions.
+- [ ] Finish planetary respawn and cross-dimension squad transfer; the four-destination navigation UI, ownership/unlock/upkeep gates, failure-atomic dimension transfer, visit progression, and reusable safe-arrival platforms are implemented.
 - [ ] Implement drivable runtime entities, controls, persistence, and combat for all five vehicles; authoritative ownership, allied boarding, seat limits, fuel, damage/destruction, and safe dimension-transfer policies are implemented and tested.
 - [ ] Implement runtime Force input, targeting, persistence/sync, effects, and accessibility feedback; unlock validation, path/quest gates, energy, cooldown replay protection, regeneration, and PvP policy are implemented and tested.
 - [ ] Load the fifteen quest, trade, vehicle, planet, Force, and conquest definitions through the atomic datapack manager and persist player progress.

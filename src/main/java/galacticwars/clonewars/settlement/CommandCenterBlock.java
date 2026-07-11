@@ -6,6 +6,7 @@ import java.util.function.BiConsumer;
 import galacticwars.clonewars.kingdom.KingdomRecord;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.progression.ProgressionSavedData;
+import galacticwars.clonewars.menu.CommandCenterNavigationMenuProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -96,9 +97,8 @@ public final class CommandCenterBlock extends BaseEntityBlock {
         }
         if (player.isShiftKeyDown()) {
             if (!ProgressionSavedData.get(serverLevel).state(player.getUUID()).factionId().isEmpty()) {
-                player.sendSystemMessage(Component.translatable(
-                        "message.galacticwars.command_center.faction_pledged"));
-                return InteractionResult.FAIL;
+                player.openMenu(new CommandCenterNavigationMenuProvider());
+                return InteractionResult.SUCCESS;
             }
             String previousFaction = hall.factionId();
             String nextFaction = hall.cycleFaction();

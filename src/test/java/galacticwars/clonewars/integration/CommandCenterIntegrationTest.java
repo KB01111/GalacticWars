@@ -12,7 +12,15 @@ public final class CommandCenterIntegrationTest {
         hallIsRegisteredAsPhysicalOwnedStorage();
         hallFoundsAuthoritativeKingdomState();
         hallAssetsAreComplete();
+        hallOpensPlanetNavigationAfterPledge();
         System.out.println("CommandCenterIntegrationTest passed");
+    }
+
+    private static void hallOpensPlanetNavigationAfterPledge() throws IOException {
+        String block = read("src/main/java/galacticwars/clonewars/settlement/CommandCenterBlock.java");
+        String menus = read("src/main/java/galacticwars/clonewars/registry/ModMenuTypes.java");
+        assertContains(block, "CommandCenterNavigationMenuProvider", "navigation console provider");
+        assertContains(menus, "COMMAND_CENTER_NAVIGATION", "navigation menu registration");
     }
 
     private static void hallIsRegisteredAsPhysicalOwnedStorage() throws IOException {

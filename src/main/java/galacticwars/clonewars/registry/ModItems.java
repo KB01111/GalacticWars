@@ -5,6 +5,7 @@ import galacticwars.clonewars.entity.RecruitSpawnEggItem;
 import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.faction.FactionId;
 import galacticwars.clonewars.faction.IdentityChipItem;
+import galacticwars.clonewars.world.HyperspaceNavigatorItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoeItem;
@@ -40,6 +41,8 @@ public final class ModItems {
             ITEMS.registerSimpleItem("credit_chip", properties -> properties.stacksTo(64));
     public static final DeferredItem<Item> ENERGY_CELL =
             ITEMS.registerSimpleItem("energy_cell", properties -> properties.stacksTo(64));
+    public static final DeferredItem<HyperspaceNavigatorItem> HYPERSPACE_NAVIGATOR =
+            ITEMS.registerItem("hyperspace_navigator", HyperspaceNavigatorItem::new);
     public static final DeferredItem<BlasterItem> DC15_BLASTER =
             ITEMS.registerItem("dc15_blaster", properties -> new BlasterItem(properties.durability(850), 6.0D, 3.4F, 0.7F));
     public static final DeferredItem<BlasterItem> E5_BLASTER =

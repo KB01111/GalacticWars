@@ -27,6 +27,10 @@ import galacticwars.clonewars.kingdom.WorkOrderState;
 import galacticwars.clonewars.kingdom.WorkOrderType;
 import galacticwars.clonewars.kingdom.WorksiteRecord;
 import galacticwars.clonewars.menu.RecruitCommandMenu;
+import galacticwars.clonewars.menu.CommandCenterNavigationMenu;
+import galacticwars.clonewars.progression.ProgressionEvent;
+import galacticwars.clonewars.progression.ProgressionEventType;
+import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.recruitment.RecruitmentAction;
 import galacticwars.clonewars.recruitment.RecruitDuty;
 import galacticwars.clonewars.recruitment.RecruitmentPaymentService;
@@ -38,6 +42,8 @@ import galacticwars.clonewars.settlement.CommandCenterBlockEntity;
 import galacticwars.clonewars.settlement.KingdomBaseBlueprint;
 import galacticwars.clonewars.workforce.WorkerPhase;
 import galacticwars.clonewars.workforce.WorkerProfession;
+import galacticwars.clonewars.world.PlanetTravelService;
+import galacticwars.clonewars.world.PlanetArrivalService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -120,7 +126,70 @@ public final class ModGameTests {
         tests.put(id("recruit_spawn_eggs"), ModGameTests::recruitSpawnEggs);
         tests.put(id("blaster_friendly_fire"), ModGameTests::blasterFriendlyFire);
         tests.put(id("recruit_blaster_projectile"), ModGameTests::recruitBlasterProjectile);
+        tests.put(id("planet_travel_failure_atomicity"), ModGameTests::planetTravelFailureAtomicity);
+        tests.put(id("planet_arrival_runtime"), ModGameTests::planetArrivalRuntime);
         return Map.copyOf(tests);
+    }
+
+    private static void planetArrivalRuntime(GameTestHelper helper) {
+        BlockPos first = PlanetArrivalService.findOrCreate(helper.getLevel()).orElse(null);
+        BlockPos repeated = PlanetArrivalService.findOrCreate(helper.getLevel()).orElse(null);
+        if (first == null || !first.equals(repeated)) {
+            helper.fail("Planet arrival platform was unavailable or not stably reused");
+            return;
+        }
+        if (!helper.getLevel().getBlockState(first.below()).is(ModBlocks.DURACRETE.get())
+                || !helper.getLevel().getBlockState(first).canBeReplaced()
+                || !helper.getLevel().getBlockState(first.above()).canBeReplaced()) {
+            helper.fail("Planet arrival platform did not provide a solid floor and clear player volume");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void planetTravelFailureAtomicity(GameTestHelper helper) {
+        BlockPos relativeHall = new BlockPos(1, 1, 1);
+        helper.setBlock(relativeHall, ModBlocks.COMMAND_CENTER.get());
+        CommandCenterBlockEntity hall = helper.getBlockEntity(relativeHall, CommandCenterBlockEntity.class);
+        ServerPlayer owner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
+        hall.claim(owner);
+        hall.setFaction("galacticwars:republic");
+        BlockPos hallPos = hall.getBlockPos();
+        KingdomSavedData.get(helper.getLevel()).foundKingdom(
+                owner.getUUID(), hall.factionId(),
+                helper.getLevel().dimension().identifier().toString(), hallPos);
+        ProgressionSavedData progression = ProgressionSavedData.get(helper.getLevel());
+        progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), owner.getUUID(), ProgressionEventType.FACTION_PLEDGED,
+                "galacticwars:republic", 1));
+        progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), owner.getUUID(), ProgressionEventType.BUILDING_COMPLETED,
+                "forward_base", 1));
+
+        owner.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.HYPERSPACE_NAVIGATOR.get()));
+        InteractionResult navigatorResult = ModItems.HYPERSPACE_NAVIGATOR.get().use(
+                helper.getLevel(), owner, InteractionHand.MAIN_HAND);
+        if (navigatorResult != InteractionResult.SUCCESS
+                || !(owner.containerMenu instanceof CommandCenterNavigationMenu)) {
+            helper.fail("Hyperspace Navigator did not open the authoritative navigation menu");
+            return;
+        }
+        owner.closeContainer();
+
+        PlanetTravelService.TravelResult result = PlanetTravelService.travel(owner, "tatooine");
+        if (result.accepted() || !result.reason().equals("destination_unavailable")) {
+            helper.fail("Missing GameTest destination was not rejected atomically: " + result.reason());
+            return;
+        }
+        if (owner.level() != helper.getLevel()) {
+            helper.fail("Failed planet travel moved the player");
+            return;
+        }
+        if (progression.state(owner.getUUID()).hasSubject(ProgressionEventType.PLANET_VISITED, "tatooine")) {
+            helper.fail("Failed planet travel emitted a visited progression event");
+            return;
+        }
+        helper.succeed();
     }
 
     private static void recruitBlasterProjectile(GameTestHelper helper) {

@@ -30,6 +30,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.RAW_BESKAR.get());
                         output.accept(ModItems.CREDIT_CHIP.get());
                         output.accept(ModItems.ENERGY_CELL.get());
+                        output.accept(ModItems.HYPERSPACE_NAVIGATOR.get());
                         output.accept(ModItems.REPUBLIC_PLASTOID_INGOT.get());
                         output.accept(ModItems.MANDALORIAN_FIBER.get());
                         output.accept(ModItems.MANDALORIAN_ALLOY_INGOT.get());

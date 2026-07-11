@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import galacticwars.clonewars.combat.BlasterHeatPolicy;
+import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.faction.FactionId;
@@ -20,7 +22,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 
 /**
- * The only runtime owner of grouped-soldier navigation and melee targets.
+ * The only runtime owner of grouped-soldier navigation and combat targets.
  * Persistence remains authoritative; this controller only realizes the current
  * SavedData order for a loaded recruit.
  */
@@ -30,10 +32,12 @@ public final class ArmyRecruitRuntimeController {
 
     private UUID selectedTargetId;
     private int ticksUntilNextAttack;
+    private BlasterHeatPolicy.BlasterHeatState blasterHeat = BlasterHeatPolicy.BlasterHeatState.ready();
     private boolean ownsRuntimeControl;
 
     public void tick(GalacticRecruitEntity recruit, ServerLevel level) {
         ticksUntilNextAttack = Math.max(0, ticksUntilNextAttack - 1);
+        blasterHeat = BlasterHeatPolicy.tick(blasterHeat);
         if (!recruit.isTame()
                 || recruit.getRecruitDuty() == RecruitDuty.WORKER) {
             releaseRuntimeControl(recruit);
@@ -208,7 +212,16 @@ public final class ArmyRecruitRuntimeController {
                 recruit.setTarget(target);
                 recruit.setAggressive(true);
                 recruit.getLookControl().setLookAt(target, 30.0F, 30.0F);
-                if (recruit.isWithinMeleeAttackRange(target)
+                if (recruit.getMainHandItem().getItem() instanceof BlasterItem blaster
+                        && recruit.distanceToSqr(target) <= recruit.getAttributeValue(Attributes.FOLLOW_RANGE)
+                                * recruit.getAttributeValue(Attributes.FOLLOW_RANGE)
+                        && recruit.getSensing().hasLineOfSight(target)) {
+                    recruit.getNavigation().stop();
+                    if (BlasterHeatPolicy.canFire(blasterHeat)) {
+                        blaster.fireAt(level, recruit, target, recruit.getMainHandItem());
+                        blasterHeat = BlasterHeatPolicy.afterShot(blasterHeat);
+                    }
+                } else if (recruit.isWithinMeleeAttackRange(target)
                         && recruit.getSensing().hasLineOfSight(target)) {
                     recruit.getNavigation().stop();
                     if (ticksUntilNextAttack == 0) {
@@ -319,6 +332,7 @@ public final class ArmyRecruitRuntimeController {
         recruit.getNavigation().stop();
         selectedTargetId = null;
         ticksUntilNextAttack = 0;
+        blasterHeat = BlasterHeatPolicy.BlasterHeatState.ready();
         ownsRuntimeControl = false;
     }
 }

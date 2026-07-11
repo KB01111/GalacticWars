@@ -11,6 +11,7 @@ public final class RecruitCompanionAiIntegrationTest {
     public static void main(String[] args) throws IOException {
         recruitUsesSinglePlannerRuntimeController();
         controllerIntegratesExistingPlannerPipeline();
+        controllerUsesDataDrivenBlasterCombat();
         groupCommandsPersistBeforeRuntimeMutation();
         explicitAttackTargetsAreGuarded();
         missingGroupsReleaseStaleRuntimeOwnership();
@@ -45,6 +46,17 @@ public final class RecruitCompanionAiIntegrationTest {
         assertContains(controller, "BEHAVIOR_INTERVAL = 10", "bounded behavior cadence");
         assertContains(controller, "recruit.isWithinMeleeAttackRange(target)", "runtime melee range");
         assertContains(controller, "recruit.doHurtTarget(level, target)", "runtime melee execution");
+    }
+
+    private static void controllerUsesDataDrivenBlasterCombat() throws IOException {
+        String controller = read("src/main/java/galacticwars/clonewars/army/ArmyRecruitRuntimeController.java");
+        String events = read("src/main/java/galacticwars/clonewars/combat/BlasterCombatEvents.java");
+
+        assertContains(controller, "getMainHandItem().getItem() instanceof BlasterItem", "loadout-driven blaster detection");
+        assertContains(controller, "blaster.fireAt(level, recruit, target", "server-authoritative ranged attack");
+        assertContains(controller, "BlasterHeatPolicy.canFire", "ranged heat gate");
+        assertContains(events, "arrow.getOwner() instanceof LivingEntity shooter", "recruit projectile filtering");
+        assertContains(events, "sameOwner(other, recruit)", "same-owner recruit projectile protection");
     }
 
     private static void groupCommandsPersistBeforeRuntimeMutation() throws IOException {

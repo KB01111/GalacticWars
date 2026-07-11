@@ -54,7 +54,7 @@ Credits, unlocks, quest milestones, vehicles, Force choices, and conquest use an
 - [x] Convert factions, Command Center gameplay, settlement blueprints, Beskar, Credit Chips, and atomic payment/refund behavior.
 - [x] Complete the manifest-driven original art pass for five faction kits, fifteen units, planets, combat effects, GUI, and five vehicle UV atlases, with provenance and executable asset validation.
 - [x] Register and data-drive all fifteen launch-unit IDs while retaining formation, command, hiring, worker, commander, and persistence foundations.
-- [ ] Finish blaster heat behavior and ranged AI goals; server-authoritative projectiles, Energy Cell consumption, cooldowns, durability, configurable PvP, and faction/owner friendly-fire protection are implemented.
+- [ ] Finish player-facing blaster heat feedback and autonomous ranged AI goals; grouped recruits now fire their data-driven blasters with server-authoritative heat/cooldown handling, while player projectiles, Energy Cell consumption, durability, configurable PvP, and faction/owner friendly-fire protection are implemented.
 - [ ] Finish safe arrival structures, navigation UI, travel/respawn, and cross-dimension squad transfer for the four registered dimensions.
 - [ ] Implement drivable runtime entities, controls, persistence, and combat for all five vehicles; authoritative ownership, allied boarding, seat limits, fuel, damage/destruction, and safe dimension-transfer policies are implemented and tested.
 - [ ] Implement runtime Force input, targeting, persistence/sync, effects, and accessibility feedback; unlock validation, path/quest gates, energy, cooldown replay protection, regeneration, and PvP policy are implemented and tested.

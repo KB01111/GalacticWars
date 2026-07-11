@@ -119,7 +119,28 @@ public final class ModGameTests {
         tests.put(id("workforce_saved_data_authority"), ModGameTests::workforceSavedDataAuthority);
         tests.put(id("recruit_spawn_eggs"), ModGameTests::recruitSpawnEggs);
         tests.put(id("blaster_friendly_fire"), ModGameTests::blasterFriendlyFire);
+        tests.put(id("recruit_blaster_projectile"), ModGameTests::recruitBlasterProjectile);
         return Map.copyOf(tests);
+    }
+
+    private static void recruitBlasterProjectile(GameTestHelper helper) {
+        ServerPlayer owner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
+        GalacticRecruitEntity shooter = helper.spawn(
+                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(2, 1, 2));
+        GalacticRecruitEntity target = helper.spawn(
+                ModEntityTypes.B1_BATTLE_DROID.get(), new BlockPos(6, 1, 2));
+        shooter.tame(owner);
+        ItemStack weapon = new ItemStack(ModItems.DC15_BLASTER.get());
+        shooter.setItemInHand(InteractionHand.MAIN_HAND, weapon);
+        ModItems.DC15_BLASTER.get().fireAt(helper.getLevel(), shooter, target, weapon);
+
+        List<Arrow> bolts = helper.getLevel().getEntitiesOfClass(
+                Arrow.class, shooter.getBoundingBox().inflate(8.0D), arrow -> arrow.getOwner() == shooter);
+        if (bolts.size() != 1 || !bolts.getFirst().getWeaponItem().is(ModItems.DC15_BLASTER.get())) {
+            helper.fail("Recruit blaster did not spawn one owned, weapon-tagged bolt");
+            return;
+        }
+        helper.succeed();
     }
 
     private static void blasterFriendlyFire(GameTestHelper helper) {
@@ -135,6 +156,20 @@ public final class ModGameTests {
         BlasterCombatEvents.onProjectileImpact(impact);
         if (!impact.isCanceled() || !bolt.isRemoved()) {
             helper.fail("Owned recruit was not protected from its owner's blaster bolt");
+            return;
+        }
+
+        GalacticRecruitEntity squadmate = helper.spawn(
+                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(3, 1, 2));
+        squadmate.tame(owner);
+        Arrow recruitBolt = new Arrow(
+                helper.getLevel(), squadmate,
+                new ItemStack(ModItems.ENERGY_CELL.get()),
+                new ItemStack(ModItems.DC15_BLASTER.get()));
+        ProjectileImpactEvent recruitImpact = new ProjectileImpactEvent(recruitBolt, new EntityHitResult(recruit));
+        BlasterCombatEvents.onProjectileImpact(recruitImpact);
+        if (!recruitImpact.isCanceled() || !recruitBolt.isRemoved()) {
+            helper.fail("Same-owner squadmate was not protected from a recruit blaster bolt");
             return;
         }
         helper.succeed();

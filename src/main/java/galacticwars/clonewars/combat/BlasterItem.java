@@ -7,6 +7,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.projectile.arrow.Arrow;
@@ -51,6 +52,19 @@ public final class BlasterItem extends Item {
         player.awardStat(Stats.ITEM_USED.get(this));
         player.getCooldowns().addCooldown(weapon, 6);
         return InteractionResult.SUCCESS;
+    }
+
+    public void fireAt(ServerLevel level, LivingEntity shooter, LivingEntity target, ItemStack weapon) {
+        level.playSound(null, shooter.getX(), shooter.getY(), shooter.getZ(),
+                SoundEvents.CROSSBOW_SHOOT, SoundSource.NEUTRAL, 0.65F,
+                1.45F + level.getRandom().nextFloat() * 0.15F);
+        Arrow bolt = new Arrow(level, shooter, new ItemStack(ModItems.ENERGY_CELL.get()), weapon);
+        bolt.pickup = AbstractArrow.Pickup.DISALLOWED;
+        bolt.setBaseDamage(damage);
+        double targetY = target.getY() + target.getBbHeight() * 0.6D;
+        bolt.shoot(target.getX() - shooter.getX(), targetY - bolt.getY(), target.getZ() - shooter.getZ(),
+                velocity, inaccuracy);
+        level.addFreshEntity(bolt);
     }
 
     private static boolean consumeEnergyCell(Player player) {

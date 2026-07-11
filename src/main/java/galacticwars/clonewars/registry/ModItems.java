@@ -3,6 +3,7 @@ package galacticwars.clonewars.registry;
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.entity.RecruitSpawnEggItem;
 import galacticwars.clonewars.combat.BlasterItem;
+import galacticwars.clonewars.combat.BlasterHeatPolicy;
 import galacticwars.clonewars.faction.FactionId;
 import galacticwars.clonewars.faction.IdentityChipItem;
 import galacticwars.clonewars.world.HyperspaceNavigatorItem;
@@ -45,13 +46,13 @@ public final class ModItems {
     public static final DeferredItem<HyperspaceNavigatorItem> HYPERSPACE_NAVIGATOR =
             ITEMS.registerItem("hyperspace_navigator", HyperspaceNavigatorItem::new);
     public static final DeferredItem<BlasterItem> DC15_BLASTER =
-            ITEMS.registerItem("dc15_blaster", properties -> new BlasterItem(properties.durability(850), 6.0D, 3.4F, 0.7F));
+            ITEMS.registerItem("dc15_blaster", properties -> new BlasterItem(blaster(properties, 850), 6.0D, 3.4F, 0.7F));
     public static final DeferredItem<BlasterItem> E5_BLASTER =
-            ITEMS.registerItem("e5_blaster", properties -> new BlasterItem(properties.durability(700), 5.0D, 3.2F, 1.0F));
+            ITEMS.registerItem("e5_blaster", properties -> new BlasterItem(blaster(properties, 700), 5.0D, 3.2F, 1.0F));
     public static final DeferredItem<BlasterItem> WESTAR_BLASTER =
-            ITEMS.registerItem("westar_blaster", properties -> new BlasterItem(properties.durability(900), 6.5D, 3.5F, 0.6F));
+            ITEMS.registerItem("westar_blaster", properties -> new BlasterItem(blaster(properties, 900), 6.5D, 3.5F, 0.6F));
     public static final DeferredItem<BlasterItem> SCATTER_BLASTER =
-            ITEMS.registerItem("scatter_blaster", properties -> new BlasterItem(properties.durability(650), 7.0D, 2.8F, 1.4F));
+            ITEMS.registerItem("scatter_blaster", properties -> new BlasterItem(blaster(properties, 650), 7.0D, 2.8F, 1.4F));
     public static final DeferredItem<BowItem> NIGHTSISTER_BOW =
             ITEMS.registerItem("nightsister_bow", properties -> new BowItem(properties.durability(600)));
     public static final DeferredItem<Item> BLUE_LIGHTSABER =
@@ -135,6 +136,11 @@ public final class ModItems {
                     properties -> new RecruitSpawnEggItem(ModEntityTypes.NIGHTBROTHER_BRUTE.get(), properties));
 
     private ModItems() {
+    }
+
+    private static Item.Properties blaster(Item.Properties properties, int durability) {
+        return properties.durability(durability).component(
+                ModDataComponents.BLASTER_HEAT.get(), BlasterHeatPolicy.BlasterHeatState.ready());
     }
 
     public static void register(IEventBus modEventBus) {

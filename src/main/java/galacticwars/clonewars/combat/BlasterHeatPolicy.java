@@ -41,5 +41,16 @@ public final class BlasterHeatPolicy {
         public static BlasterHeatState ready() {
             return new BlasterHeatState(SHOTS_BEFORE_OVERHEAT, 0, 0);
         }
+
+        public boolean isReady() {
+            return this.equals(ready());
+        }
+
+        public float heatFraction() {
+            if (overheatTicks > 0) {
+                return 1.0F;
+            }
+            return (SHOTS_BEFORE_OVERHEAT - shotsRemaining) / (float) SHOTS_BEFORE_OVERHEAT;
+        }
     }
 }

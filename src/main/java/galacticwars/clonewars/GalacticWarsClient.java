@@ -3,6 +3,7 @@ package galacticwars.clonewars;
 import galacticwars.clonewars.client.gui.RecruitCommandScreen;
 import galacticwars.clonewars.client.gui.CommandCenterNavigationScreen;
 import galacticwars.clonewars.client.gui.FactionSelectionScreen;
+import galacticwars.clonewars.client.gui.BlasterHeatHud;
 import galacticwars.clonewars.client.render.GalacticRecruitRenderer;
 import galacticwars.clonewars.registry.ModEntityTypes;
 import galacticwars.clonewars.registry.ModMenuTypes;
@@ -10,6 +11,9 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
+import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+import net.minecraft.resources.Identifier;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
@@ -45,5 +49,13 @@ public class GalacticWarsClient {
         event.register(ModMenuTypes.RECRUIT_COMMAND.get(), RecruitCommandScreen::new);
         event.register(ModMenuTypes.COMMAND_CENTER_NAVIGATION.get(), CommandCenterNavigationScreen::new);
         event.register(ModMenuTypes.FACTION_SELECTION.get(), FactionSelectionScreen::new);
+    }
+
+    @SubscribeEvent
+    static void registerGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerAbove(
+                VanillaGuiLayers.HOTBAR,
+                Identifier.fromNamespaceAndPath(GalacticWars.MODID, "blaster_heat"),
+                (graphics, deltaTracker) -> BlasterHeatHud.render(graphics));
     }
 }

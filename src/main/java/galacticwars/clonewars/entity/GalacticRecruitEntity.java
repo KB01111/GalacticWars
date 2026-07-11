@@ -23,6 +23,8 @@ import galacticwars.clonewars.army.ArmyUnitDefinition;
 import galacticwars.clonewars.army.RecruitVitals;
 import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.entity.ai.RecruitWorkerGoal;
+import galacticwars.clonewars.entity.ai.RecruitRangedCombatGoal;
+import galacticwars.clonewars.combat.FactionRangedWeaponService;
 import galacticwars.clonewars.faction.FactionAlignment;
 import galacticwars.clonewars.faction.FactionAlignmentSavedData;
 import galacticwars.clonewars.faction.FactionDefinition;
@@ -225,15 +227,22 @@ public class GalacticRecruitEntity extends TamableAnimal implements GeoEntity {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new RecruitRangedCombatGoal(this));
         this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.05, true) {
             @Override
             public boolean canUse() {
-                return !GalacticRecruitEntity.this.hasAuthoritativeArmyGroup() && super.canUse();
+                return !GalacticRecruitEntity.this.hasAuthoritativeArmyGroup()
+                        && !FactionRangedWeaponService.supportsRecruitRangedCombat(
+                                GalacticRecruitEntity.this.getMainHandItem())
+                        && super.canUse();
             }
 
             @Override
             public boolean canContinueToUse() {
-                return !GalacticRecruitEntity.this.hasAuthoritativeArmyGroup() && super.canContinueToUse();
+                return !GalacticRecruitEntity.this.hasAuthoritativeArmyGroup()
+                        && !FactionRangedWeaponService.supportsRecruitRangedCombat(
+                                GalacticRecruitEntity.this.getMainHandItem())
+                        && super.canContinueToUse();
             }
         });
         this.goalSelector.addGoal(4, new RecruitWorkerGoal(this));

@@ -10,6 +10,7 @@ import galacticwars.clonewars.gametest.ModGameTests;
 import galacticwars.clonewars.registry.ModBlocks;
 import galacticwars.clonewars.registry.ModBlockEntityTypes;
 import galacticwars.clonewars.registry.ModCreativeTabs;
+import galacticwars.clonewars.registry.ModDataComponents;
 import galacticwars.clonewars.registry.ModEntityTypes;
 import galacticwars.clonewars.registry.ModItems;
 import galacticwars.clonewars.registry.ModMenuTypes;
@@ -41,6 +42,7 @@ public class GalacticWars {
         ModBlocks.register(modEventBus);
         ModBlockEntityTypes.register(modEventBus);
         ModEntityTypes.register(modEventBus);
+        ModDataComponents.register(modEventBus);
         ModItems.register(modEventBus);
         ModMenuTypes.register(modEventBus);
         ModCreativeTabs.register(modEventBus);

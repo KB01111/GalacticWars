@@ -10,10 +10,13 @@ import java.util.function.Consumer;
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.combat.BlasterCombatEvents;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
+import galacticwars.clonewars.combat.BlasterHeatPolicy;
+import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.entity.RecruitSpawnEggItem;
 import galacticwars.clonewars.entity.RecruitLifecycleService;
+import galacticwars.clonewars.entity.ai.RecruitRangedCombatGoal;
 import galacticwars.clonewars.faction.FactionAlignmentSavedData;
 import galacticwars.clonewars.faction.FactionId;
 import galacticwars.clonewars.kingdom.BuildProject;
@@ -40,6 +43,7 @@ import galacticwars.clonewars.registry.ModBlockTags;
 import galacticwars.clonewars.registry.ModBlocks;
 import galacticwars.clonewars.registry.ModEntityTypes;
 import galacticwars.clonewars.registry.ModItems;
+import galacticwars.clonewars.registry.ModDataComponents;
 import galacticwars.clonewars.settlement.CommandCenterBlockEntity;
 import galacticwars.clonewars.settlement.KingdomBaseBlueprint;
 import galacticwars.clonewars.workforce.WorkerPhase;
@@ -64,6 +68,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.projectile.arrow.Arrow;
@@ -130,6 +135,8 @@ public final class ModGameTests {
         tests.put(id("recruit_spawn_eggs"), ModGameTests::recruitSpawnEggs);
         tests.put(id("blaster_friendly_fire"), ModGameTests::blasterFriendlyFire);
         tests.put(id("recruit_blaster_projectile"), ModGameTests::recruitBlasterProjectile);
+        tests.put(id("player_blaster_heat"), ModGameTests::playerBlasterHeat);
+        tests.put(id("ungrouped_recruit_ranged_goal"), ModGameTests::ungroupedRecruitRangedGoal);
         tests.put(id("planet_travel_failure_atomicity"), ModGameTests::planetTravelFailureAtomicity);
         tests.put(id("planet_arrival_runtime"), ModGameTests::planetArrivalRuntime);
         return Map.copyOf(tests);
@@ -264,6 +271,68 @@ public final class ModGameTests {
                 Arrow.class, archer.getBoundingBox().inflate(8.0D), arrow -> arrow.getOwner() == archer);
         if (arrows.size() != 1 || !arrows.getFirst().getWeaponItem().is(ModItems.NIGHTSISTER_BOW.get())) {
             helper.fail("Nightsister Archer did not spawn one owned, bow-tagged ranged projectile");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void playerBlasterHeat(GameTestHelper helper) {
+        ServerPlayer player = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
+        ItemStack weapon = new ItemStack(ModItems.DC15_BLASTER.get());
+        player.setItemInHand(InteractionHand.MAIN_HAND, weapon);
+        player.getInventory().add(new ItemStack(ModItems.ENERGY_CELL.get(), 8));
+
+        for (int shot = 0; shot < BlasterHeatPolicy.SHOTS_BEFORE_OVERHEAT; shot++) {
+            InteractionResult result = ModItems.DC15_BLASTER.get().use(
+                    helper.getLevel(), player, InteractionHand.MAIN_HAND);
+            if (result != InteractionResult.SUCCESS) {
+                helper.fail("Player blaster rejected legal shot " + shot);
+                return;
+            }
+            for (int tick = 0; tick < BlasterHeatPolicy.SHOT_COOLDOWN_TICKS; tick++) {
+                ModItems.DC15_BLASTER.get().inventoryTick(
+                        weapon, helper.getLevel(), player, EquipmentSlot.MAINHAND);
+            }
+        }
+
+        BlasterHeatPolicy.BlasterHeatState overheated = weapon.get(ModDataComponents.BLASTER_HEAT.get());
+        if (overheated == null || overheated.overheatTicks() <= 0
+                || ModItems.DC15_BLASTER.get().use(helper.getLevel(), player, InteractionHand.MAIN_HAND)
+                        != InteractionResult.FAIL) {
+            helper.fail("Player blaster did not persist or enforce its overheat state");
+            return;
+        }
+        for (int tick = 0; tick < BlasterHeatPolicy.OVERHEAT_TICKS; tick++) {
+            ModItems.DC15_BLASTER.get().inventoryTick(
+                    weapon, helper.getLevel(), player, EquipmentSlot.MAINHAND);
+        }
+        if (!BlasterItem.heat(weapon).isReady()) {
+            helper.fail("Player blaster did not return to ready after venting");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void ungroupedRecruitRangedGoal(GameTestHelper helper) {
+        ServerPlayer owner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
+        GalacticRecruitEntity shooter = helper.spawn(
+                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(2, 1, 2));
+        GalacticRecruitEntity target = helper.spawn(
+                ModEntityTypes.B1_BATTLE_DROID.get(), new BlockPos(6, 1, 2));
+        shooter.tame(owner);
+        shooter.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.DC15_BLASTER.get()));
+        shooter.setTarget(target);
+
+        RecruitRangedCombatGoal goal = new RecruitRangedCombatGoal(shooter);
+        if (!goal.canUse()) {
+            helper.fail("Ungrouped ranged recruit goal rejected a valid local attack target");
+            return;
+        }
+        goal.tick();
+        List<Arrow> bolts = helper.getLevel().getEntitiesOfClass(
+                Arrow.class, shooter.getBoundingBox().inflate(8.0D), arrow -> arrow.getOwner() == shooter);
+        if (bolts.size() != 1 || !bolts.getFirst().getWeaponItem().is(ModItems.DC15_BLASTER.get())) {
+            helper.fail("Ungrouped ranged recruit goal did not fire one weapon-tagged bolt");
             return;
         }
         helper.succeed();
@@ -909,7 +978,10 @@ public final class ModGameTests {
 
         KingdomBaseBlueprint barracks = GameplayDataManager.snapshot()
                 .blueprint("galacticwars:barracks").orElseThrow();
-        BlockPos barracksOrigin = hallPos.offset(8, 0, 4);
+        // Keep multi-block projects above this test's horizontal cell. GameTests sharing the
+        // gameplay environment run in parallel, so building beyond the tiny empty template in X/Z
+        // can collide with a neighboring test and produce a nondeterministic blocked placement.
+        BlockPos barracksOrigin = hallPos.offset(0, 16, 0);
         BuildProject barracksProject = data.startBuildProject(
                 owner.getUUID(), barracks, helper.getLevel().dimension().identifier().toString(),
                 barracksOrigin, 0).orElseThrow();
@@ -961,7 +1033,7 @@ public final class ModGameTests {
                 .blueprint("galacticwars:supply_depot").orElseThrow();
         BuildProject supply_depotProject = fullyProgressProject(
                 data, owner.getUUID(), supply_depot,
-                helper.getLevel().dimension().identifier().toString(), hallPos.offset(16, 0, 4));
+                helper.getLevel().dimension().identifier().toString(), hallPos.offset(0, 32, 0));
         if (!data.completeBuildProject(owner.getUUID(), supply_depotProject, supply_depot)) {
             helper.fail("Courier supply_depot reward could not be applied");
         }

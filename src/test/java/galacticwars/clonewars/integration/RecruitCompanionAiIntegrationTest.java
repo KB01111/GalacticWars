@@ -30,8 +30,7 @@ public final class RecruitCompanionAiIntegrationTest {
         assertNotContains(entity, "new RecruitCompanionGoal", "competing companion goal");
         assertNotContains(entity, "new RecruitMoveToCommandGoal", "competing move goal");
         assertNotContains(entity, "FollowOwnerGoal", "vanilla dog-like follow goal");
-        assertTrue(count(entity,
-                        "!GalacticRecruitEntity.this.hasAuthoritativeArmyGroup() && super.canUse()") >= 2,
+        assertTrue(count(entity, "!GalacticRecruitEntity.this.hasAuthoritativeArmyGroup()") >= 4,
                 "grouped melee and random-stroll goals are disabled");
     }
 

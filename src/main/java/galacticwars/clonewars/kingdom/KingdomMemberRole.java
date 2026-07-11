@@ -14,6 +14,14 @@ public enum KingdomMemberRole {
     }
 
     public static KingdomMemberRole byId(String id) {
-        return valueOf(id.trim().toUpperCase(Locale.ROOT));
+        if (id != null) {
+            String normalized = id.trim().toLowerCase(Locale.ROOT);
+            for (KingdomMemberRole role : values()) {
+                if (role.id().equals(normalized)) {
+                    return role;
+                }
+            }
+        }
+        return MEMBER;
     }
 }

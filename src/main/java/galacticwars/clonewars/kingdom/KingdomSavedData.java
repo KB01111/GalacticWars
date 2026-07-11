@@ -54,7 +54,7 @@ public final class KingdomSavedData extends SavedData {
     private final Map<UUID, UUID> kingdomIdsBySettlement = new LinkedHashMap<>();
     private final Map<UUID, UUID> kingdomIdsByRecruit = new LinkedHashMap<>();
     private final Map<UUID, UUID> kingdomIdsByArmyGroup = new LinkedHashMap<>();
-    private final Map<ClaimKey, UUID> claimIdsByChunk = new LinkedHashMap<>();
+    private final Map<ClaimKey, KingdomClaim> claimsByChunk = new LinkedHashMap<>();
     private final LinkedHashSet<UUID> inactiveHallOwners = new LinkedHashSet<>();
     private final Map<UUID, ArmyGroupRecord> armyGroupsById = new LinkedHashMap<>();
     private final Map<DiplomacyKey, KingdomDiplomacy> diplomacyByPair = new LinkedHashMap<>();
@@ -1158,14 +1158,7 @@ public final class KingdomSavedData extends SavedData {
     }
 
     public Optional<KingdomClaim> claimAt(String dimensionId, net.minecraft.world.level.ChunkPos chunk) {
-        UUID claimId = claimIdsByChunk.get(new ClaimKey(dimensionId, chunk.x(), chunk.z()));
-        if (claimId == null) {
-            return Optional.empty();
-        }
-        return kingdomsById.values().stream()
-                .flatMap(kingdom -> kingdom.claims().stream())
-                .filter(claim -> claim.id().equals(claimId))
-                .findFirst();
+        return Optional.ofNullable(claimsByChunk.get(new ClaimKey(dimensionId, chunk.x(), chunk.z())));
     }
 
     public boolean expandClaim(UUID actorId, UUID claimId, String dimensionId, net.minecraft.world.level.ChunkPos chunk) {
@@ -1194,7 +1187,7 @@ public final class KingdomSavedData extends SavedData {
         }
         KingdomClaim claim = KingdomClaim.outpost(kingdom.id(), outpost);
         boolean overlap = claim.chunks().stream().anyMatch(chunk ->
-                claimIdsByChunk.containsKey(new ClaimKey(claim.dimensionId(), chunk.x(), chunk.z())));
+                claimsByChunk.containsKey(new ClaimKey(claim.dimensionId(), chunk.x(), chunk.z())));
         if (overlap) {
             return Optional.empty();
         }
@@ -1345,7 +1338,7 @@ public final class KingdomSavedData extends SavedData {
             settlement.recruitIds().forEach(recruitId -> kingdomIdsByRecruit.put(recruitId, kingdom.id()));
         });
         kingdom.claims().forEach(claim -> claim.chunks().forEach(chunk ->
-                claimIdsByChunk.put(new ClaimKey(claim.dimensionId(), chunk.x(), chunk.z()), claim.id())));
+                claimsByChunk.put(new ClaimKey(claim.dimensionId(), chunk.x(), chunk.z()), claim)));
     }
 
     private void storeKingdom(KingdomRecord kingdom) {
@@ -1357,7 +1350,7 @@ public final class KingdomSavedData extends SavedData {
                 settlement.recruitIds().forEach(recruitId -> kingdomIdsByRecruit.remove(recruitId, previous.id()));
             });
             previous.claims().forEach(claim -> claim.chunks().forEach(chunk ->
-                    claimIdsByChunk.remove(new ClaimKey(claim.dimensionId(), chunk.x(), chunk.z()), claim.id())));
+                    claimsByChunk.remove(new ClaimKey(claim.dimensionId(), chunk.x(), chunk.z()), claim)));
         }
         indexKingdom(kingdom);
     }

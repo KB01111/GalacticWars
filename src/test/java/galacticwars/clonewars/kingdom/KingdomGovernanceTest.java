@@ -16,6 +16,8 @@ public final class KingdomGovernanceTest {
         siegesRequireMilitaryAdvantageToProgress();
         siegesRejectNullParticipantLists();
         npcRosterMigratesWorkersAndSoldiers();
+        malformedMemberRolesUseSafeFallback();
+        permissionSetsArePrecomputedAndImmutable();
         System.out.println("KingdomGovernanceTest passed");
     }
 
@@ -84,6 +86,19 @@ public final class KingdomGovernanceTest {
         assertEquals(10, captured.captureProgress(), "bounded capture progress");
     }
 
+    private static void malformedMemberRolesUseSafeFallback() {
+        assertEquals(KingdomMemberRole.MEMBER, KingdomMemberRole.byId(null), "null role fallback");
+        assertEquals(KingdomMemberRole.MEMBER, KingdomMemberRole.byId("future_role"),
+                "unknown role fallback");
+    }
+
+    private static void permissionSetsArePrecomputedAndImmutable() {
+        var first = KingdomPermissionPolicy.permissions(KingdomMemberRole.OFFICER);
+        var second = KingdomPermissionPolicy.permissions(KingdomMemberRole.OFFICER);
+        assertTrue(first == second, "precomputed permission set");
+        assertThrows(() -> first.add(KingdomPermission.RECRUIT), "immutable permission set");
+    }
+
     private static void siegesRejectNullParticipantLists() {
         assertThrows(() -> new KingdomSiege(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
@@ -97,7 +112,7 @@ public final class KingdomGovernanceTest {
         try {
             action.run();
             throw new AssertionError(label + " did not throw");
-        } catch (NullPointerException expected) {
+        } catch (RuntimeException expected) {
             // Expected validation failure.
         }
     }

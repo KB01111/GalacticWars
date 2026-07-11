@@ -70,6 +70,6 @@ public final class KingdomClaimEvents {
         }
         return data.kingdom(claim.orElseThrow().kingdomId())
                 .map(kingdom -> kingdom.allows(player.getUUID(), permission))
-                .orElse(true);
+                .orElse(false);
     }
 }

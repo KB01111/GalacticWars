@@ -2493,14 +2493,8 @@ public class GalacticRecruitEntity extends TamableAnimal implements GeoEntity {
             return true;
         }
         if (!player.hasInfiniteMaterials() && RecruitmentPaymentService.creditCount(player) < cost) {
-            kingdomData.releaseWorksite(player.getUUID(), this.getUUID());
-            kingdomData.setNpcServiceBranch(player.getUUID(), this.getUUID(), NpcServiceBranch.MILITARY);
-            if (previousArmyGroupId != null) {
-                kingdomData.addRecruitToArmy(player.getUUID(), previousArmyGroupId, this.getUUID());
-            }
-            if (previousProfession != null) {
-                kingdomData.reserveWorksite(player.getUUID(), this.getUUID(), previousProfession);
-            }
+            this.restorePreviousAssignment(
+                    kingdomData, player.getUUID(), previousProfession, previousArmyGroupId);
             sendFeedback(player, Component.translatable(
                     "message.galacticwars.recruit.profession.need_credits",
                     cost,
@@ -2508,14 +2502,8 @@ public class GalacticRecruitEntity extends TamableAnimal implements GeoEntity {
             return false;
         }
         if (!RecruitmentPaymentService.withdrawCredits(player, cost)) {
-            kingdomData.releaseWorksite(player.getUUID(), this.getUUID());
-            kingdomData.setNpcServiceBranch(player.getUUID(), this.getUUID(), NpcServiceBranch.MILITARY);
-            if (previousArmyGroupId != null) {
-                kingdomData.addRecruitToArmy(player.getUUID(), previousArmyGroupId, this.getUUID());
-            }
-            if (previousProfession != null) {
-                kingdomData.reserveWorksite(player.getUUID(), this.getUUID(), previousProfession);
-            }
+            this.restorePreviousAssignment(
+                    kingdomData, player.getUUID(), previousProfession, previousArmyGroupId);
             sendFeedback(player, Component.translatable(
                     "message.galacticwars.recruit.payment_changed"));
             return false;
@@ -2531,6 +2519,23 @@ public class GalacticRecruitEntity extends TamableAnimal implements GeoEntity {
                 Component.translatable(profession.translationKey()),
                 cost));
         return true;
+    }
+
+    private void restorePreviousAssignment(
+            KingdomSavedData kingdomData,
+            UUID actorId,
+            @Nullable WorkerProfession previousProfession,
+            @Nullable UUID previousArmyGroupId
+    ) {
+        kingdomData.releaseWorksite(actorId, this.getUUID());
+        if (previousProfession != null) {
+            kingdomData.reserveWorksite(actorId, this.getUUID(), previousProfession);
+            return;
+        }
+        kingdomData.setNpcServiceBranch(actorId, this.getUUID(), NpcServiceBranch.MILITARY);
+        if (previousArmyGroupId != null) {
+            kingdomData.addRecruitToArmy(actorId, previousArmyGroupId, this.getUUID());
+        }
     }
 
     private boolean cycleSelectedBlueprint(ServerPlayer player) {

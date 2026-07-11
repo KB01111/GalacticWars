@@ -74,6 +74,7 @@ public final class WorkerRecruitGuiIntegrationTest {
         assertContains(entity, "tryReturnToSoldier", "safe worker contract exit");
         assertContains(entity, "tryCancelBuilding", "safe building cancellation");
         assertContains(entity, "workerInventoryIsEmpty", "carried-item contract exit guard");
+        assertContains(entity, "restorePreviousAssignment", "atomic profession rollback helper");
     }
 
     private static void screenRendersProfessionButtons() throws IOException {

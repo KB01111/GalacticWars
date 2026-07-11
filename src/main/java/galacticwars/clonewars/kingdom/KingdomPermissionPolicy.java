@@ -4,8 +4,8 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public final class KingdomPermissionPolicy {
-    private static final Set<KingdomPermission> OWNER = EnumSet.allOf(KingdomPermission.class);
-    private static final Set<KingdomPermission> OFFICER = EnumSet.of(
+    private static final Set<KingdomPermission> OWNER = Set.copyOf(EnumSet.allOf(KingdomPermission.class));
+    private static final Set<KingdomPermission> OFFICER = Set.copyOf(EnumSet.of(
             KingdomPermission.MANAGE_MEMBERS,
             KingdomPermission.MANAGE_DIPLOMACY,
             KingdomPermission.MANAGE_CLAIMS,
@@ -14,19 +14,19 @@ public final class KingdomPermissionPolicy {
             KingdomPermission.TRAVEL,
             KingdomPermission.USE_STORAGE,
             KingdomPermission.MANAGE_WORKSITES,
-            KingdomPermission.RECRUIT);
-    private static final Set<KingdomPermission> BUILDER = EnumSet.of(
+            KingdomPermission.RECRUIT));
+    private static final Set<KingdomPermission> BUILDER = Set.copyOf(EnumSet.of(
             KingdomPermission.BUILD,
             KingdomPermission.TRAVEL,
             KingdomPermission.USE_STORAGE,
-            KingdomPermission.MANAGE_WORKSITES);
-    private static final Set<KingdomPermission> QUARTERMASTER = EnumSet.of(
+            KingdomPermission.MANAGE_WORKSITES));
+    private static final Set<KingdomPermission> QUARTERMASTER = Set.copyOf(EnumSet.of(
             KingdomPermission.USE_STORAGE,
             KingdomPermission.TRAVEL,
             KingdomPermission.MANAGE_WORKSITES,
-            KingdomPermission.RECRUIT);
-    private static final Set<KingdomPermission> MEMBER = EnumSet.of(
-            KingdomPermission.USE_STORAGE, KingdomPermission.TRAVEL);
+            KingdomPermission.RECRUIT));
+    private static final Set<KingdomPermission> MEMBER = Set.copyOf(EnumSet.of(
+            KingdomPermission.USE_STORAGE, KingdomPermission.TRAVEL));
 
     private KingdomPermissionPolicy() {
     }
@@ -37,11 +37,11 @@ public final class KingdomPermissionPolicy {
 
     public static Set<KingdomPermission> permissions(KingdomMemberRole role) {
         return switch (role) {
-            case OWNER -> Set.copyOf(OWNER);
-            case OFFICER -> Set.copyOf(OFFICER);
-            case BUILDER -> Set.copyOf(BUILDER);
-            case QUARTERMASTER -> Set.copyOf(QUARTERMASTER);
-            case MEMBER -> Set.copyOf(MEMBER);
+            case OWNER -> OWNER;
+            case OFFICER -> OFFICER;
+            case BUILDER -> BUILDER;
+            case QUARTERMASTER -> QUARTERMASTER;
+            case MEMBER -> MEMBER;
         };
     }
 }

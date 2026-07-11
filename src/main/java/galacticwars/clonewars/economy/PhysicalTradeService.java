@@ -43,7 +43,13 @@ public final class PhysicalTradeService {
         if (!state.unlocks().contains(trade.requiredUnlock())) {
             return TradeResult.rejected("trade_locked");
         }
-        Item resultItem = BuiltInRegistries.ITEM.getValue(Identifier.parse(trade.itemId()));
+        Identifier resultId;
+        try {
+            resultId = Identifier.parse(trade.itemId());
+        } catch (IllegalArgumentException exception) {
+            return TradeResult.rejected("unknown_trade_item");
+        }
+        Item resultItem = BuiltInRegistries.ITEM.getValue(resultId);
         if (resultItem == null || !trade.itemId().equals(BuiltInRegistries.ITEM.getKey(resultItem).toString())) {
             return TradeResult.rejected("unknown_trade_item");
         }

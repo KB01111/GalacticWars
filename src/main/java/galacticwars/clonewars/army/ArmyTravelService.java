@@ -32,6 +32,7 @@ public final class ArmyTravelService {
         ArmyGroupRecord group = kingdom == null || !kingdom.allows(owner.getUUID(), KingdomPermission.COMMAND_ARMY)
                 ? null
                 : data.armyGroupsForKingdom(kingdom.id()).stream()
+                        .filter(candidate -> candidate.ownerId().equals(owner.getUUID()))
                         .filter(candidate -> eligible(owner, candidate)).findFirst().orElse(null);
         if (group == null || !eligible(owner, group)) {
             return TravelPlan.noop(data);

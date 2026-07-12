@@ -9,6 +9,7 @@ public final class AtomicTravelReservationTest {
     public static void main(String[] args) {
         duplicateReserveAndCommitAreIdempotent();
         failedActionsRemainRetryable();
+        failedCommitKeepsRollbackAvailable();
         terminalTransitionsCannotReverse();
         System.out.println("AtomicTravelReservationTest passed");
     }
@@ -59,6 +60,20 @@ public final class AtomicTravelReservationTest {
         assertTrue(rolledBack.rollback(() -> true), "rollback");
         assertFalse(rolledBack.commit(() -> {}), "commit after rollback");
         assertFalse(rolledBack.reserve(() -> true), "reserve after rollback");
+    }
+
+    private static void failedCommitKeepsRollbackAvailable() {
+        AtomicTravelReservation reservation = new AtomicTravelReservation();
+        assertTrue(reservation.reserve(() -> true), "reserve for failed commit");
+        try {
+            reservation.commit(() -> {
+                throw new IllegalStateException("commit action failed");
+            });
+            throw new AssertionError("commit action should have thrown");
+        } catch (IllegalStateException expected) {
+            // Expected: the reservation remains retryable when the side effect fails.
+        }
+        assertTrue(reservation.rollback(() -> true), "rollback after failed commit");
     }
 
     private static void assertTrue(boolean value, String label) {

@@ -203,16 +203,16 @@ public final class ArmyTravelService {
             if (transferred == null) {
                 return true;
             }
-            if (!reservation.reserved()) {
-                return false;
-            }
-            ArmyGroupSimulation previous = original.simulation();
-            ArmyGroupSimulation restoredSimulation = new ArmyGroupSimulation(
-                    previous.lifecycleState(), previous.anchor(), Math.max(previous.lastSimulationGameTime(), gameTime),
-                    transferred.simulation().revision() + 1L, previous.snapshotGeneration(), previous.blockedReason());
-            ArmyGroupRecord restored = original.withSimulation(restoredSimulation, original.snapshots());
-            return reservation.rollback(
-                    () -> data.replaceArmyGroup(restored, transferred.simulation().revision()));
+            return reservation.rollback(() -> {
+                ArmyGroupSimulation previous = original.simulation();
+                ArmyGroupSimulation restoredSimulation = new ArmyGroupSimulation(
+                        previous.lifecycleState(), previous.anchor(),
+                        Math.max(previous.lastSimulationGameTime(), gameTime),
+                        transferred.simulation().revision() + 1L, previous.snapshotGeneration(),
+                        previous.blockedReason());
+                ArmyGroupRecord restored = original.withSimulation(restoredSimulation, original.snapshots());
+                return data.replaceArmyGroup(restored, transferred.simulation().revision());
+            });
         }
     }
 }

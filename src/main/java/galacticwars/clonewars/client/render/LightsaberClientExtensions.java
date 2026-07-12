@@ -44,6 +44,6 @@ public final class LightsaberClientExtensions implements IClientItemExtensions {
         poseStack.translate(direction * 0.025F * ready, idle, -0.045F * ready);
         poseStack.mulPose(Axis.ZP.rotationDegrees(direction * (-10.0F * ready - 18.0F * slash)));
         poseStack.mulPose(Axis.XP.rotationDegrees(-5.0F * ready - 12.0F * slash));
-        return false;
+        return true;
     }
 }

@@ -32,7 +32,8 @@ def front_face(texture: Image.Image, uv: list[int] | dict, size: list[float]) ->
 
 def render_model(model_path: Path, texture_path: Path, label: str) -> Image.Image:
     model = json.loads(model_path.read_text(encoding="utf-8"))
-    texture = Image.open(texture_path).convert("RGBA")
+    with Image.open(texture_path) as source:
+        texture = source.convert("RGBA")
     cubes = []
     for bone in model["minecraft:geometry"][0]["bones"]:
         for cube in bone.get("cubes", []):
@@ -82,7 +83,8 @@ def texture_sheet(entries: list[tuple[Path, str]], columns: int, output: Path) -
     cell_height = 142
     previews = []
     for path, label in entries:
-        texture = Image.open(path).convert("RGBA")
+        with Image.open(path) as source:
+            texture = source.convert("RGBA")
         scale = min(112 / texture.width, 104 / texture.height)
         rendered = texture.resize(
             (max(1, round(texture.width * scale)), max(1, round(texture.height * scale))),

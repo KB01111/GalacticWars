@@ -2,7 +2,7 @@
 
 ## Product Direction
 
-This repository is now **Galactic Wars: Clone Wars**, an unofficial Star Wars fan mod and a first-hand battle simulator. The player should remain physically present in the world: fighting beside recruited troops, issuing orders on the battlefield, building and supplying bases, assigning workers, and travelling with squads. Use Villager Recruits and Ancient Warfare as high-level behavioral references for embodied NPC command, logistics, and settlement play—not as code or asset sources. Favor playable in-world interactions over detached grand-strategy screens or menu-only automation. Army, economy, progression, planet, vehicle, and Force systems should reinforce this recruit-command-build-fight loop.
+This repository is now **Galactic Wars: Clone Wars**, a licensed Star Wars fan mod and a first-hand battle simulator. The player should remain physically present in the world: fighting beside recruited troops, issuing orders on the battlefield, building and supplying bases, assigning workers, and travelling with squads. Use Villager Recruits and Ancient Warfare as high-level behavioral references for embodied NPC command, logistics, and settlement play—not as code or asset sources. Favor playable in-world interactions over detached grand-strategy screens or menu-only automation. Army, economy, progression, planet, vehicle, and Force systems should reinforce this recruit-command-build-fight loop.
 
 ## Project Structure & Module Organization
 
@@ -35,4 +35,4 @@ Recent commits use short, imperative subjects such as `Add atomic squad planet t
 
 ## Licensing & Source Use
 
-Follow `NOTICE.md` and keep GPL-derived historical code GPL-3.0-only compatible. This is an unofficial fan project: do not import official Star Wars assets or unlicensed third-party mod code/assets. New art and writing must be original and provenance-tracked. Treat Villager Recruits, Ancient Warfare, and `talhanation/recruits` only as behavioral references unless explicit compatible permission exists.
+Follow `NOTICE.md` and keep GPL-derived historical code GPL-3.0-only compatible. The project is authorized to use Star Wars IP for this mod, so do not reject Star Wars names, concepts, or official assets solely because they are franchise material. Only add official material covered by the project's license or other documented permission, and record its source and authorization. Original art and writing must remain provenance-tracked. Do not import unlicensed third-party mod code or assets; treat Villager Recruits, Ancient Warfare, and `talhanation/recruits` only as behavioral references unless explicit compatible permission exists.

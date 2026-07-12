@@ -26,4 +26,8 @@ public class Config {
             .define("allowForcePvp", true);
 
     static final ModConfigSpec SPEC = BUILDER.build();
+
+    public static void save() {
+        SPEC.save();
+    }
 }

@@ -8,8 +8,9 @@ This is a clean-break conversion. Existing KingdomWars-Middle-Earth worlds and r
 
 1. Install the matching Minecraft 26.2 and NeoForge 26.2 client or dedicated server.
 2. Place the Galactic Wars JAR and a compatible GeckoLib JAR in the instance's `mods` folder.
-3. Remove earlier KingdomWars-Middle-Earth builds from that folder and create a fresh world.
-4. Keep the same mod/config versions on every multiplayer client and the server.
+3. Install YACL 3.9.5 or newer compatible 26.2 build on clients for the in-game configuration screen. Dedicated servers do not require YACL.
+4. Remove earlier KingdomWars-Middle-Earth builds from that folder and create a fresh world.
+5. Keep the same Galactic Wars and GeckoLib versions on every multiplayer client and the server.
 
 ## Requirements
 
@@ -17,6 +18,7 @@ This is a clean-break conversion. Existing KingdomWars-Middle-Earth worlds and r
 - NeoForge 26.2.0.7-beta or newer compatible 26.2 build
 - Java 25
 - GeckoLib 5.5.3 or newer compatible release
+- YACL 3.9.5 or newer compatible 26.2 release (client only)
 
 ## Controls
 

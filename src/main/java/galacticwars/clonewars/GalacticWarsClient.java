@@ -4,6 +4,7 @@ import galacticwars.clonewars.client.gui.RecruitCommandScreen;
 import galacticwars.clonewars.client.gui.CommandCenterNavigationScreen;
 import galacticwars.clonewars.client.gui.FactionSelectionScreen;
 import galacticwars.clonewars.client.gui.BlasterHeatHud;
+import galacticwars.clonewars.client.gui.GalacticWarsConfigScreen;
 import galacticwars.clonewars.client.render.GalacticRecruitRenderer;
 import galacticwars.clonewars.client.render.LightsaberClientExtensions;
 import galacticwars.clonewars.registry.ModEntityTypes;
@@ -20,7 +21,6 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
@@ -30,10 +30,9 @@ import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsE
 @EventBusSubscriber(modid = GalacticWars.MODID, value = Dist.CLIENT)
 public class GalacticWarsClient {
     public GalacticWarsClient(ModContainer container) {
-        // Allows NeoForge to create a config screen for this mod's configs.
-        // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
-        // Do not forget to add translations for your config options to the en_us.json file.
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        container.registerExtensionPoint(
+                IConfigScreenFactory.class,
+                (ignored, parent) -> GalacticWarsConfigScreen.create(parent));
     }
 
     @SubscribeEvent

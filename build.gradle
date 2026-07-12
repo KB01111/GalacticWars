@@ -34,6 +34,13 @@ repositories {
             includeGroup("com.geckolib")
         }
     }
+    maven {
+        name = "Xander Maven"
+        url = "https://maven.isxander.dev/releases"
+        content {
+            includeGroup("dev.isxander")
+        }
+    }
 }
 
 base {
@@ -120,6 +127,14 @@ configurations {
 
 dependencies {
     implementation "com.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+    // YACL supplies the client config screen. It remains an external mod dependency,
+    // so it is compile-only for published consumers and present in local dev runs.
+    compileOnly("dev.isxander:yet-another-config-lib:${yacl_version}") {
+        transitive = false
+    }
+    localRuntime("dev.isxander:yet-another-config-lib:${yacl_version}") {
+        transitive = false
+    }
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
@@ -152,6 +167,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             minecraft_version_range: minecraft_version_range,
             neo_version            : neo_version,
             geckolib_version       : geckolib_version,
+            yacl_version           : yacl_version,
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,

@@ -21,3 +21,5 @@ Legacy texture inputs from the prior conversion must not be distributed unless t
 ## Third-Party Runtime Libraries
 
 GeckoLib is used as an MIT-licensed runtime dependency for animated Galactic Wars entities and models. Keep GeckoLib code and assets as an external dependency; do not vendor its source into this repository.
+
+YetAnotherConfigLib (YACL) is used as an LGPL-3.0-or-later client dependency for the in-game configuration screen. It remains an external dependency and is not bundled into the Galactic Wars JAR.

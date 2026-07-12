@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.function.IntUnaryOperator;
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.data.GameplayDataManager;
+import galacticwars.clonewars.data.SavedDataSchemaPolicy;
 import galacticwars.clonewars.army.ArmyFormation;
 import galacticwars.clonewars.army.ArmyGroupOrder;
 import galacticwars.clonewars.army.ArmyGroupRecord;
@@ -29,7 +30,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
 public final class KingdomSavedData extends SavedData {
-    public static final int CURRENT_SCHEMA_VERSION = 5;
+    public static final int CURRENT_SCHEMA_VERSION = 6;
     public static final Codec<KingdomSavedData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.INT.optionalFieldOf("schema_version", CURRENT_SCHEMA_VERSION).forGetter(KingdomSavedData::schemaVersion),
             KingdomCodecs.KINGDOM_RECORD.listOf().optionalFieldOf("kingdoms", List.of()).forGetter(KingdomSavedData::kingdoms),
@@ -72,7 +73,8 @@ public final class KingdomSavedData extends SavedData {
             List<KingdomDiplomacy> diplomacy,
             List<KingdomSiege> sieges
     ) {
-        this.schemaVersion = Math.max(CURRENT_SCHEMA_VERSION, schemaVersion);
+        this.schemaVersion = SavedDataSchemaPolicy.migrate(
+                schemaVersion, CURRENT_SCHEMA_VERSION, "kingdom");
         for (KingdomRecord kingdom : kingdoms) {
             if (!this.kingdomsByOwner.containsKey(kingdom.ownerId())
                     && !this.kingdomsById.containsKey(kingdom.id())

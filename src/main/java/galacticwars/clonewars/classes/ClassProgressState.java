@@ -23,7 +23,9 @@ public record ClassProgressState(
             throw new IllegalArgumentException("Unsupported class progress schema " + schemaVersion);
         }
         classId = classId == null ? "" : classId.trim().toLowerCase();
-        if (rank < 0 || rank > MAX_RANK || (classId.isEmpty() && rank != 0)) {
+        if (rank < 0 || rank > MAX_RANK || classId.isEmpty() != (rank == 0)) {
+            throw new IllegalArgumentException("rank does not match class assignment");
+        }
             throw new IllegalArgumentException("rank does not match class assignment");
         }
         if (experience < 0L) {

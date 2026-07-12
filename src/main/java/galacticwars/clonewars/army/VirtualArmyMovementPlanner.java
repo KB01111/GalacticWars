@@ -118,27 +118,8 @@ public final class VirtualArmyMovementPlanner {
     }
 
     private static ArmyGroupRecord advancePatrolWaypoint(ArmyGroupRecord group, ArmyLocation currentLocation) {
-        ArmyLocation activeWaypoint = group.order().targetPosition().orElse(group.patrolRoute().getFirst());
-        int activeIndex = group.patrolRoute().indexOf(activeWaypoint);
-        if (activeIndex < 0) {
-            activeIndex = 0;
-        }
-        ArmyPatrolRoute route = new ArmyPatrolRoute(
-                group.patrolRoute().stream().map(ArmyLocation::blockPosition).toList(),
-                ArmyPatrolMode.LOOP,
-                2,
-                0);
-        ArmyPatrolDecision decision = ArmyPatrolPlanner.advance(
-                route,
-                new ArmyPatrolState(activeIndex, 1, 0),
-                currentLocation.blockPosition());
-        ArmyLocation nextWaypoint = group.patrolRoute().get(decision.nextState().waypointIndex());
-        ArmyGroupOrder nextOrder = new ArmyGroupOrder(
-                ArmyCommandType.PATROL_ROUTE,
-                Optional.of(nextWaypoint),
-                Optional.empty(),
-                group.order().formation(),
-                group.order().spacing());
-        return group.withOrder(nextOrder);
+        ArmyGroupOrder nextOrder = ArmyPatrolOrderPlanner.nextOrder(
+                group, currentLocation.blockPosition());
+        return nextOrder.equals(group.order()) ? group : group.withOrder(nextOrder);
     }
 }

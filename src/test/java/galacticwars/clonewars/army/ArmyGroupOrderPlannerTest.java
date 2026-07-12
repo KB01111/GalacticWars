@@ -66,11 +66,14 @@ public final class ArmyGroupOrderPlannerTest {
         List<ArmyGroupOrderAssignment> assignments = ArmyGroupOrderPlanner.plan(
                 group, ArmyFormation.LINE, 2);
 
+        assertEquals(3, assignments.size(), "patrol assignment count");
         assertAssignment(assignments.get(0), FIRST_RECRUIT_ID, ArmyCommandType.MOVE_TO_POSITION,
                 new ArmyPosition(18, 64, 20), new FormationSlot(0, -2, 0), "patrol first");
         assertAssignment(assignments.get(1), SECOND_RECRUIT_ID, ArmyCommandType.MOVE_TO_POSITION,
                 new ArmyPosition(20, 64, 20), new FormationSlot(1, 0, 0), "patrol second");
-        assertEquals("move_group_order", assignments.getFirst().reasonCode(), "patrol movement reason");
+        assertAssignment(assignments.get(2), THIRD_RECRUIT_ID, ArmyCommandType.MOVE_TO_POSITION,
+                new ArmyPosition(22, 64, 20), new FormationSlot(2, 2, 0), "patrol third");
+        assertEquals("move_group_order", assignments.get(0).reasonCode(), "patrol movement reason");
     }
 
     private static void propagatesDirectGroupOrders() {

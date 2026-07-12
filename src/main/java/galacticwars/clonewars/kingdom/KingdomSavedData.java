@@ -510,7 +510,7 @@ public final class KingdomSavedData extends SavedData {
     public boolean addRecruitToArmy(UUID ownerId, UUID recruitId) {
         KingdomRecord kingdom = kingdomsByOwner.get(ownerId);
         if (kingdom == null
-                || !kingdomIdsByRecruit.getOrDefault(recruitId, new UUID(0L, 0L)).equals(kingdom.id())
+                || !kingdom.id().equals(kingdomIdsByRecruit.get(recruitId))
                 || kingdom.npc(recruitId).map(KingdomNpcRecord::serviceBranch)
                         .filter(NpcServiceBranch.MILITARY::equals).isEmpty()) {
             return false;
@@ -523,7 +523,7 @@ public final class KingdomSavedData extends SavedData {
                 .filter(candidate -> candidate.ownerId().equals(ownerId))
                 .filter(candidate -> candidate.simulation().lifecycleState() == ArmyGroupLifecycleState.LIVE)
                 .min(Comparator.comparingInt((ArmyGroupRecord candidate) -> candidate.memberIds().size())
-                        .thenComparing(candidate -> candidate.id().toString()))
+                        .thenComparing(ArmyGroupRecord::id))
                 .orElse(null);
         if (group == null) {
             return false;
@@ -1076,7 +1076,7 @@ public final class KingdomSavedData extends SavedData {
         if (group == null || kingdom == null || !group.kingdomId().equals(kingdom.id())
                 || !kingdom.allows(actorId, KingdomPermission.COMMAND_ARMY)
                 || group.simulation().lifecycleState() != ArmyGroupLifecycleState.LIVE
-                || !kingdomIdsByRecruit.getOrDefault(recruitId, new UUID(0L, 0L)).equals(kingdom.id())
+                || !kingdom.id().equals(kingdomIdsByRecruit.get(recruitId))
                 || kingdom.npc(recruitId).map(KingdomNpcRecord::serviceBranch)
                         .filter(NpcServiceBranch.MILITARY::equals).isEmpty()
                 || armyGroupForRecruit(recruitId).isPresent()) {

@@ -109,40 +109,18 @@ public final class ArmyRecruitRuntimeController {
                         waypoint -> !waypoint.dimensionId().equals(level.dimension().identifier().toString()))) {
             return group;
         }
-        ArmyLocation activeWaypoint = group.order().targetPosition().orElse(null);
-        int activeIndex = group.patrolRoute().indexOf(activeWaypoint);
-        if (activeIndex < 0) {
-            return replacePatrolTarget(data, group, group.patrolRoute().getFirst());
-        }
-        ArmyPatrolRoute route = new ArmyPatrolRoute(
-                group.patrolRoute().stream().map(ArmyLocation::blockPosition).toList(),
-                ArmyPatrolMode.LOOP,
-                2,
-                0);
-        ArmyPatrolDecision decision = ArmyPatrolPlanner.advance(
-                route,
-                new ArmyPatrolState(activeIndex, 1, 0),
-                position(recruit));
-        if (decision.nextState().waypointIndex() == activeIndex) {
+        ArmyGroupOrder nextOrder = ArmyPatrolOrderPlanner.nextOrder(group, position(recruit));
+        if (nextOrder.equals(group.order())) {
             return group;
         }
-        return replacePatrolTarget(
-                data,
-                group,
-                group.patrolRoute().get(decision.nextState().waypointIndex()));
+        return replacePatrolOrder(data, group, nextOrder);
     }
 
-    private static ArmyGroupRecord replacePatrolTarget(
+    private static ArmyGroupRecord replacePatrolOrder(
             KingdomSavedData data,
             ArmyGroupRecord group,
-            ArmyLocation waypoint
+            ArmyGroupOrder nextOrder
     ) {
-        ArmyGroupOrder nextOrder = new ArmyGroupOrder(
-                ArmyCommandType.PATROL_ROUTE,
-                Optional.of(waypoint),
-                Optional.empty(),
-                group.order().formation(),
-                group.order().spacing());
         ArmyGroupRecord updated = group.withOrder(nextOrder);
         if (data.replaceArmyGroup(updated, group.simulation().revision())) {
             return updated;

@@ -73,19 +73,38 @@ public record SettlementSupplyLedger(
         if (requestedQuantity <= 0 || physicalStock < 0 || leaseTicks <= 0) {
             return ReservationDecision.rejected("invalid_reservation", cleaned);
         }
+        Optional<SupplyReservation> existingReservation = cleaned.reservations.stream()
+                .filter(reservation -> reservation.demandId().equals(demandId))
+                .filter(reservation -> reservation.workerId().equals(workerId))
+                .filter(reservation -> reservation.active(gameTime))
+                .findFirst();
+        if (existingReservation.isPresent()) {
+            return ReservationDecision.accepted(existingReservation.orElseThrow(), cleaned);
+        }
+        LinkedHashMap<UUID, SupplyDemand> demandsById = new LinkedHashMap<>();
+        cleaned.demands.forEach(candidate -> demandsById.put(candidate.id(), candidate));
         int alreadyReserved = cleaned.reservations.stream()
                 .filter(reservation -> reservation.active(gameTime))
                 .filter(reservation -> reservation.endpoint().equals(endpoint))
-                .filter(reservation -> cleaned.demands.stream().anyMatch(candidate ->
-                        candidate.id().equals(reservation.demandId())
-                                && candidate.itemId().equals(demand.itemId())))
+                .filter(reservation -> Optional.ofNullable(demandsById.get(reservation.demandId()))
+                        .map(SupplyDemand::itemId).filter(demand.itemId()::equals).isPresent())
+                .mapToInt(SupplyReservation::quantity).sum();
+        int demandReserved = cleaned.reservations.stream()
+                .filter(reservation -> reservation.active(gameTime))
+                .filter(reservation -> reservation.demandId().equals(demandId))
                 .mapToInt(SupplyReservation::quantity).sum();
         int available = Math.max(0, physicalStock - alreadyReserved);
-        int quantity = Math.min(Math.min(requestedQuantity, demand.outstandingQuantity()), available);
+        int demandAvailable = Math.max(0, demand.outstandingQuantity() - demandReserved);
+        int quantity = Math.min(Math.min(requestedQuantity, demandAvailable), available);
         if (quantity == 0) {
             return ReservationDecision.rejected("physical_stock_unavailable", cleaned);
         }
-        UUID reservationId = UUID.nameUUIDFromBytes((demandId + ":" + workerId + ":" + cleaned.revision)
+        long generation = cleaned.reservations.stream()
+                .filter(reservation -> reservation.demandId().equals(demandId))
+                .filter(reservation -> reservation.workerId().equals(workerId))
+                .filter(reservation -> reservation.state() != SupplyReservation.State.ACTIVE)
+                .count();
+        UUID reservationId = UUID.nameUUIDFromBytes((demandId + ":" + workerId + ":" + generation)
                 .getBytes(StandardCharsets.UTF_8));
         SupplyReservation reservation = new SupplyReservation(
                 reservationId, demandId, workerId, endpoint, quantity,
@@ -95,13 +114,23 @@ public record SettlementSupplyLedger(
         return ReservationDecision.accepted(reservation, cleaned.copy(cleaned.demands, updated));
     }
 
-    public SettlementSupplyLedger complete(UUID reservationId, UUID workerId, int deliveredQuantity) {
+    public SettlementSupplyLedger complete(
+            UUID reservationId,
+            UUID workerId,
+            int deliveredQuantity,
+            long gameTime
+    ) {
         SupplyReservation reservation = reservation(reservationId)
                 .filter(candidate -> candidate.workerId().equals(workerId))
-                .filter(candidate -> candidate.state() == SupplyReservation.State.ACTIVE)
                 .orElseThrow(() -> new IllegalStateException("reservation_unavailable"));
         if (deliveredQuantity != reservation.quantity()) {
             throw new IllegalArgumentException("delivery must match the reserved quantity");
+        }
+        if (reservation.state() == SupplyReservation.State.COMPLETED) {
+            return this;
+        }
+        if (!reservation.active(gameTime)) {
+            throw new IllegalStateException("reservation_expired");
         }
         ArrayList<SupplyDemand> updatedDemands = new ArrayList<>(demands.size());
         for (SupplyDemand demand : demands) {

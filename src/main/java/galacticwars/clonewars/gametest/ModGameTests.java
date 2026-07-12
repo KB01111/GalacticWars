@@ -29,6 +29,10 @@ import galacticwars.clonewars.faction.FactionId;
 import galacticwars.clonewars.kingdom.BuildProject;
 import galacticwars.clonewars.kingdom.KingdomRecord;
 import galacticwars.clonewars.kingdom.KingdomClaim;
+import galacticwars.clonewars.kingdom.KingdomActionId;
+import galacticwars.clonewars.kingdom.KingdomGameplayAction;
+import galacticwars.clonewars.kingdom.KingdomGameplayResult;
+import galacticwars.clonewars.kingdom.KingdomGameplayRuntimeService;
 import galacticwars.clonewars.kingdom.KingdomMemberRole;
 import galacticwars.clonewars.kingdom.KingdomPermission;
 import galacticwars.clonewars.kingdom.KingdomRelation;
@@ -152,6 +156,7 @@ public final class ModGameTests {
         tests.put(id("overworld_faction_outpost_runtime"), ModGameTests::overworldFactionOutpostRuntime);
         tests.put(id("physical_trade_transaction"), ModGameTests::physicalTradeTransaction);
         tests.put(id("faction_selection_transaction"), ModGameTests::factionSelectionTransaction);
+        tests.put(id("progression_runtime_adapter"), ModGameTests::progressionRuntimeAdapter);
         tests.put(id("recruit_entity_contract"), ModGameTests::recruitEntityContract);
         tests.put(id("worker_tags_and_loot"), ModGameTests::workerTagsAndLoot);
         tests.put(id("recruit_contract_lifecycle"), ModGameTests::recruitContractLifecycle);
@@ -167,6 +172,27 @@ public final class ModGameTests {
         tests.put(id("planet_arrival_runtime"), ModGameTests::planetArrivalRuntime);
         tests.put(id("army_planet_transfer_transaction"), ModGameTests::armyPlanetTransferTransaction);
         return Map.copyOf(tests);
+    }
+
+    private static void progressionRuntimeAdapter(GameTestHelper helper) {
+        UUID playerId = UUID.randomUUID();
+        ProgressionSavedData progression = ProgressionSavedData.get(helper.getLevel());
+        KingdomGameplayAction pledge = new KingdomGameplayAction(
+                KingdomActionId.of("pledge", playerId),
+                playerId,
+                ProgressionEventType.FACTION_PLEDGED,
+                "galacticwars:republic",
+                1);
+        KingdomGameplayResult first = KingdomGameplayRuntimeService.applyProgression(progression, pledge);
+        KingdomGameplayResult retry = KingdomGameplayRuntimeService.applyProgression(progression, pledge);
+        if (!first.accepted() || !first.changed()
+                || !retry.accepted() || retry.changed()
+                || !retry.reason().equals("duplicate_action")
+                || !progression.state(playerId).factionId().equals("galacticwars:republic")) {
+            helper.fail("Progression runtime adapter did not commit exactly once");
+            return;
+        }
+        helper.succeed();
     }
 
     private static void factionSelectionTransaction(GameTestHelper helper) {

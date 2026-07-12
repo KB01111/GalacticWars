@@ -2,6 +2,7 @@ package galacticwars.clonewars.kingdom;
 
 import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionSavedData;
+import galacticwars.clonewars.progression.ProgressionState;
 import java.util.Objects;
 
 /** Minecraft runtime adapter that commits evaluated kingdom gameplay actions to SavedData. */
@@ -15,15 +16,13 @@ public final class KingdomGameplayRuntimeService {
     ) {
         Objects.requireNonNull(progression, "progression");
         Objects.requireNonNull(action, "action");
-        KingdomGameplayResult evaluated = KingdomGameplayTransactionService.evaluate(
-                progression.state(action.playerId()), action);
+        ProgressionState before = progression.state(action.playerId());
+        ProgressionDecision evaluated = KingdomGameplayTransactionService.evaluateDecision(before, action);
         if (!evaluated.accepted() || !evaluated.changed()) {
-            return evaluated;
+            return KingdomGameplayResult.from(evaluated);
         }
-        ProgressionDecision committed = progression.apply(action.progressionEvent());
-        return new KingdomGameplayResult(
-                committed.accepted(), committed.changed(),
-                committed.accepted() ? (committed.changed() ? "accepted" : "duplicate_action") : committed.reason(),
-                committed.state());
+        ProgressionDecision committed = progression.commitEvaluated(
+                action.progressionEvent(), before, evaluated);
+        return KingdomGameplayResult.from(committed);
     }
 }

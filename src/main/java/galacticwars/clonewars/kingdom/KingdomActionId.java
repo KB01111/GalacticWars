@@ -32,7 +32,7 @@ public record KingdomActionId(String value) {
     private static String normalizePart(String value) {
         String normalized = Objects.requireNonNull(value, "identity part")
                 .trim().toLowerCase(Locale.ROOT).replace(' ', '_');
-        if (normalized.isEmpty() || !normalized.matches("[a-z0-9_:.\\-]+")) {
+        if (normalized.isEmpty() || !normalized.matches("[a-z0-9_:.\\-/]+")) {
             throw new IllegalArgumentException("Invalid kingdom action identity part: " + value);
         }
         return normalized;

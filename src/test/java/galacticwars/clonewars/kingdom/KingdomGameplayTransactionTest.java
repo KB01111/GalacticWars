@@ -11,6 +11,9 @@ public final class KingdomGameplayTransactionTest {
         KingdomActionId replay = KingdomActionId.of("faction_pledge", player, "galacticwars:republic");
         assertTrue(first.equals(replay), "stable action value");
         assertTrue(first.progressionEventId().equals(replay.progressionEventId()), "stable event UUID");
+        KingdomActionId slashPath = KingdomActionId.of(
+                "command_center_claim", player, "galacticwars:planets/tatooine", -42L);
+        assertTrue(slashPath.value().contains("planets/tatooine"), "resource path slash supported");
 
         ProgressionState progression = ProgressionState.create(player);
         KingdomGameplayAction action = new KingdomGameplayAction(

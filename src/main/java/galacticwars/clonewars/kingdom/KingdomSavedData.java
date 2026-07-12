@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.function.IntUnaryOperator;
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.data.GameplayDataManager;
+import galacticwars.clonewars.data.SavedDataSchemaPolicy;
 import galacticwars.clonewars.army.ArmyFormation;
 import galacticwars.clonewars.army.ArmyGroupOrder;
 import galacticwars.clonewars.army.ArmyGroupRecord;
@@ -72,10 +73,8 @@ public final class KingdomSavedData extends SavedData {
             List<KingdomDiplomacy> diplomacy,
             List<KingdomSiege> sieges
     ) {
-        if (schemaVersion > CURRENT_SCHEMA_VERSION) {
-            throw new IllegalArgumentException("Unsupported kingdom schema " + schemaVersion);
-        }
-        this.schemaVersion = CURRENT_SCHEMA_VERSION;
+        this.schemaVersion = SavedDataSchemaPolicy.migrate(
+                schemaVersion, CURRENT_SCHEMA_VERSION, "kingdom");
         for (KingdomRecord kingdom : kingdoms) {
             if (!this.kingdomsByOwner.containsKey(kingdom.ownerId())
                     && !this.kingdomsById.containsKey(kingdom.id())

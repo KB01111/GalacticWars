@@ -3,6 +3,7 @@ package galacticwars.clonewars.progression;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import galacticwars.clonewars.GalacticWars;
+import galacticwars.clonewars.data.SavedDataSchemaPolicy;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -46,9 +47,8 @@ public final class ProgressionSavedData extends SavedData {
     }
 
     private ProgressionSavedData(int schemaVersion, List<PlayerState> players) {
-        if (schemaVersion > ProgressionState.CURRENT_SCHEMA_VERSION) {
-            throw new IllegalArgumentException("Unsupported progression schema " + schemaVersion);
-        }
+        SavedDataSchemaPolicy.migrate(
+                schemaVersion, ProgressionState.CURRENT_SCHEMA_VERSION, "progression");
         for (PlayerState player : players) {
             HashMap<ProgressionEventType, Integer> totals = new HashMap<>();
             player.eventTotals().forEach((key, value) -> totals.put(type(key), Math.max(0, value)));
@@ -82,6 +82,25 @@ public final class ProgressionSavedData extends SavedData {
             this.setDirty();
         }
         return decision;
+    }
+
+    public ProgressionDecision commitEvaluated(
+            ProgressionEvent event,
+            ProgressionState expectedState,
+            ProgressionDecision evaluated
+    ) {
+        ProgressionState current = state(event.playerId());
+        if (!current.equals(expectedState)) {
+            return apply(event);
+        }
+        if (!evaluated.accepted() || !evaluated.changed()
+                || !evaluated.state().playerId().equals(event.playerId())
+                || !evaluated.state().processed(event.id())) {
+            throw new IllegalArgumentException("invalid evaluated progression decision");
+        }
+        states.put(event.playerId(), evaluated.state());
+        this.setDirty();
+        return evaluated;
     }
 
     private List<PlayerState> serialized() {

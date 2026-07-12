@@ -11,14 +11,12 @@ public final class KingdomGameplayTransactionService {
     }
 
     public static KingdomGameplayResult evaluate(ProgressionState progression, KingdomGameplayAction action) {
+        return KingdomGameplayResult.from(evaluateDecision(progression, action));
+    }
+
+    static ProgressionDecision evaluateDecision(ProgressionState progression, KingdomGameplayAction action) {
         Objects.requireNonNull(progression, "progression");
         Objects.requireNonNull(action, "action");
-        ProgressionDecision decision = GalacticProgressionCoordinator.apply(
-                progression, action.progressionEvent());
-        String reason = decision.accepted()
-                ? (decision.changed() ? "accepted" : "duplicate_action")
-                : decision.reason();
-        return new KingdomGameplayResult(
-                decision.accepted(), decision.changed(), reason, decision.state());
+        return GalacticProgressionCoordinator.apply(progression, action.progressionEvent());
     }
 }

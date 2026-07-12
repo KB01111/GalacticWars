@@ -72,6 +72,9 @@ public final class IdentityChipItem extends Item {
             player.sendSystemMessage(Component.literal("Faction pledge rejected: " + progression.reason()));
             return InteractionResult.FAIL;
         }
+        if (!progression.changed()) {
+            return InteractionResult.SUCCESS;
+        }
 
         FactionAlignmentUpdateResult result = FactionAlignmentSavedData.get(level).applyPledge(
                 player.getUUID(), faction, GameplayDataManager.snapshot().factions());

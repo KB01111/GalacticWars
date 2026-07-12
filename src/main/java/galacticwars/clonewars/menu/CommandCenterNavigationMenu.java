@@ -10,14 +10,23 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class CommandCenterNavigationMenu extends AbstractContainerMenu {
+    private final List<String> planetIds;
+
     public CommandCenterNavigationMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf extraData) {
-        this(containerId, inventory);
+        this(containerId, inventory, readPlanetIds(extraData));
     }
 
     public CommandCenterNavigationMenu(int containerId, Inventory inventory) {
+        this(containerId, inventory, LaunchContentCatalog.planets());
+    }
+
+    private CommandCenterNavigationMenu(int containerId, Inventory inventory, List<String> planetIds) {
         super(ModMenuTypes.COMMAND_CENTER_NAVIGATION.get(), containerId);
+        this.planetIds = List.copyOf(planetIds);
     }
 
     @Override
@@ -25,10 +34,10 @@ public final class CommandCenterNavigationMenu extends AbstractContainerMenu {
         if (!(player instanceof ServerPlayer serverPlayer)
                 || !this.stillValid(player)
                 || buttonId < 0
-                || buttonId >= LaunchContentCatalog.PLANETS.size()) {
+                || buttonId >= planetIds.size()) {
             return false;
         }
-        String planetId = LaunchContentCatalog.PLANETS.get(buttonId);
+        String planetId = planetIds.get(buttonId);
         PlanetTravelService.TravelResult result = PlanetTravelService.travel(
                 serverPlayer, planetId);
         if (result.accepted()) {
@@ -54,5 +63,21 @@ public final class CommandCenterNavigationMenu extends AbstractContainerMenu {
         return player.isAlive()
                 && player instanceof ServerPlayer serverPlayer
                 && PlanetTravelService.hasActiveCommandCenter(serverPlayer);
+    }
+
+    public List<String> planetIds() {
+        return planetIds;
+    }
+
+    private static List<String> readPlanetIds(RegistryFriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        if (size < 0 || size > 32) {
+            throw new IllegalArgumentException("invalid navigation payload size " + size);
+        }
+        ArrayList<String> ids = new ArrayList<>(size);
+        for (int index = 0; index < size; index++) {
+            ids.add(buffer.readUtf(128));
+        }
+        return List.copyOf(ids);
     }
 }

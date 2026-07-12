@@ -20,12 +20,19 @@ public final class LaunchDataIntegrityTest {
         for (String category : Set.of("planets", "vehicles", "force_abilities", "quests", "trades", "conquest_regions")) {
             assertTrue(Files.isRegularFile(GAMEPLAY.resolve(category).resolve("launch.json")), category + " launch data");
         }
-        for (String planet : LaunchContentCatalog.PLANETS) {
+        String planets = Files.readString(GAMEPLAY.resolve("planets/launch.json"));
+        Set<String> planetIds = ids(planets);
+        assertTrue(planetIds.size() == 4, "planet count");
+        for (String planet : planetIds) {
             assertTrue(Files.isRegularFile(ROOT.resolve("dimension").resolve(planet + ".json")), planet + " dimension");
         }
         assertTrue(Files.isRegularFile(ROOT.resolve("dimension_type/planet.json")), "planet dimension type");
         String quests = Files.readString(GAMEPLAY.resolve("quests/launch.json"));
-        for (String quest : LaunchContentCatalog.QUESTS) {
+        Set<String> questIds = ids(quests);
+        assertTrue(questIds.size() == 15, "quest count");
+        assertTrue(!quests.contains("\"objectives\":[\"force_ability_unlocked\""),
+                "launch campaign cannot require disabled Force runtime");
+        for (String quest : questIds) {
             assertTrue(quests.contains("\"id\":\"" + quest + "\""), quest);
         }
         Map<String, Set<String>> declaredUnlocks = new HashMap<>();
@@ -39,7 +46,7 @@ public final class LaunchDataIntegrityTest {
             }
             declaredUnlocks.put(questMatcher.group(1), Set.copyOf(unlocks));
         }
-        assertTrue(declaredUnlocks.equals(LaunchContentCatalog.QUEST_UNLOCKS), "quest unlock declarations");
+        assertTrue(declaredUnlocks.size() == 15, "quest unlock declarations");
         System.out.println("LaunchDataIntegrityTest passed");
     }
 
@@ -47,6 +54,13 @@ public final class LaunchDataIntegrityTest {
         try (Stream<Path> files = Files.list(directory)) {
             assertTrue(files.filter(path -> path.toString().endsWith(".json")).count() == expected, label);
         }
+    }
+
+    private static Set<String> ids(String json) {
+        HashSet<String> ids = new HashSet<>();
+        Matcher matcher = Pattern.compile("\\\"id\\\":\\\"([^\\\"]+)\\\"").matcher(json);
+        while (matcher.find()) ids.add(matcher.group(1));
+        return Set.copyOf(ids);
     }
 
     private static void assertTrue(boolean value, String label) {

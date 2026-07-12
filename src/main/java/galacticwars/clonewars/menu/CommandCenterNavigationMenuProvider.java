@@ -1,5 +1,7 @@
 package galacticwars.clonewars.menu;
 
+import galacticwars.clonewars.progression.LaunchContentCatalog;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -15,5 +17,14 @@ public final class CommandCenterNavigationMenuProvider implements MenuProvider {
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
         return new CommandCenterNavigationMenu(containerId, inventory);
+    }
+
+    @Override
+    public void writeClientSideData(AbstractContainerMenu menu, RegistryFriendlyByteBuf buffer) {
+        var planets = menu instanceof CommandCenterNavigationMenu navigation
+                ? navigation.planetIds()
+                : LaunchContentCatalog.planets();
+        buffer.writeVarInt(planets.size());
+        planets.forEach(id -> buffer.writeUtf(id, 128));
     }
 }

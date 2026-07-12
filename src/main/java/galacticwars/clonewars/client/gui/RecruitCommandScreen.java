@@ -20,6 +20,7 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
     private static final int COLUMN_GAP = 6;
     private static final int COLUMN_COUNT = 3;
     private static final int CONTROL_ROW_COUNT = 11;
+    private static final int OFFICER_CONTROL_ROW_COUNT = 8;
     private static final int STATUS_PANEL_MIN_WIDTH = 220;
     private static final int COMPACT_STATUS_ROW = 3;
     private static final int STATUS_COLOR = 0xE0E0E0;
@@ -45,7 +46,7 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
         boolean armyCommandAccess = this.menu.armyCommandAccess();
 
         int x = (this.width - BUTTON_WIDTH) / 2;
-        int visibleRows = ownedByPlayer ? CONTROL_ROW_COUNT : armyCommandAccess ? 8 : 1;
+        int visibleRows = ownedByPlayer ? CONTROL_ROW_COUNT : armyCommandAccess ? OFFICER_CONTROL_ROW_COUNT : 1;
         int y = Math.max(8, (this.height - (visibleRows * (BUTTON_HEIGHT + GAP))) / 2);
         if (!tame) {
             this.addButton(x, y, "screen.galacticwars.recruit.hire", RecruitCommandMenu.BUTTON_HIRE);
@@ -197,12 +198,17 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
             int mouseX,
             int mouseY
     ) {
-        int controlsWidth = BUTTON_WIDTH * COLUMN_COUNT + COLUMN_GAP * (COLUMN_COUNT - 1);
+        boolean ownedByPlayer = this.minecraft != null
+                && this.minecraft.player != null
+                && recruit.isOwnedBy(this.minecraft.player);
+        int columnCount = ownedByPlayer ? COLUMN_COUNT : 1;
+        int rowCount = ownedByPlayer ? CONTROL_ROW_COUNT : OFFICER_CONTROL_ROW_COUNT;
+        int controlsWidth = BUTTON_WIDTH * columnCount + COLUMN_GAP * (columnCount - 1);
         int controlsLeft = (this.width - controlsWidth) / 2;
         int controlsRight = controlsLeft + controlsWidth;
         List<Component> statusLines = recruit.recruitStatusSnapshot().lines();
         if (this.width - controlsRight < STATUS_PANEL_MIN_WIDTH) {
-            this.drawCompactStatusTooltip(graphics, statusLines, controlsRight, mouseX, mouseY);
+            this.drawCompactStatusTooltip(graphics, statusLines, controlsRight, rowCount, mouseX, mouseY);
             return;
         }
 
@@ -220,10 +226,11 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
             GuiGraphicsExtractor graphics,
             List<Component> statusLines,
             int controlsRight,
+            int rowCount,
             int mouseX,
             int mouseY
     ) {
-        int controlsTop = Math.max(8, (this.height - CONTROL_ROW_COUNT * (BUTTON_HEIGHT + GAP)) / 2);
+        int controlsTop = Math.max(8, (this.height - rowCount * (BUTTON_HEIGHT + GAP)) / 2);
         int x = controlsRight - BUTTON_WIDTH;
         int y = controlsTop + COMPACT_STATUS_ROW * (BUTTON_HEIGHT + GAP);
         Component title = Component.translatable("screen.galacticwars.recruit.status.title");

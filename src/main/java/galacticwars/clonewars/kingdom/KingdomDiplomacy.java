@@ -51,7 +51,7 @@ public record KingdomDiplomacy(
 
     public KingdomDiplomacy withRelation(KingdomRelation relation, long cooldownUntil) {
         return new KingdomDiplomacy(firstKingdomId, secondKingdomId, relation,
-                relation == KingdomRelation.ALLY ? treatyExpiresGameTime : 0L,
+                0L,
                 cooldownUntil, embargo);
     }
 

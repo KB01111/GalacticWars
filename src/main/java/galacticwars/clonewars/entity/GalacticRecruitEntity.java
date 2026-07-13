@@ -1320,12 +1320,15 @@ public class GalacticRecruitEntity extends TamableAnimal implements GeoEntity {
             }
             if (!ClassAbilityRuntimeService.shouldEvaluateNpc(ability, this.getUUID().hashCode(),
                     serverLevel.getGameTime())) continue;
-            boolean targetPresent = target != null && target.isAlive();
+            boolean selfAbility = ability.activation()
+                    == galacticwars.clonewars.ability.AbilityActivation.SELF;
+            LivingEntity executionTarget = selfAbility ? null : target;
+            boolean targetPresent = executionTarget != null && executionTarget.isAlive();
             double distance = targetPresent ? this.distanceTo(target) : 0.0D;
             var decision = this.activateClassAbility(ability.id().toString(), serverLevel.getGameTime(),
-                    targetPresent, distance, target instanceof Player);
+                    targetPresent, distance, executionTarget instanceof Player);
             if (decision.accepted()
-                    && ClassAbilityEffectRegistry.execute(serverLevel, this, ability, target)) {
+                    && ClassAbilityEffectRegistry.execute(serverLevel, this, ability, executionTarget)) {
                 break;
             }
         }

@@ -142,7 +142,7 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
                 && passenger.getVehicle() == this) {
             weaponOperator = passenger;
         }
-        if (inputCurrent && inputFire) fireWeapon(weaponOperator);
+        if (inputFire) fireWeapon(weaponOperator);
         inputFire = false;
         firingPassengerId = null;
     }
@@ -208,7 +208,7 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
     ) {
         int seat = getPassengers().indexOf(player);
         String role = seatRole(seat);
-        boolean driver = seat == 0 && ownerId().filter(player.getUUID()::equals).isPresent();
+        boolean driver = role.equals("driver") && canBoard(player);
         boolean gunner = role.equals("gunner");
         if ((!driver && !gunner) || !Float.isFinite(forward) || !Float.isFinite(strafe)
                 || Math.abs(forward) > 1.01F || Math.abs(strafe) > 1.01F
@@ -219,13 +219,13 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
             inputStrafe = strafe;
             inputAscend = ascend;
             inputDescend = descend;
+            inputExpiresGameTime = level().getGameTime() + 5L;
         }
         boolean driverCanFire = definition() == null || !definition().seatRoles().contains("gunner");
         if (fire && (gunner || driverCanFire)) {
             inputFire = true;
             firingPassengerId = player.getUUID();
         }
-        inputExpiresGameTime = level().getGameTime() + 5L;
         return true;
     }
 

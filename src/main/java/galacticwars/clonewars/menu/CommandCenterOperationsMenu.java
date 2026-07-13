@@ -6,20 +6,24 @@ import galacticwars.clonewars.army.ArmyGroupOrder;
 import galacticwars.clonewars.kingdom.KingdomMemberRole;
 import galacticwars.clonewars.kingdom.KingdomRelation;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
+import galacticwars.clonewars.kingdom.BuildProject;
+import galacticwars.clonewars.kingdom.BuildProjectState;
 import galacticwars.clonewars.kingdom.SettlementRecord;
-import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.registry.ModItems;
 import galacticwars.clonewars.registry.ModMenuTypes;
 import galacticwars.clonewars.settlement.CommandCenterBlockEntity;
+import galacticwars.clonewars.settlement.KingdomBaseBlueprint;
 import galacticwars.clonewars.vehicle.VehicleFabricationService;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -82,13 +86,18 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                 || !(level.getBlockEntity(hallPos) instanceof CommandCenterBlockEntity hall)
                 || !stillValid(player)) return false;
         KingdomSavedData data = KingdomSavedData.get(level);
+        boolean inviteResponse = buttonId == ACCEPT_INVITE || buttonId == REJECT_INVITE;
+        if (!hall.canOpen(player) && !inviteResponse) {
+            return report(serverPlayer, false, "permission_denied");
+        }
         boolean success;
-        String reason = "accepted";
+        String reason = "action_rejected";
         if (buttonId == STORAGE) {
             serverPlayer.openMenu(hall);
             return true;
         } else if (buttonId == CLAIM_REWARDS) {
             success = ProgressionSavedData.get(level).claimCreditRewards(serverPlayer) > 0;
+            if (!success) reason = "no_pending_rewards";
         } else if (buttonId >= FABRICATE_FIRST && buttonId < FABRICATE_FIRST + VEHICLES.size()) {
             reason = VehicleFabricationService.fabricate(serverPlayer, hall,
                     VEHICLES.get(buttonId - FABRICATE_FIRST));
@@ -152,11 +161,23 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                         ArmyGroupOrder.follow(group.order().formation()));
             }
         } else if (buttonId == REGISTER_OUTPOST) {
-            var progression = ProgressionSavedData.get(level).state(player.getUUID());
-            success = progression.hasSubjectPath(ProgressionEventType.BUILDING_COMPLETED, "forward_base")
-                    && data.addOutpost(player.getUUID(), SettlementRecord.create(
-                    level.dimension().identifier().toString(), player.getBlockX(),
-                    player.getBlockY(), player.getBlockZ())).isPresent();
+            var kingdom = data.kingdomForPlayer(player.getUUID()).orElse(null);
+            BuildProject project = kingdom == null ? null : kingdom.settlement().buildProjects().stream()
+                    .filter(candidate -> candidate.state() == BuildProjectState.COMPLETED)
+                    .filter(candidate -> KingdomBaseBlueprint.path(candidate.blueprintId())
+                            .equals("forward_base"))
+                    .filter(candidate -> candidate.dimensionId()
+                            .equals(level.dimension().identifier().toString()))
+                    .filter(candidate -> kingdom.settlements().stream().noneMatch(settlement ->
+                            settlement.dimensionId().equals(candidate.dimensionId())
+                                    && settlement.hallX() == candidate.originX()
+                                    && settlement.hallY() == candidate.originY()
+                                    && settlement.hallZ() == candidate.originZ()))
+                    .filter(candidate -> completedProjectStillExists(level, candidate))
+                    .findFirst().orElse(null);
+            success = project != null && data.addOutpost(player.getUUID(), SettlementRecord.create(
+                    project.dimensionId(), project.originX(), project.originY(), project.originZ())).isPresent();
+            if (!success) reason = "completed_forward_base_required";
         } else if (buttonId == INVITE_NEAREST) {
             ServerPlayer target = nearestOtherPlayer(serverPlayer);
             success = target != null && data.inviteMember(player.getUUID(), target.getUUID(),
@@ -198,10 +219,8 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                         level.getGameTime(), 2400L);
             } else return false;
         }
-        serverPlayer.sendSystemMessage(Component.translatable(
-                success ? "message.galacticwars.operations.accepted" : "message.galacticwars.operations.rejected",
-                reason));
-        return success;
+        if (success && reason.equals("action_rejected")) reason = "accepted";
+        return report(serverPlayer, success, reason);
     }
 
     @Override
@@ -209,9 +228,49 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return player.level().getBlockEntity(hallPos) instanceof CommandCenterBlockEntity hall
-                && hall.canOpen(player)
-                && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(hallPos)) <= 64.0D;
+        if (!(player.level() instanceof ServerLevel level)
+                || !(level.getBlockEntity(hallPos) instanceof CommandCenterBlockEntity hall)) return false;
+        boolean access = hall.canOpen(player) || hasPendingInvite(
+                KingdomSavedData.get(level), hall, player.getUUID(), level.getGameTime());
+        return access && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(hallPos)) <= 64.0D;
+    }
+
+    public static boolean hasPendingInvite(
+            KingdomSavedData data, CommandCenterBlockEntity hall, UUID playerId, long gameTime
+    ) {
+        if (hall.ownerId() == null) return false;
+        var kingdom = data.kingdomForOwner(hall.ownerId()).orElse(null);
+        return kingdom != null && data.pendingInvites().stream().anyMatch(invite ->
+                invite.kingdomId().equals(kingdom.id())
+                        && invite.targetPlayerId().equals(playerId)
+                        && invite.expiresGameTime() >= gameTime);
+    }
+
+    private static boolean completedProjectStillExists(ServerLevel level, BuildProject project) {
+        var blueprint = KingdomBaseBlueprint.byId(project.blueprintId()).orElse(null);
+        if (blueprint == null) return false;
+        for (int index = 0; index < blueprint.placements().size(); index++) {
+            var placement = blueprint.rotatedPlacement(index, project.rotationSteps());
+            Identifier blockId;
+            try {
+                blockId = Identifier.parse(placement.blockId());
+            } catch (RuntimeException invalid) {
+                return false;
+            }
+            var block = BuiltInRegistries.BLOCK.getValue(blockId);
+            BlockPos position = new BlockPos(project.originX() + placement.x(),
+                    project.originY() + placement.y(), project.originZ() + placement.z());
+            if (block == null || !level.getBlockState(position).is(block)) return false;
+        }
+        return true;
+    }
+
+    private static boolean report(ServerPlayer player, boolean success, String reason) {
+        player.sendSystemMessage(Component.translatable(
+                success ? "message.galacticwars.operations.accepted"
+                        : "message.galacticwars.operations.rejected",
+                reason));
+        return success;
     }
 
     private static ServerPlayer nearestOtherPlayer(ServerPlayer player) {

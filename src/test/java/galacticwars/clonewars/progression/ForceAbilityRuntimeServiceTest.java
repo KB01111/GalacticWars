@@ -38,6 +38,14 @@ public final class ForceAbilityRuntimeServiceTest {
                 progression, runtime, "dark_choke", 200L, false, true, content);
         assertTrue(!locked.accepted() && locked.reason().equals("unknown_force_ability"),
                 "unknown Force IDs fail closed");
+        ForceRuntimeState bounded = runtime;
+        for (int index = 0; index <= ForceRuntimeState.MAX_PROCESSED_ACTIVATIONS; index++) {
+            bounded = ForceAbilityRuntimeService.activate(
+                    progression, bounded.regenerate(ForceRuntimeState.MAX_ENERGY), UUID.randomUUID(),
+                    "light_push", 1_000L + index * 100L, false, true, content).state();
+        }
+        assertTrue(bounded.processedActivationIds().size() == ForceRuntimeState.MAX_PROCESSED_ACTIVATIONS,
+                "stored Force replay ids remain bounded");
         System.out.println("ForceAbilityRuntimeServiceTest passed");
     }
 

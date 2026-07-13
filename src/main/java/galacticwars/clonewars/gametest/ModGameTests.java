@@ -969,7 +969,9 @@ public final class ModGameTests {
                         kingdom.id(), republicFaction, enemy.id(), separatistFaction, diplomacyTime + 100L)
                         != FactionRelation.NEUTRAL
                 || !data.setRelation(
-                        owner.getUUID(), enemy.id(), KingdomRelation.ENEMY, diplomacyTime + 100L, 0L)) {
+                        owner.getUUID(), enemy.id(), KingdomRelation.ENEMY, diplomacyTime + 100L, 200L)
+                || !data.setEmbargo(owner.getUUID(), enemy.id(), true)
+                || !data.relation(kingdom.id(), enemy.id()).embargo()) {
             helper.fail("Kingdom diplomacy did not override faction defaults or expire treaties safely");
             return;
         }

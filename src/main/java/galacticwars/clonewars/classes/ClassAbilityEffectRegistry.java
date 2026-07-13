@@ -48,7 +48,11 @@ public final class ClassAbilityEffectRegistry {
                         ? 8.0D : 5.0D);
         bolt.setPos(actor.getEyePosition().add(direction.normalize().scale(0.7D)));
         bolt.shoot(direction.x, direction.y, direction.z, 3.2F, 0.5F);
-        return level.addFreshEntity(bolt);
+        boolean spawned = level.addFreshEntity(bolt);
+        if (spawned && path(ability.id().toString()).equals("crippling_shot")) {
+            target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 80, 1), actor);
+        }
+        return spawned;
     }
 
     private static boolean debuff(
@@ -57,7 +61,7 @@ public final class ClassAbilityEffectRegistry {
         if (target == null) return false;
         String id = path(ability.id().toString());
         target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 100, 0), actor);
-        if (id.equals("target_disruption") || id.equals("crippling_shot")) {
+        if (id.equals("target_disruption")) {
             target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 80, 1), actor);
         } else if (id.equals("intimidation")) {
             target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0), actor);

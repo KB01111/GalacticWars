@@ -1,5 +1,7 @@
 package galacticwars.clonewars.progression;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -11,6 +13,7 @@ public record ForceRuntimeState(
         Set<UUID> processedActivationIds
 ) {
     public static final int MAX_ENERGY = 100;
+    public static final int MAX_PROCESSED_ACTIVATIONS = 128;
 
     public ForceRuntimeState {
         path = path == null ? "" : path;
@@ -21,7 +24,11 @@ public record ForceRuntimeState(
             throw new IllegalArgumentException("Force energy must be between 0 and " + MAX_ENERGY);
         }
         cooldownEnds = Map.copyOf(cooldownEnds);
-        processedActivationIds = Set.copyOf(processedActivationIds);
+        LinkedHashSet<UUID> boundedActivations = new LinkedHashSet<>(processedActivationIds);
+        while (boundedActivations.size() > MAX_PROCESSED_ACTIVATIONS) {
+            boundedActivations.remove(boundedActivations.iterator().next());
+        }
+        processedActivationIds = Collections.unmodifiableSet(boundedActivations);
     }
 
     public ForceRuntimeState(int energy, Map<String, Long> cooldownEnds) {

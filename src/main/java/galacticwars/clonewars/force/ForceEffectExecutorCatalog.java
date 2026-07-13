@@ -10,7 +10,7 @@ public final class ForceEffectExecutorCatalog {
     }
 
     public static boolean supports(String effectId) {
-        return EFFECTS.contains(effectId);
+        return effectId != null && EFFECTS.contains(effectId);
     }
 
     public static Set<String> registeredIds() {

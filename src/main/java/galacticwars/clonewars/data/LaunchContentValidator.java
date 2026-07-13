@@ -32,7 +32,8 @@ final class LaunchContentValidator {
         Map<String, LaunchContentDefinitions.ForceAbilityDefinition> forceAbilities = loadForceAbilities(manager);
         Map<String, LaunchContentDefinitions.QuestDefinition> quests = loadQuests(manager);
         Map<String, LaunchContentDefinitions.TradeDefinition> trades = loadTrades(manager, factionIds);
-        Map<String, LaunchContentDefinitions.ConquestRegionDefinition> regions = loadRegions(manager, planets.keySet());
+        Map<String, LaunchContentDefinitions.ConquestRegionDefinition> regions =
+                loadRegions(manager, planets.keySet(), factionIds);
         requireCount("planets", planets, 4);
         requireCount("vehicles", vehicles, 5);
         requireCount("force abilities", forceAbilities, 6);
@@ -144,7 +145,7 @@ final class LaunchContentValidator {
     }
 
     private static Map<String, LaunchContentDefinitions.ConquestRegionDefinition> loadRegions(
-            ResourceManager manager, Set<String> planetIds) throws IOException {
+            ResourceManager manager, Set<String> planetIds, Set<String> factionIds) throws IOException {
         LinkedHashMap<String, LaunchContentDefinitions.ConquestRegionDefinition> result = new LinkedHashMap<>();
         for (JsonObject json : objects(manager, "conquest_regions", "regions")) {
             var definition = new LaunchContentDefinitions.ConquestRegionDefinition(
@@ -153,6 +154,10 @@ final class LaunchContentValidator {
                     integer(json, "landmark_x"), integer(json, "landmark_z"),
                     integer(json, "capture_radius"), string(json, "defender_faction"));
             if (!planetIds.contains(definition.planetId())) throw new IllegalArgumentException("Unknown region planet " + definition.planetId());
+            if (!factionIds.contains(definition.defenderFaction())) {
+                throw new IllegalArgumentException(
+                        "Unknown region defender faction " + definition.defenderFaction());
+            }
             put(result, definition.id(), definition, "conquest region");
         }
         return result;

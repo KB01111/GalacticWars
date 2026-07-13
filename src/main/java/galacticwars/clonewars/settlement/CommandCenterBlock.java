@@ -11,6 +11,7 @@ import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.menu.CommandCenterNavigationMenuProvider;
 import galacticwars.clonewars.menu.FactionSelectionMenuProvider;
 import galacticwars.clonewars.menu.CommandCenterOperationsMenuProvider;
+import galacticwars.clonewars.menu.CommandCenterOperationsMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -101,12 +102,20 @@ public final class CommandCenterBlock extends BaseEntityBlock {
         }
 
         UUID authorityOwner = hall.ownerId();
-        if (authorityOwner == null || !hall.canUse(player, KingdomPermission.USE_STORAGE)) {
+        KingdomSavedData data = KingdomSavedData.get(serverLevel);
+        boolean memberAccess = authorityOwner != null
+                && hall.canUse(player, KingdomPermission.USE_STORAGE);
+        boolean inviteAccess = authorityOwner != null && CommandCenterOperationsMenu.hasPendingInvite(
+                data, hall, player.getUUID(), serverLevel.getGameTime());
+        if (!memberAccess && !inviteAccess) {
             player.sendSystemMessage(Component.translatable("message.galacticwars.command_center.not_owner"));
             return InteractionResult.FAIL;
         }
+        if (!memberAccess && player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.openMenu(new CommandCenterOperationsMenuProvider(pos));
+            return InteractionResult.SUCCESS;
+        }
 
-        KingdomSavedData data = KingdomSavedData.get(serverLevel);
         Optional<KingdomRecord> existing = data.kingdomForOwner(authorityOwner);
         if (existing.isEmpty()) {
             if (player instanceof ServerPlayer serverPlayer) {

@@ -1465,12 +1465,19 @@ public final class KingdomSavedData extends SavedData {
     }
 
     public boolean setEmbargo(UUID actorId, UUID otherKingdomId, boolean embargo) {
-        return setEmbargo(actorId, otherKingdomId, embargo, 0L, 0L);
+        return setEmbargo(actorId, otherKingdomId, embargo, 0L, 0L, false);
     }
 
     public boolean setEmbargo(
             UUID actorId, UUID otherKingdomId, boolean embargo,
             long gameTime, long cooldownTicks
+    ) {
+        return setEmbargo(actorId, otherKingdomId, embargo, gameTime, cooldownTicks, true);
+    }
+
+    private boolean setEmbargo(
+            UUID actorId, UUID otherKingdomId, boolean embargo,
+            long gameTime, long cooldownTicks, boolean enforceCooldown
     ) {
         KingdomRecord ownKingdom = kingdomForPlayer(actorId).orElse(null);
         if (ownKingdom == null || !ownKingdom.allows(actorId, KingdomPermission.MANAGE_DIPLOMACY)
@@ -1479,9 +1486,11 @@ public final class KingdomSavedData extends SavedData {
             return false;
         }
         KingdomDiplomacy current = relation(ownKingdom.id(), otherKingdomId);
-        if (current.cooldownUntilGameTime() > gameTime) return false;
+        if (enforceCooldown && current.cooldownUntilGameTime() > gameTime) return false;
         KingdomDiplomacy updated = current.withEmbargo(embargo,
-                Math.addExact(gameTime, Math.max(0L, cooldownTicks)));
+                enforceCooldown
+                        ? Math.addExact(gameTime, Math.max(0L, cooldownTicks))
+                        : current.cooldownUntilGameTime());
         diplomacyByPair.put(DiplomacyKey.of(ownKingdom.id(), otherKingdomId), updated);
         this.setDirty();
         return true;

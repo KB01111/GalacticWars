@@ -1,7 +1,7 @@
 package galacticwars.clonewars.progression;
 
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.UUID;
 import galacticwars.clonewars.data.LaunchContentDefinitions;
@@ -96,8 +96,11 @@ public final class ForceAbilityRuntimeService {
         }
         HashMap<String, Long> cooldowns = new HashMap<>(runtime.cooldownEnds());
         cooldowns.put(abilityId, Math.addExact(gameTime, ability.cooldownTicks()));
-        HashSet<UUID> processed = new HashSet<>(runtime.processedActivationIds());
+        LinkedHashSet<UUID> processed = new LinkedHashSet<>(runtime.processedActivationIds());
         processed.add(activationId);
+        while (processed.size() > ForceRuntimeState.MAX_PROCESSED_ACTIVATIONS) {
+            processed.remove(processed.iterator().next());
+        }
         ForceRuntimeState updated = new ForceRuntimeState(selectedPath,
                 runtime.energy() - ability.energy(), cooldowns, processed);
         return new ActivationDecision(true, "accepted", updated,

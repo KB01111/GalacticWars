@@ -44,7 +44,7 @@ public final class ForceSavedData extends SavedData {
         for (PlayerForceState player : players) {
             states.put(player.playerId(), new ForceRuntimeState(player.path(),
                     Math.max(0, Math.min(ForceRuntimeState.MAX_ENERGY, player.energy())),
-                    player.cooldowns(), java.util.Set.copyOf(player.processedActivations())));
+                    player.cooldowns(), new java.util.LinkedHashSet<>(player.processedActivations())));
         }
     }
 

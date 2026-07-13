@@ -6,9 +6,10 @@ import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.faction.FactionRelation;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
+import galacticwars.clonewars.progression.GalacticSystemsService;
+import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionEventType;
-import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.recruitment.NpcServiceBranch;
 import galacticwars.clonewars.registry.ModBlocks;
 import java.nio.charset.StandardCharsets;
@@ -59,13 +60,19 @@ public final class ConquestRuntimeEvents {
         ConquestControlState state = data.state(region.id()).orElseGet(() -> {
             BlockPos beacon = resolveBeacon(level, region);
             ConquestControlState created = new ConquestControlState(region.id(), planet.dimensionId(),
-                    beacon.getX(), beacon.getY(), beacon.getZ(), region.defenderFaction(), "", "", 0, 0L);
+                    beacon.getX(), beacon.getY(), beacon.getZ(), namespacedFaction(region.defenderFaction()),
+                    "", "", 0, 0L);
             if (level.getBlockState(beacon).canBeReplaced()) {
                 level.setBlockAndUpdate(beacon, ModBlocks.CONTROL_BEACON.get().defaultBlockState());
             }
             data.put(created);
             return created;
         });
+        String normalizedFaction = namespacedFaction(state.controllingFaction());
+        if (!normalizedFaction.equals(state.controllingFaction())) {
+            state = state.withControllingFaction(normalizedFaction);
+            data.put(state);
+        }
         BlockPos beacon = new BlockPos(state.beaconX(), state.beaconY(), state.beaconZ());
         spawnControlPatrol(level, state, beacon);
         ServerPlayer player = level.players().stream()
@@ -95,11 +102,24 @@ public final class ConquestRuntimeEvents {
             return;
         }
         ConquestControlState captured = progressed.captured(playerFaction, playerKingdom);
-        data.put(captured);
         UUID eventId = UUID.nameUUIDFromBytes(("conquest:" + region.id() + ":"
                 + player.getUUID() + ":" + captured.revision()).getBytes(StandardCharsets.UTF_8));
-        ProgressionSavedData.get(level).apply(new ProgressionEvent(eventId, player.getUUID(),
-                ProgressionEventType.REGION_CAPTURED, region.id(), 1));
+        ProgressionSavedData progression = ProgressionSavedData.get(level);
+        GalacticSystemsService.SystemDecision gate = GalacticSystemsService.captureRegion(
+                progression.state(player.getUUID()), eventId, region.id());
+        if (!gate.accepted()) {
+            data.put(progressed.withProgress("", Math.max(0, region.captureTicks() - 20)));
+            return;
+        }
+        var committed = progression.apply(new ProgressionEvent(
+                eventId, player.getUUID(), ProgressionEventType.REGION_CAPTURED, region.id(), 1));
+        if (committed.accepted()) data.put(captured);
+    }
+
+    private static String namespacedFaction(String factionId) {
+        return factionId == null || factionId.isBlank() || factionId.indexOf(':') >= 0
+                ? (factionId == null ? "" : factionId)
+                : "galacticwars:" + factionId;
     }
 
     private static BlockPos resolveBeacon(ServerLevel level, LaunchContentDefinitions.ConquestRegionDefinition region) {

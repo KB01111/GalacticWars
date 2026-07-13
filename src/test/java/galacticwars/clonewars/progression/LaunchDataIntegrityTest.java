@@ -67,6 +67,11 @@ public final class LaunchDataIntegrityTest {
             assertTrue(declaredUnlocks.put(questId, unlocks) == null, questId + " duplicate declaration");
         }
         assertTrue(declaredUnlocks.equals(EXPECTED_QUEST_UNLOCKS), "quest unlock contents");
+        List<String> vehicles = objects(Files.readString(GAMEPLAY.resolve("vehicles/launch.json")), "vehicles");
+        assertTrue(vehicles.stream().anyMatch(vehicle -> string(vehicle, "unlock").equals("vehicle_crafting")
+                        && strings(vehicle, "deployment_requirements").contains("vehicle_crafting")
+                        && strings(vehicle, "deployment_requirements").contains("supply_depot")),
+                "every faction can fabricate at least one vehicle before chapter 3");
         System.out.println("LaunchDataIntegrityTest passed");
     }
 

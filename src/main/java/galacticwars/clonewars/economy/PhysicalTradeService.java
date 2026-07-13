@@ -57,9 +57,11 @@ public final class PhysicalTradeService {
         }
         KingdomSavedData kingdoms = KingdomSavedData.get(level);
         var playerKingdom = kingdoms.kingdomForPlayer(player.getUUID()).orElse(null);
-        var merchantKingdom = kingdoms.kingdoms().stream()
-                .filter(kingdom -> kingdom.factionId().equals("galacticwars:" + trade.factionId()))
-                .findFirst().orElse(null);
+        var merchantKingdom = merchant == null
+                ? kingdoms.kingdoms().stream()
+                        .filter(kingdom -> kingdom.factionId().equals("galacticwars:" + trade.factionId()))
+                        .findFirst().orElse(null)
+                : kingdoms.kingdomForRecruit(merchant.getUUID()).orElse(null);
         if (playerKingdom != null && merchantKingdom != null
                 && !playerKingdom.id().equals(merchantKingdom.id())
                 && kingdoms.relation(playerKingdom.id(), merchantKingdom.id()).embargo()) {
@@ -70,7 +72,7 @@ public final class PhysicalTradeService {
         }
         if (!trade.regionalPrerequisite().isEmpty()) {
             var control = ConquestSavedData.get(level).state(trade.regionalPrerequisite()).orElse(null);
-            if (control == null || !control.controllingFaction().equals(state.factionId())) {
+            if (control == null || !control.controllingFaction().equals("galacticwars:" + trade.factionId())) {
                 return TradeResult.rejected("regional_control_required");
             }
         }

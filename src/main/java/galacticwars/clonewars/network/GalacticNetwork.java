@@ -15,19 +15,19 @@ public final class GalacticNetwork {
         event.registrar("1").playToServer(
                 ForceActivatePayload.TYPE,
                 ForceActivatePayload.STREAM_CODEC,
-                (payload, context) -> {
+                (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player) {
                         ForceWorldEffectService.activate(player, payload.activationId(), payload.slot());
                     }
-                }).playToServer(VehicleInputPayload.TYPE, VehicleInputPayload.STREAM_CODEC,
-                (payload, context) -> {
+                })).playToServer(VehicleInputPayload.TYPE, VehicleInputPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
                     if (context.player() instanceof ServerPlayer player
                             && player.level().getEntity(payload.entityId()) instanceof GalacticVehicleEntity vehicle) {
                         vehicle.applyInput(player, payload.replayId(), payload.forward(), payload.strafe(),
                                 payload.ascend(), payload.descend(), payload.fire());
                     }
-                }).playToServer(MenuActionPayload.TYPE, MenuActionPayload.STREAM_CODEC,
-                (payload, context) -> {
+                })).playToServer(MenuActionPayload.TYPE, MenuActionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
                     if (!(context.player() instanceof ServerPlayer player)
                             || player.containerMenu.containerId != payload.containerId()
                             || payload.actionId() < 0 || payload.actionId() > 255) return;
@@ -36,6 +36,6 @@ public final class GalacticNetwork {
                     } else if (player.containerMenu instanceof MerchantTradeMenu merchant) {
                         merchant.handleReplayAction(player, payload.replayId(), payload.actionId());
                     }
-                }).playToClient(ForceHudPayload.TYPE, ForceHudPayload.STREAM_CODEC);
+                })).playToClient(ForceHudPayload.TYPE, ForceHudPayload.STREAM_CODEC);
     }
 }

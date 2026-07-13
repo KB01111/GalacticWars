@@ -39,14 +39,14 @@ public final class CommandCenterOperationsScreen extends Screen
         int x = (width - 220) / 2;
         int y = 58;
         switch (selectedTab) {
-            case 0 -> addAction(x, y, "screen.galacticwars.operations.claim_rewards",
-                    CommandCenterOperationsMenu.CLAIM_REWARDS);
-            case 1 -> {
+            case 0 -> {
                 String[] vehicles = {"barc_speeder", "at_rt", "stap", "aat", "laat_gunship"};
                 for (int i = 0; i < vehicles.length; i++) addAction(x, y + i * 22,
                         "screen.galacticwars.operations.fabricate." + vehicles[i],
                         CommandCenterOperationsMenu.FABRICATE_FIRST + i);
             }
+            case 1 -> addAction(x, y, "screen.galacticwars.operations.claim_rewards",
+                    CommandCenterOperationsMenu.CLAIM_REWARDS);
             case 2 -> {
                 addAction(x, y, "screen.galacticwars.operations.create_squad", CommandCenterOperationsMenu.CREATE_SQUAD);
                 addAction(x, y + 22, "screen.galacticwars.operations.split", CommandCenterOperationsMenu.SPLIT_SQUAD);

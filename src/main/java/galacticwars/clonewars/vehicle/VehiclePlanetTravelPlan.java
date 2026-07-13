@@ -98,7 +98,7 @@ public final class VehiclePlanetTravelPlan {
             }
             moved.add(passenger);
         }
-        passengers.forEach(passenger -> passenger.startRiding(vehicle, true));
+        passengers.forEach(passenger -> passenger.startRiding(vehicle, true, true));
         return true;
     }
 
@@ -106,7 +106,7 @@ public final class VehiclePlanetTravelPlan {
         vehicle.teleportTo(source, sourceX, sourceY, sourceZ, Set.<Relative>of(),
                 vehicle.getYRot(), vehicle.getXRot(), false);
         passengers.forEach(this::rollbackPlayer);
-        passengers.forEach(passenger -> passenger.startRiding(vehicle, true));
+        passengers.forEach(passenger -> passenger.startRiding(vehicle, true, true));
     }
 
     private void rollbackPlayer(ServerPlayer player) {
@@ -115,6 +115,6 @@ public final class VehiclePlanetTravelPlan {
     }
 
     private void remountAtSource() {
-        passengers.forEach(passenger -> passenger.startRiding(vehicle, true));
+        passengers.forEach(passenger -> passenger.startRiding(vehicle, true, true));
     }
 }

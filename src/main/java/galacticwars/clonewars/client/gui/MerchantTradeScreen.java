@@ -7,7 +7,10 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
 import java.util.UUID;
 import galacticwars.clonewars.network.MenuActionPayload;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
@@ -31,7 +34,7 @@ public final class MerchantTradeScreen extends Screen implements MenuAccess<Merc
             Component label = trade == null
                     ? Component.literal(tradeId)
                     : Component.translatable("screen.galacticwars.trade.offer",
-                            Component.translatable(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse(trade.itemId())).getDescriptionId()),
+                            tradeItemName(trade.itemId()),
                             trade.itemCount(), trade.price());
             int buttonId = index;
             this.addRenderableWidget(Button.builder(label, button -> {
@@ -39,6 +42,19 @@ public final class MerchantTradeScreen extends Screen implements MenuAccess<Merc
                                 UUID.randomUUID(), menu.containerId, buttonId));
                     }).bounds(x, y + index * 22, width, 20).build());
         }
+    }
+
+    private static Component tradeItemName(String itemId) {
+        try {
+            Identifier id = Identifier.parse(itemId);
+            Item item = BuiltInRegistries.ITEM.getValue(id);
+            if (item != null && id.equals(BuiltInRegistries.ITEM.getKey(item))) {
+                return Component.translatable(item.getDescriptionId());
+            }
+        } catch (RuntimeException ignored) {
+            // Invalid datapack content is rendered as its raw id instead of crashing the client.
+        }
+        return Component.literal(itemId);
     }
 
     @Override

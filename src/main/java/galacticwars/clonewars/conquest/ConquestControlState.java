@@ -32,4 +32,9 @@ public record ConquestControlState(
         return new ConquestControlState(regionId, dimensionId, beaconX, beaconY, beaconZ,
                 faction, kingdom, "", 0, revision + 1L);
     }
+
+    public ConquestControlState withControllingFaction(String faction) {
+        return new ConquestControlState(regionId, dimensionId, beaconX, beaconY, beaconZ,
+                faction, controllingKingdom, capturingPlayer, progress, revision);
+    }
 }

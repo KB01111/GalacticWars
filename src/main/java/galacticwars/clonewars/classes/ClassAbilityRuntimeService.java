@@ -39,11 +39,12 @@ public final class ClassAbilityRuntimeService {
         if (ability.activation() == AbilityActivation.TARGET && !targetPresent) {
             return ActivationDecision.rejected("target_required", state);
         }
-        if (targetPresent && (!Double.isFinite(targetDistance) || targetDistance < 0.0D
+        if (ability.activation() != AbilityActivation.SELF && targetPresent
+                && (!Double.isFinite(targetDistance) || targetDistance < 0.0D
                 || targetDistance > ability.range())) {
             return ActivationDecision.rejected("target_out_of_range", state);
         }
-        if (targetsPlayer && !allowClassPvp) {
+        if (ability.activation() != AbilityActivation.SELF && targetsPlayer && !allowClassPvp) {
             return ActivationDecision.rejected("class_pvp_disabled", state);
         }
         long cooldownEnd = state.cooldownEnds().getOrDefault(ability.id().toString(), 0L);

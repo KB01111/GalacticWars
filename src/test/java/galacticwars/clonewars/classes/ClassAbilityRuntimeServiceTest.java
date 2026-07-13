@@ -38,6 +38,14 @@ public final class ClassAbilityRuntimeServiceTest {
         ClassAbilityRuntimeService.ActivationDecision pvp = ClassAbilityRuntimeService.activate(
                 unitClass, ability, state, 100L, true, 12.0D, true, false);
         assertEquals("class_pvp_disabled", pvp.reason(), "PvP policy enforced");
+        AbilityDefinition self = new AbilityDefinition(
+                AbilityId.of("brace"), "Brace", AbilityKind.MARTIAL,
+                AbilityActivation.SELF, 100, 15, 0.0D, 20, true);
+        UnitClassDefinition selfClass = unitClass(self.id());
+        ClassProgressState selfState = ClassProgressState.unassigned().assign(selfClass.id());
+        ClassAbilityRuntimeService.ActivationDecision selfActivation = ClassAbilityRuntimeService.activate(
+                selfClass, self, selfState, 100L, true, 100.0D, true, false);
+        assertTrue(selfActivation.accepted(), "self ability ignores unrelated combat target range and PvP");
     }
 
     private static void npcEvaluationIsStaggered() {

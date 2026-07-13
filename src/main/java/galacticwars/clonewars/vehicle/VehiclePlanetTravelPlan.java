@@ -115,6 +115,6 @@ public final class VehiclePlanetTravelPlan {
     }
 
     private void remountAtSource() {
-        passengers.forEach(passenger -> passenger.startRiding(vehicle, true, true));
+        passengers.forEach(passenger -> passenger.startRiding(vehicle, true));
     }
 }

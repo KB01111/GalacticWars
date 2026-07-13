@@ -51,7 +51,7 @@ public class GalacticWarsClient {
     @SubscribeEvent
     static void registerClientPayloads(RegisterClientPayloadHandlersEvent event) {
         event.register(galacticwars.clonewars.network.ForceHudPayload.TYPE,
-                (payload, context) -> galacticwars.clonewars.client.ForceClientState.update(payload));
+                (payload, context) -> context.enqueueWork(() -> galacticwars.clonewars.client.ForceClientState.update(payload)));
     }
 
     @SubscribeEvent

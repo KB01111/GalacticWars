@@ -619,7 +619,6 @@ public final class ModGameTests {
         target.setNoAi(true);
         target.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1024.0D);
         target.setHealth(target.getMaxHealth());
-        float initialTargetHealth = target.getHealth();
         shooter.initializeNaturalFactionNpc(UUID.randomUUID(), NpcServiceBranch.MILITARY);
         shooter.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.DC15_BLASTER.get()));
         if (!(shooter.getBrain() instanceof net.tslat.smartbrainlib.api.internal.SmartBrain<?>)) {
@@ -630,7 +629,7 @@ public final class ModGameTests {
         helper.succeedWhen(() -> {
             List<BlasterBoltEntity> bolts = helper.getLevel().getEntitiesOfClass(
                     BlasterBoltEntity.class, shotArea, bolt -> bolt.getOwner() == shooter);
-            if (bolts.isEmpty() && target.getHealth() >= initialTargetHealth) {
+            if (bolts.isEmpty()) {
                 helper.fail("Ungrouped ranged recruit brain did not acquire and attack its enemy: nearest="
                         + BrainUtil.getMemory(shooter,
                         net.minecraft.world.entity.ai.memory.MemoryModuleType.NEAREST_ATTACKABLE)
@@ -726,8 +725,15 @@ public final class ModGameTests {
                             + ", running=" + recruit.getBrain().getRunningBehaviors());
                     return;
                 }
-                recruit.discard();
-                helper.succeed();
+                invokeRecruitCommand(recruit, RecruitmentAction.CLEAR_TARGET);
+                helper.runAfterDelay(5, () -> {
+                    if (recruit.isOrderedToSit()) {
+                        helper.fail("Clear-target command incorrectly kept the recruit sitting");
+                        return;
+                    }
+                    recruit.discard();
+                    helper.succeed();
+                });
             });
         });
     }
@@ -837,6 +843,7 @@ public final class ModGameTests {
                     < initialShelterDistance - 4.0D) {
                 shelterVerified[0] = true;
                 threat.discard();
+                helper.setTime(6000L);
                 worker[0] = spawnRecruitAt(
                         helper, ModEntityTypes.HUTT_CIVILIAN.get(), area.at(1, 1, 1));
                 worker[0].setInvulnerable(true);
@@ -2659,20 +2666,6 @@ public final class ModGameTests {
         recruit.setDeltaMovement(Vec3.ZERO);
         recruit.getNavigation().stop();
         return recruit;
-    }
-
-    private static void fillTestFloor(
-            GameTestHelper helper,
-            int minX,
-            int maxX,
-            int minZ,
-            int maxZ
-    ) {
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
-            }
-        }
     }
 
     private static String pathState(GalacticRecruitEntity recruit, BlockPos target) {

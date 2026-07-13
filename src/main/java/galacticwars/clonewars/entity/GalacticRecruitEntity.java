@@ -4106,8 +4106,7 @@ public class GalacticRecruitEntity extends TamableAnimal
 
     private void setRecruitCommand(RecruitmentAction command) {
         this.entityData.set(DATA_COMMAND, command.ordinal());
-        this.setOrderedToSit(this.isTame()
-                && (command == RecruitmentAction.HOLD_POSITION || command == RecruitmentAction.CLEAR_TARGET));
+        this.setOrderedToSit(this.isTame() && command == RecruitmentAction.HOLD_POSITION);
         if (command != RecruitmentAction.MOVE_TO_POSITION
                 && command != RecruitmentAction.WORK_AT_SITE
                 && command != RecruitmentAction.HOLD_POSITION

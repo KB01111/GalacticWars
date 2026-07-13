@@ -32,10 +32,7 @@ public final class CivilianShelterBehaviour
 
     @Override
     protected boolean shouldKeepRunning(GalacticRecruitEntity civilian) {
-        return isNaturalCivilian(civilian)
-                && civilian.hasHome()
-                && !civilian.blockPosition().closerThan(civilian.getHomePosition(), 3.0D)
-                && (civilian.level().isDarkOutside() || dangerNearby(civilian));
+        return shouldShelter(civilian);
     }
 
     @Override
@@ -65,8 +62,9 @@ public final class CivilianShelterBehaviour
     }
 
     private static boolean shouldShelter(GalacticRecruitEntity civilian) {
-        return isNaturalCivilian(civilian)
+        return civilian.isNaturalFactionCivilian()
                 && civilian.hasHome()
+                && !civilian.blockPosition().closerThan(civilian.getHomePosition(), 3.0D)
                 && (civilian.level().isDarkOutside() || dangerNearby(civilian));
     }
 
@@ -85,11 +83,5 @@ public final class CivilianShelterBehaviour
                 candidate -> candidate != civilian
                         && candidate.getServiceBranch() == NpcServiceBranch.MILITARY
                         && civilian.isHostileFactionRecruit(candidate)).isEmpty();
-    }
-
-    private static boolean isNaturalCivilian(GalacticRecruitEntity civilian) {
-        return !civilian.isTame()
-                && civilian.getFactionOutpostId() != null
-                && civilian.getServiceBranch() == NpcServiceBranch.CIVILIAN;
     }
 }

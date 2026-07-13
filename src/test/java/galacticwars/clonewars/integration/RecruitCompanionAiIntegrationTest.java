@@ -19,6 +19,7 @@ public final class RecruitCompanionAiIntegrationTest {
         workOrdersStayServerSide();
         workerRuntimeConsumesSavedDataAuthority();
         localCommandNavigationRecoversFromStalls();
+        walkTargetsRespectTheirArrivalRadius();
 
         System.out.println("RecruitCompanionAiIntegrationTest passed");
     }
@@ -158,6 +159,18 @@ public final class RecruitCompanionAiIntegrationTest {
         assertContains(behaviour, "RETRY_BACKOFF = 40", "failed path retry backoff");
         assertContains(behaviour, "recruit.getNavigation().isDone()", "failed path restart");
         assertContains(behaviour, "stalledTicks >= STALL_TIMEOUT", "no-progress recovery");
+        assertContains(behaviour, "if (retryTicks == 0)",
+                "stalled-target retention during retry backoff");
+    }
+
+    private static void walkTargetsRespectTheirArrivalRadius() throws IOException {
+        String behaviour = read(
+                "src/main/java/galacticwars/clonewars/entity/ai/RecruitWalkTargetBehaviour.java");
+
+        assertContains(behaviour, "createPath(targetPos, walkTarget.getCloseEnoughDist())",
+                "walk-target pathfinding arrival radius");
+        assertNotContains(behaviour, "createPath(targetPos, 0)",
+                "exact-block walk-target pathfinding");
     }
 
     private static String read(String relativePath) throws IOException {

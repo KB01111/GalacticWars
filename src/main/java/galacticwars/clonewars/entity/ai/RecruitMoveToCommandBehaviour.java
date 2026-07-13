@@ -36,7 +36,6 @@ public final class RecruitMoveToCommandBehaviour
     }
 
     @Override
-    @Override
     protected boolean checkExtraStartConditions(ServerLevel level, GalacticRecruitEntity recruit) {
         BlockPos currentTarget = recruit.getMoveTarget();
         if (retryTicks > 0 && (currentTarget == null || currentTarget.equals(trackedTarget))) {
@@ -98,7 +97,9 @@ public final class RecruitMoveToCommandBehaviour
     protected void stop(GalacticRecruitEntity recruit) {
         BrainUtil.clearMemory(recruit, MemoryModuleType.WALK_TARGET);
         recruit.getNavigation().stop();
-        trackedTarget = null;
+        if (retryTicks == 0) {
+            trackedTarget = null;
+        }
         waitingToRetry = false;
     }
 

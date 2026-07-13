@@ -16,6 +16,7 @@ public final class RecruitWorkerAiIntegrationTest {
         recruitImplementsEnabledProfessionHandlers();
         builderNormalizesProgressionSubject();
         workerBehaviourDelegatesToRecruitCycle();
+        naturalCivilianShelterUsesOnePredicate();
 
         System.out.println("RecruitWorkerAiIntegrationTest passed");
     }
@@ -92,6 +93,19 @@ public final class RecruitWorkerAiIntegrationTest {
         assertContains(behaviour, "shouldRunWorkerCycle", "worker cycle guard");
         assertContains(behaviour, "tickWorkerController", "worker controller tick");
         assertContains(behaviour, "pauseWorkerNavigation", "worker navigation cleanup");
+    }
+
+    private static void naturalCivilianShelterUsesOnePredicate() throws IOException {
+        String behaviour = read(
+                "src/main/java/galacticwars/clonewars/entity/ai/CivilianShelterBehaviour.java");
+
+        assertContains(behaviour, "return shouldShelter(civilian);",
+                "shared shelter start and continuation predicate");
+        assertContains(behaviour, "civilian.isNaturalFactionCivilian()",
+                "canonical natural-civilian predicate");
+        assertContains(behaviour,
+                "!civilian.blockPosition().closerThan(civilian.getHomePosition(), 3.0D)",
+                "at-home shelter start guard");
     }
 
     private static String read(String path) throws IOException {

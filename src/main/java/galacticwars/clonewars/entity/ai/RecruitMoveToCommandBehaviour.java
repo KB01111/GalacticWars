@@ -72,6 +72,7 @@ public final class RecruitMoveToCommandBehaviour
         }
         if (!target.equals(trackedTarget)) {
             resetProgress(recruit, target);
+            setWalkTarget(recruit);
         }
         double distanceSqr = distanceToTargetSqr(recruit);
         if (distanceSqr < bestDistanceSqr - MIN_PROGRESS_SQUARED) {

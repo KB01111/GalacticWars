@@ -3,8 +3,12 @@ package galacticwars.clonewars.integration;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 public final class ModRegistryCompatibilityTest {
+    private static final Pattern USE_ON_OVERRIDE = Pattern.compile(
+            "\\buseOn\\s*\\([^)]*\\bUseOnContext\\b[^)]*\\)", Pattern.DOTALL);
+
     private ModRegistryCompatibilityTest() {
     }
 
@@ -20,6 +24,8 @@ public final class ModRegistryCompatibilityTest {
 
     private static void spawnEggUsesDeferredItemIdInjection() throws IOException {
         String modItems = Files.readString(Path.of("src/main/java/galacticwars/clonewars/registry/ModItems.java"));
+        String spawnEgg = Files.readString(Path.of(
+                "src/main/java/galacticwars/clonewars/entity/RecruitSpawnEggItem.java"));
 
         assertContains(modItems,
                 "ITEMS.registerItem(\"clone_trooper_spawn_egg\"",
@@ -30,6 +36,12 @@ public final class ModRegistryCompatibilityTest {
         assertNotContains(modItems,
                 "new SpawnEggItem(new Item.Properties()",
                 "spawn egg registration must not bypass Item.Properties#setId");
+        assertContains(spawnEgg,
+                "super(properties.spawnEgg(recruitType))",
+                "spawn egg must bind its recruit type through the vanilla item component");
+        assertDoesNotMatch(spawnEgg,
+                USE_ON_OVERRIDE,
+                "spawn egg must not replace vanilla world interaction and spawning semantics");
     }
 
     private static void registeredItemsHaveItemModelDefinitions() {
@@ -98,6 +110,12 @@ public final class ModRegistryCompatibilityTest {
     private static void assertNotContains(String haystack, String needle, String label) {
         if (haystack.contains(needle)) {
             throw new AssertionError(label + " contains forbidden <" + needle + ">");
+        }
+    }
+
+    private static void assertDoesNotMatch(String source, Pattern pattern, String label) {
+        if (pattern.matcher(source).find()) {
+            throw new AssertionError(label + " matches forbidden <" + pattern + ">");
         }
     }
 

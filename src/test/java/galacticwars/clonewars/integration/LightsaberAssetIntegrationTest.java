@@ -17,10 +17,13 @@ public final class LightsaberAssetIntegrationTest {
     public static void main(String[] args) throws Exception {
         String base = json(ASSETS.resolve("models/item/lightsaber_base.json"));
         require(base.contains("\"display\""), "lightsaber base model must define held-item transforms");
-        require(occurrences(base, "\"name\"") == 3,
-                "lightsaber base model must contain grip, emitter, and blade");
+        require(occurrences(base, "\"name\"") >= 16,
+                "lightsaber base model must contain a detailed segmented hilt and layered blade");
         require(base.contains("\"energy_blade\""), "lightsaber model needs energy blade");
+        require(base.contains("\"particle\": \"#hilt\""),
+                "lightsaber base model must resolve its particle texture through the hilt");
         require(base.contains("\"light_emission\": 15"), "blade must render at full light");
+        require(base.contains("\"shade\": false"), "blade must not receive block-style shading");
 
         for (String color : COLORS) {
             String definition = json(ASSETS.resolve("items/" + color + "_lightsaber.json"));
@@ -40,8 +43,8 @@ public final class LightsaberAssetIntegrationTest {
                     color + " blade texture reference");
 
             image("textures/item/" + color + "_lightsaber.png", 16, 16, true);
-            image("textures/item/lightsaber/" + color + "_hilt.png", 16, 16, false);
-            image("textures/item/lightsaber/" + color + "_blade.png", 16, 64, false);
+            image("textures/item/lightsaber/" + color + "_hilt.png", 32, 32, false);
+            image("textures/item/lightsaber/" + color + "_blade.png", 32, 128, true);
 
             String animation = json(
                     ASSETS.resolve("textures/item/lightsaber/" + color + "_blade.png.mcmeta"));
@@ -52,12 +55,16 @@ public final class LightsaberAssetIntegrationTest {
         String clientExtensions = Files.readString(Path.of(
                 "src/main/java/galacticwars/clonewars/client/render/LightsaberClientExtensions.java"));
         require(
-                clientExtensions.contains("HumanoidModel.ArmPose.BLOCK"),
-                "third-person lightsaber ready stance");
+                clientExtensions.contains("HumanoidModel.ArmPose.ITEM"),
+                "third-person lightsaber held-item stance");
         require(
                 clientExtensions.contains("applyForgeHandTransform"),
                 "first-person lightsaber wield animation");
         require(clientExtensions.contains("swingProgress"), "lightsaber slash must follow swing progress");
+        String handTransform = methodBody(clientExtensions, "boolean applyForgeHandTransform");
+        require(
+                handTransform.contains("return false;") && !handTransform.contains("return true;"),
+                "first-person extension must preserve Minecraft's normal hand transform");
 
         System.out.println("LightsaberAssetIntegrationTest passed");
     }
@@ -77,6 +84,23 @@ public final class LightsaberAssetIntegrationTest {
             offset += needle.length();
         }
         return count;
+    }
+
+    private static String methodBody(String source, String signature) {
+        int signatureStart = source.indexOf(signature);
+        require(signatureStart >= 0, "missing method " + signature);
+        int bodyStart = source.indexOf('{', signatureStart);
+        require(bodyStart >= 0, "missing method body " + signature);
+        int depth = 0;
+        for (int index = bodyStart; index < source.length(); index++) {
+            char character = source.charAt(index);
+            if (character == '{') {
+                depth++;
+            } else if (character == '}' && --depth == 0) {
+                return source.substring(bodyStart + 1, index);
+            }
+        }
+        throw new AssertionError("unterminated method body " + signature);
     }
 
     private static void image(

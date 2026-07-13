@@ -94,7 +94,8 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                     VEHICLES.get(buttonId - FABRICATE_FIRST));
             success = reason.equals("accepted");
         } else if (buttonId == MERGE_SQUADS) {
-            var groups = data.armyGroupsForKingdom(data.kingdomForPlayer(player.getUUID()).orElseThrow().id());
+            var kingdom = data.kingdomForPlayer(player.getUUID()).orElse(null);
+            var groups = kingdom == null ? List.<galacticwars.clonewars.army.ArmyGroupRecord>of() : data.armyGroupsForKingdom(kingdom.id());
             success = groups.size() >= 2 && data.mergeArmyGroups(
                     player.getUUID(), groups.get(0).id(), groups.get(1).id());
         } else if (buttonId == PATROL_SQUAD) {

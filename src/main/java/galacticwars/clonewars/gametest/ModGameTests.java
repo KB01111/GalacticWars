@@ -682,6 +682,7 @@ public final class ModGameTests {
                 new SpawnEggCase(ModItems.MANDALORIAN_CLANSPERSON_SPAWN_EGG.get(), ModEntityTypes.MANDALORIAN_CLANSPERSON.get(), true),
                 new SpawnEggCase(ModItems.HUTT_CIVILIAN_SPAWN_EGG.get(), ModEntityTypes.HUTT_CIVILIAN.get(), true),
                 new SpawnEggCase(ModItems.NIGHTSISTER_CIVILIAN_SPAWN_EGG.get(), ModEntityTypes.NIGHTSISTER_CIVILIAN.get(), true));
+        List<UUID> spawnedRecruitIds = new java.util.ArrayList<>();
 
         for (int index = 0; index < cases.size(); index++) {
             SpawnEggCase testCase = cases.get(index);
@@ -719,6 +720,7 @@ public final class ModGameTests {
                 helper.fail("Spawn egg did not create " + testCase.type());
             }
             GalacticRecruitEntity recruit = spawned.getFirst();
+            spawnedRecruitIds.add(recruit.getUUID());
             if (!recruit.isPersistenceRequired()) {
                 helper.fail("Spawn egg recruit was not marked persistent: " + testCase.type());
             }
@@ -760,34 +762,6 @@ public final class ModGameTests {
             helper.fail("Survival spawn egg did not preserve replaceable-block, naming, or consumption behavior");
         }
 
-        BlockPos obstructedClicked = helper.absolutePos(new BlockPos(15, 1, 15));
-        helper.getLevel().setBlockAndUpdate(obstructedClicked, Blocks.STONE.defaultBlockState());
-        for (int y = 0; y < 3; y++) {
-            helper.getLevel().setBlockAndUpdate(
-                    obstructedClicked.east().above(y), Blocks.STONE.defaultBlockState());
-        }
-        ItemStack obstructedEgg = new ItemStack(ModItems.B1_BATTLE_DROID_SPAWN_EGG.get(), 2);
-        survivalPlayer.setItemInHand(InteractionHand.MAIN_HAND, obstructedEgg);
-        InteractionResult obstructedResult = survivalPlayer.gameMode.useItemOn(
-                survivalPlayer,
-                helper.getLevel(),
-                obstructedEgg,
-                InteractionHand.MAIN_HAND,
-                new BlockHitResult(
-                        Vec3.atCenterOf(obstructedClicked),
-                        Direction.EAST,
-                        obstructedClicked,
-                        false));
-        List<GalacticRecruitEntity> fallbackRecruits = helper.getLevel().getEntitiesOfClass(
-                GalacticRecruitEntity.class,
-                new AABB(obstructedClicked.above()).inflate(2.0D),
-                recruit -> recruit.getType() == ModEntityTypes.B1_BATTLE_DROID.get());
-        if (!obstructedResult.consumesAction()
-                || obstructedEgg.getCount() != 1
-                || fallbackRecruits.size() != 1) {
-            helper.fail("Spawn egg did not recover from an obstructed clicked face");
-        }
-
         BlockPos relativeSpawner = new BlockPos(1, 1, 11);
         helper.setBlock(relativeSpawner, Blocks.SPAWNER);
         BlockPos spawnerPos = helper.absolutePos(relativeSpawner);
@@ -808,7 +782,35 @@ public final class ModGameTests {
                 || spawnerDisplay.getType() != ModEntityTypes.CLONE_TROOPER.get()) {
             helper.fail("Recruit spawn egg did not preserve vanilla spawner configuration behavior");
         }
-        helper.succeed();
+
+        BlockPos relativeFurnace = new BlockPos(15, 1, 15);
+        helper.setBlock(relativeFurnace, Blocks.FURNACE);
+        BlockPos furnacePos = helper.absolutePos(relativeFurnace);
+        long spawnGameTime = helper.getLevel().getGameTime();
+        helper.runAfterDelay(40, () -> {
+            for (UUID recruitId : spawnedRecruitIds) {
+                if (!(helper.getLevel().getEntity(recruitId) instanceof GalacticRecruitEntity recruit)
+                        || !recruit.isAlive()) {
+                    helper.fail("Spawned recruit stopped surviving server ticks: " + recruitId);
+                    return;
+                }
+            }
+            if (helper.getLevel().getGameTime() < spawnGameTime + 40L) {
+                helper.fail("Server stopped ticking after recruit spawn-egg use");
+                return;
+            }
+            if (!(helper.getLevel().getBlockEntity(furnacePos) instanceof Container furnace)) {
+                helper.fail("Furnace block entity became unavailable after recruit spawn-egg use");
+                return;
+            }
+            ItemStack furnaceInput = new ItemStack(Items.RAW_IRON);
+            furnace.setItem(0, furnaceInput);
+            if (!furnace.getItem(0).is(Items.RAW_IRON)) {
+                helper.fail("Server could not process a furnace inventory interaction after recruit spawn-egg use");
+                return;
+            }
+            helper.succeed();
+        });
     }
 
     private static void kingdomHallAuthority(GameTestHelper helper) {

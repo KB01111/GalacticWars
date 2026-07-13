@@ -20,6 +20,8 @@ public final class ModRegistryCompatibilityTest {
 
     private static void spawnEggUsesDeferredItemIdInjection() throws IOException {
         String modItems = Files.readString(Path.of("src/main/java/galacticwars/clonewars/registry/ModItems.java"));
+        String spawnEgg = Files.readString(Path.of(
+                "src/main/java/galacticwars/clonewars/entity/RecruitSpawnEggItem.java"));
 
         assertContains(modItems,
                 "ITEMS.registerItem(\"clone_trooper_spawn_egg\"",
@@ -30,6 +32,12 @@ public final class ModRegistryCompatibilityTest {
         assertNotContains(modItems,
                 "new SpawnEggItem(new Item.Properties()",
                 "spawn egg registration must not bypass Item.Properties#setId");
+        assertContains(spawnEgg,
+                "super(properties.spawnEgg(recruitType))",
+                "spawn egg must bind its recruit type through the vanilla item component");
+        assertNotContains(spawnEgg,
+                "InteractionResult useOn",
+                "spawn egg must not replace vanilla world interaction and spawning semantics");
     }
 
     private static void registeredItemsHaveItemModelDefinitions() {

@@ -36,11 +36,14 @@ public final class RecruitMoveToCommandBehaviour
     }
 
     @Override
+    @Override
     protected boolean checkExtraStartConditions(ServerLevel level, GalacticRecruitEntity recruit) {
-        if (retryTicks > 0) {
+        BlockPos currentTarget = recruit.getMoveTarget();
+        if (retryTicks > 0 && (currentTarget == null || currentTarget.equals(trackedTarget))) {
             retryTicks--;
             return false;
         }
+        retryTicks = 0;
         return recruit.shouldMoveToCommandTarget();
     }
 

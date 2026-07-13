@@ -98,7 +98,7 @@ public final class VehiclePlanetTravelPlan {
             }
             moved.add(passenger);
         }
-        passengers.forEach(passenger -> passenger.startRiding(vehicle, true, true));
+        passengers.forEach(passenger -> passenger.startRiding(vehicle, true));
         return true;
     }
 

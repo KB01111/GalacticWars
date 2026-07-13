@@ -28,14 +28,14 @@ function New-HiltTexture {
         for ($y = 0; $y -lt 32; $y++) {
             for ($x = 0; $x -lt 32; $x++) {
                 $brush = (($x * 5 + $y * 3) % 7) - 3
-                $base = [Math]::Clamp(82 + $brush + [int](($x / 31.0) * 28), 45, 135)
+                $base = [Math]::Max(45, [Math]::Min(135, 82 + $brush + [int](($x / 31.0) * 28)))
                 $bitmap.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(255, $base, $base + 4, $base + 8))
             }
         }
 
         for ($y = 0; $y -le 6; $y++) {
             for ($x = 0; $x -lt 32; $x++) {
-                $shine = [Math]::Clamp(128 + (($x + $y) % 5) * 8, 0, 190)
+                $shine = [Math]::Max(0, [Math]::Min(190, 128 + (($x + $y) % 5) * 8))
                 $bitmap.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(255, $shine, $shine + 3, $shine + 7))
             }
         }
@@ -95,9 +95,9 @@ function New-BladeTexture {
                         $color = [System.Drawing.Color]::FromArgb(255, 245, 252, 255)
                     }
                     elseif ($distance -le 7.5) {
-                        $r = [Math]::Clamp([int]($Accent.R * $pulse * $tipFade), 0, 255)
-                        $g = [Math]::Clamp([int]($Accent.G * $pulse * $tipFade), 0, 255)
-                        $b = [Math]::Clamp([int]($Accent.B * $pulse * $tipFade), 0, 255)
+                        $r = [Math]::Max(0, [Math]::Min(255, [int]($Accent.R * $pulse * $tipFade)))
+                        $g = [Math]::Max(0, [Math]::Min(255, [int]($Accent.G * $pulse * $tipFade)))
+                        $b = [Math]::Max(0, [Math]::Min(255, [int]($Accent.B * $pulse * $tipFade)))
                         $color = [System.Drawing.Color]::FromArgb(235, $r, $g, $b)
                     }
                     elseif ($distance -le 10.5) {

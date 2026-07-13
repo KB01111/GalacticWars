@@ -44,10 +44,8 @@ public final class LightsaberClientExtensions implements IClientItemExtensions {
         poseStack.translate(direction * 0.025F * ready, idle, -0.045F * ready);
         poseStack.mulPose(Axis.ZP.rotationDegrees(direction * (-10.0F * ready - 18.0F * slash)));
         poseStack.mulPose(Axis.XP.rotationDegrees(-5.0F * ready - 12.0F * slash));
-        // Keep the subtle ready/slash offsets, then let Minecraft apply its
-        // normal first-person hand and item transforms. Returning true here
-        // claims the whole transform was handled and leaves the saber outside
-        // the visible hand render.
+        // Returning false preserves Minecraft's normal first-person hand and item
+        // transforms after applying the subtle ready/slash offsets above.
         return false;
     }
 }

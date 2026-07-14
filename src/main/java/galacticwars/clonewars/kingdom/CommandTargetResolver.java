@@ -22,7 +22,7 @@ public final class CommandTargetResolver {
         if (requestedId.isPresent()) {
             UUID targetId = requestedId.orElseThrow();
             return candidates.stream()
-                    .filter(candidate -> id.apply(candidate).equals(targetId))
+                    .filter(candidate -> targetId.equals(id.apply(candidate)))
                     .findFirst()
                     .map(Resolution::selected)
                     .orElseGet(Resolution::unavailable);

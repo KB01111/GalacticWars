@@ -29,7 +29,8 @@ public final class LibraryDependencyIntegrationTest {
         assertContains(neoForgeBuild,
                 "implementation(\"net.tslat:smartbrainlib-neoforge-26.2:$smartBrainLibVersion\")",
                 "NeoForge SmartBrainLib coordinate");
-        assertContains(properties, "architecturyApiVersion=21.0.5", "Architectury API pin");
+        assertContains(properties, "architecturyApiVersion=21.0.4", "Architectury API build pin");
+        assertContains(properties, "architectury_api_version=21.0.4", "Architectury API metadata pin");
         assertContains(properties, "smartBrainLibVersion=2.0.0", "SmartBrainLib pin");
         assertContains(fabricMetadata, "\"architectury\": \">=${architectury_api_version}\"",
                 "Fabric Architectury required metadata");

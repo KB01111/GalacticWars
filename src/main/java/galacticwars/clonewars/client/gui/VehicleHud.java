@@ -15,10 +15,10 @@ public final class VehicleHud {
         int top = graphics.guiHeight() - 38;
         var configured = ClientGameplayCatalog.snapshot().vehicle(vehicle.vehicleId()).orElse(null);
         int maximumHealth = configured == null
-                ? Math.max(1, vehicle.health())
+                ? vehicle.syncedMaximumHealth()
                 : Math.max(vehicle.health(), configured.maxHealth());
         int maximumFuel = configured == null
-                ? Math.max(1, vehicle.fuel())
+                ? vehicle.syncedFuelCapacity()
                 : Math.max(vehicle.fuel(), configured.fuelCapacity());
         graphics.fill(left, top, left + 142, top + 26, 0xBB080C12);
         graphics.text(minecraft.font, Component.translatable("hud.galacticwars.vehicle",

@@ -52,6 +52,10 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
             GalacticVehicleEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> HEALTH = SynchedEntityData.defineId(
             GalacticVehicleEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> MAXIMUM_HEALTH = SynchedEntityData.defineId(
+            GalacticVehicleEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> FUEL_CAPACITY = SynchedEntityData.defineId(
+            GalacticVehicleEntity.class, EntityDataSerializers.INT);
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("vehicle.idle");
     private static final RawAnimation TRAVEL = RawAnimation.begin().thenLoop("vehicle.travel");
     private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
@@ -72,8 +76,12 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
     public void deploy(UUID ownerId, String factionId) {
         entityData.set(OWNER, ownerId.toString());
         entityData.set(FACTION, factionId);
-        entityData.set(FUEL, fuelCapacity());
-        entityData.set(HEALTH, maxVehicleHealth());
+        int configuredFuelCapacity = fuelCapacity();
+        int configuredMaximumHealth = maxVehicleHealth();
+        entityData.set(FUEL_CAPACITY, configuredFuelCapacity);
+        entityData.set(MAXIMUM_HEALTH, configuredMaximumHealth);
+        entityData.set(FUEL, configuredFuelCapacity);
+        entityData.set(HEALTH, configuredMaximumHealth);
     }
 
     @Override
@@ -82,6 +90,8 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
         builder.define(FACTION, "");
         builder.define(FUEL, 0);
         builder.define(HEALTH, 1);
+        builder.define(MAXIMUM_HEALTH, 40);
+        builder.define(FUEL_CAPACITY, 1000);
     }
 
     @Override
@@ -90,15 +100,21 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
         output.putString("Faction", factionId());
         output.putInt("Fuel", fuel());
         output.putInt("Health", health());
-        output.putInt("VehicleDataVersion", 1);
+        output.putInt("MaximumHealth", syncedMaximumHealth());
+        output.putInt("FuelCapacity", syncedFuelCapacity());
+        output.putInt("VehicleDataVersion", 2);
     }
 
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         entityData.set(OWNER, input.read("Owner", UUIDUtil.CODEC).map(UUID::toString).orElse(""));
         entityData.set(FACTION, input.getStringOr("Faction", ""));
-        entityData.set(FUEL, Math.max(0, Math.min(fuelCapacity(), input.getIntOr("Fuel", 0))));
-        entityData.set(HEALTH, Math.max(0, Math.min(maxVehicleHealth(), input.getIntOr("Health", 1))));
+        int savedFuelCapacity = Math.max(1, input.getIntOr("FuelCapacity", fuelCapacity()));
+        int savedMaximumHealth = Math.max(1, input.getIntOr("MaximumHealth", maxVehicleHealth()));
+        entityData.set(FUEL_CAPACITY, savedFuelCapacity);
+        entityData.set(MAXIMUM_HEALTH, savedMaximumHealth);
+        entityData.set(FUEL, Math.max(0, Math.min(savedFuelCapacity, input.getIntOr("Fuel", 0))));
+        entityData.set(HEALTH, Math.max(0, Math.min(savedMaximumHealth, input.getIntOr("Health", 1))));
     }
 
     @Override
@@ -257,8 +273,8 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
     public String factionId() { return entityData.get(FACTION); }
     public int fuel() { return entityData.get(FUEL); }
     public int health() { return entityData.get(HEALTH); }
-    public int maxHealthForHud() { return maxVehicleHealth(); }
-    public int fuelCapacityForHud() { return fuelCapacity(); }
+    public int syncedMaximumHealth() { return Math.max(1, entityData.get(MAXIMUM_HEALTH)); }
+    public int syncedFuelCapacity() { return Math.max(1, entityData.get(FUEL_CAPACITY)); }
     public String vehicleId() { return BuiltInRegistries.ENTITY_TYPE.getKey(getType()).getPath(); }
 
     public void damageVehicle(int amount) {

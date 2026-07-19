@@ -176,6 +176,7 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
         boolean ownedByPlayer = entity instanceof GalacticRecruitEntity recruit
                 && this.minecraft.player != null
                 && recruit.isOwnedBy(this.minecraft.player);
+        this.localFeedback = Component.translatable("screen.galacticwars.recruit.guidance");
         if (tame != this.lastTame || ownedByPlayer != this.lastOwnedByPlayer) {
             this.rebuildWidgets();
         }

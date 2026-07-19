@@ -175,7 +175,11 @@ public final class GalacticNetwork {
             NetworkManager.PacketContext context
     ) {
         context.queue(() -> {
-            if (context.getPlayer().containerMenu instanceof CommandCenterOperationsMenu operations
+            var player = context.getPlayer();
+            if (player == null) {
+                return;
+            }
+            if (player.containerMenu instanceof CommandCenterOperationsMenu operations
                     && operations.containerId == payload.containerId()) {
                 operations.applyClientDashboard(payload.state());
             }

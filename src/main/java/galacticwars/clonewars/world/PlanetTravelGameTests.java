@@ -128,6 +128,8 @@ public final class PlanetTravelGameTests {
         passenger.getInventory().add(new ItemStack(Items.DIAMOND, 3));
         int initialFuel = vehicle.fuel();
         int initialHealth = vehicle.health();
+        int initialFuelCapacity = vehicle.syncedFuelCapacity();
+        int initialMaximumHealth = vehicle.syncedMaximumHealth();
         UUID vehicleId = vehicle.getUUID();
 
         BlockPos planetArrival = new BlockPos(256, 160, 256);
@@ -170,6 +172,8 @@ public final class PlanetTravelGameTests {
                 || passenger.getVehicle() != planetVehicle
                 || !planetVehicle.getUUID().equals(vehicleId)
                 || planetVehicle.fuel() != initialFuel || planetVehicle.health() != initialHealth
+                || planetVehicle.syncedFuelCapacity() != initialFuelCapacity
+                || planetVehicle.syncedMaximumHealth() != initialMaximumHealth
                 || !respawnMatches(owner, Level.NETHER, planetArrival)
                 || !respawnMatches(passenger, Level.NETHER, planetArrival)) {
             helper.fail("Outbound transfer did not preserve its complete travel party: accepted="
@@ -214,6 +218,8 @@ public final class PlanetTravelGameTests {
                 || passenger.getVehicle() != homeVehicle
                 || !homeVehicle.getUUID().equals(vehicleId)
                 || homeVehicle.fuel() != initialFuel || homeVehicle.health() != initialHealth
+                || homeVehicle.syncedFuelCapacity() != initialFuelCapacity
+                || homeVehicle.syncedMaximumHealth() != initialMaximumHealth
                 || countItem(owner, ModItems.CREDIT_CHIP.get()) != 17
                 || countItem(passenger, Items.DIAMOND) != 3
                 || !respawnMatches(owner, Level.OVERWORLD, ownerRespawn)

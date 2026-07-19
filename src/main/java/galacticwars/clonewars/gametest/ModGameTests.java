@@ -593,6 +593,8 @@ public final class ModGameTests {
             if (definition == null || vehicle.ownerId().filter(owner::equals).isEmpty()
                     || vehicle.fuel() != definition.fuelCapacity()
                     || vehicle.health() != definition.maxHealth()
+                    || vehicle.syncedFuelCapacity() != definition.fuelCapacity()
+                    || vehicle.syncedMaximumHealth() != definition.maxHealth()
                     || definition.seatRoles().size() != definition.seats()
                     || definition.fabricationInputs().isEmpty()) {
                 helper.fail("Vehicle did not load its authoritative deployment contract: "
@@ -5135,7 +5137,7 @@ public final class ModGameTests {
                 return;
             }
             for (GalacticVehicleEntity vehicle : this.vehicles) {
-                int maximum = vehicle.maxHealthForHud();
+                int maximum = vehicle.syncedMaximumHealth();
                 vehicle.damageVehicle(20);
                 int damaged = vehicle.health();
                 this.intruder.setItemInHand(

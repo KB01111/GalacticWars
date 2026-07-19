@@ -1,1 +1,17 @@
-{"type":"galacticwars:planet","generator":{"type":"minecraft:noise","settings":"minecraft:overworld","biome_source":{"type":"minecraft:fixed","biome":"minecraft:desert"}}}
+{
+  "type": "galacticwars:tatooine",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "galacticwars:tatooine",
+      "features": true,
+      "lakes": false,
+      "structure_overrides": [],
+      "layers": [
+        {"height": 1, "block": "minecraft:bedrock"},
+        {"height": 115, "block": "minecraft:sandstone"},
+        {"height": 12, "block": "galacticwars:tatooine_sand"}
+      ]
+    }
+  }
+}

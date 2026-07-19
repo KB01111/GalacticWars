@@ -22,6 +22,7 @@ import galacticwars.clonewars.army.ArmyGroupOrder;
 import galacticwars.clonewars.army.ArmyGroupRecord;
 import galacticwars.clonewars.army.ArmyLocation;
 import galacticwars.clonewars.army.ArmyMemberSnapshot;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.settlement.KingdomBaseBlueprint;
 import galacticwars.clonewars.recruitment.NpcServiceBranch;
 import galacticwars.clonewars.workforce.WorkerProfession;
@@ -52,7 +53,8 @@ public final class KingdomSavedData extends SavedData {
     public static final SavedDataType<KingdomSavedData> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "kingdoms"),
             KingdomSavedData::new,
-            CODEC);
+            CODEC,
+            null);
 
     private final int schemaVersion;
     private final Map<UUID, KingdomRecord> kingdomsByOwner = new LinkedHashMap<>();
@@ -442,7 +444,10 @@ public final class KingdomSavedData extends SavedData {
     public boolean registerRecruit(UUID actorId, UUID recruitId, NpcServiceBranch serviceBranch) {
         KingdomRecord kingdom = kingdomForPlayer(actorId).orElse(null);
         if (kingdom == null || !kingdom.allows(actorId, KingdomPermission.RECRUIT)
-                || kingdomIdsByRecruit.containsKey(recruitId) || !kingdom.settlement().hasHousingSpace()) {
+                || kingdomIdsByRecruit.containsKey(recruitId)
+                || kingdom.settlement().recruitIds().size()
+                        >= FactionBalanceService.effectiveRecruitLimit(kingdom.factionId())
+                || !kingdom.settlement().hasHousingSpace()) {
             return false;
         }
         SettlementRecord updated = kingdom.settlement().withRecruit(recruitId);

@@ -1,51 +1,34 @@
 package galacticwars.clonewars.kingdom;
 
-import galacticwars.clonewars.GalacticWars;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
+import net.minecraft.world.level.Level;
 
-@EventBusSubscriber(modid = GalacticWars.MODID)
+/** Loader-neutral claim permission checks used by the shared event bridge. */
 public final class KingdomClaimEvents {
     private KingdomClaimEvents() {
     }
 
-    @SubscribeEvent
-    public static void onBreak(BreakBlockEvent event) {
-        if (event.getLevel() instanceof ServerLevel level
-                && !allows(level, event.getPlayer(), event.getPos().getX(), event.getPos().getZ(),
-                        KingdomPermission.BUILD)) {
-            event.setCanceled(true);
-            event.setNotifyClient(true);
-        }
+    public static boolean allowBreak(Level eventLevel, ServerPlayer player, BlockPos pos) {
+        return !(eventLevel instanceof ServerLevel level)
+                || allows(level, player, pos.getX(), pos.getZ(), KingdomPermission.BUILD);
     }
 
-    @SubscribeEvent
-    public static void onPlace(BlockEvent.EntityPlaceEvent event) {
-        Entity entity = event.getEntity();
-        if (event.getLevel() instanceof ServerLevel level
-                && entity instanceof Player player
-                && !allows(level, player, event.getPos().getX(), event.getPos().getZ(), KingdomPermission.BUILD)) {
-            event.setCanceled(true);
-        }
+    public static boolean allowPlace(Level eventLevel, Entity entity, BlockPos pos) {
+        return !(eventLevel instanceof ServerLevel level)
+                || !(entity instanceof Player player)
+                || allows(level, player, pos.getX(), pos.getZ(), KingdomPermission.BUILD);
     }
 
-    @SubscribeEvent
-    public static void onInteract(PlayerInteractEvent.RightClickBlock event) {
-        if (event.getLevel() instanceof ServerLevel level
-                && level.getBlockEntity(event.getPos()) instanceof Container
-                && !allows(level, event.getEntity(), event.getPos().getX(), event.getPos().getZ(),
-                        KingdomPermission.USE_STORAGE)) {
-            event.setCanceled(true);
-        }
+    public static boolean allowStorageInteraction(Player player, BlockPos pos) {
+        return !(player.level() instanceof ServerLevel level)
+                || !(level.getBlockEntity(pos) instanceof Container)
+                || allows(level, player, pos.getX(), pos.getZ(), KingdomPermission.USE_STORAGE);
     }
 
     private static boolean allows(

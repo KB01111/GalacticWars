@@ -22,6 +22,29 @@ public final class GalacticProgressionCoordinatorTest {
                 state, event(player, ProgressionEventType.CREDIT_TRANSACTION, "legacy_purchase", -25));
         assertTrue(!abstractCredit.accepted() && abstractCredit.reason().equals("physical_currency_required"),
                 "abstract currency transactions are retired");
+        assertRejectedUnchanged(state,
+                event(player, ProgressionEventType.RECRUIT_HIRED, "galacticwars:invented_trooper", 1),
+                "unknown_recruit");
+        assertRejectedUnchanged(state,
+                event(player, ProgressionEventType.BUILDING_COMPLETED, "galacticwars:death_star", 1),
+                "unknown_building");
+
+        ProgressionState deliveryIntegrity = state;
+        deliveryIntegrity = accepted(deliveryIntegrity, courierEvent(player));
+        deliveryIntegrity = accepted(deliveryIntegrity, courierEvent(player));
+        ProgressionDecision inflatedDelivery = GalacticProgressionCoordinator.apply(deliveryIntegrity,
+                event(player, ProgressionEventType.DELIVERY_COMPLETED,
+                        "courier/" + UUID.randomUUID(), 99));
+        assertTrue(!inflatedDelivery.accepted()
+                        && inflatedDelivery.reason().equals("invalid_event_amount")
+                        && inflatedDelivery.state() == deliveryIntegrity
+                        && deliveryIntegrity.total(ProgressionEventType.DELIVERY_COMPLETED) == 2
+                        && !deliveryIntegrity.unlocks().contains("advanced_trading"),
+                "inflated delivery amount cannot change totals or grant threshold unlocks");
+        deliveryIntegrity = accepted(deliveryIntegrity, courierEvent(player));
+        assertTrue(deliveryIntegrity.total(ProgressionEventType.DELIVERY_COMPLETED) == 3
+                        && deliveryIntegrity.unlocks().contains("advanced_trading"),
+                "three distinct authoritative deliveries still grant advanced trading");
         state = accepted(state, event(player, ProgressionEventType.BUILDING_COMPLETED, "command_center", 1));
         state = accepted(state, event(player, ProgressionEventType.BUILDING_COMPLETED, "galacticwars:forward_base", 1));
         state = accepted(state, event(player, ProgressionEventType.BUILDING_COMPLETED, "galacticwars:supply_depot", 1));
@@ -42,7 +65,7 @@ public final class GalacticProgressionCoordinatorTest {
                 "galacticwars:clone_trooper", 1));
         state = accepted(state, event(player, ProgressionEventType.QUEST_ADVANCED, "republic_chapter_1", 1));
         assertEquals(40, state.pendingCreditRewards(), "chapter 1 physical reward pending");
-        state = accepted(state, event(player, ProgressionEventType.DELIVERY_COMPLETED, "starter_delivery", 1));
+        state = accepted(state, courierEvent(player));
         state = accepted(state, event(player, ProgressionEventType.PLANET_VISITED, "kamino", 1));
         state = accepted(state, event(player, ProgressionEventType.QUEST_ADVANCED, "republic_chapter_2", 1));
         ProgressionState questReplay = accepted(state,
@@ -60,8 +83,7 @@ public final class GalacticProgressionCoordinatorTest {
                 ProgressionEventType.RECRUIT_HIRED, "galacticwars:mandalorian_warrior", 1));
         mandalorian = accepted(mandalorian, event(mandalorianPlayer,
                 ProgressionEventType.QUEST_ADVANCED, "mandalorian_chapter_1", 1));
-        mandalorian = accepted(mandalorian, event(mandalorianPlayer,
-                ProgressionEventType.DELIVERY_COMPLETED, "beskar_delivery", 1));
+        mandalorian = accepted(mandalorian, courierEvent(mandalorianPlayer));
         mandalorian = accepted(mandalorian, event(mandalorianPlayer,
                 ProgressionEventType.BUILDING_COMPLETED, "forward_base", 1));
         mandalorian = accepted(mandalorian, event(mandalorianPlayer,
@@ -99,10 +121,17 @@ public final class GalacticProgressionCoordinatorTest {
                 "mandalorian_chapter_2", quest("mandalorian_chapter_2",
                         List.of("delivery_completed", "beskar_ingot", "tatooine"), 75,
                         Set.of("vehicle_crafting")));
+        Map<String, LaunchContentDefinitions.TradeDefinition> trades = Map.of(
+                "mandalorian_armorer", new LaunchContentDefinitions.TradeDefinition(
+                        "mandalorian_armorer", "mandalorian", 40, "galacticwars:beskar_ingot", 1,
+                        "advanced_trading"));
         LaunchContentRuntime.install(
-                new LaunchContentDefinitions(planets, Map.of(), Map.of(), quests, Map.of(), Map.of()),
+                new LaunchContentDefinitions(planets, Map.of(), Map.of(), quests, trades, Map.of()),
                 List.of("galacticwars:republic", "galacticwars:mandalorian", "galacticwars:nightsister"),
-                Map.of());
+                Map.of(
+                        "republic", List.of("clone_trooper"),
+                        "mandalorian", List.of("mandalorian_warrior"),
+                        "nightsister", List.of("nightsister_acolyte")));
     }
 
     private static LaunchContentDefinitions.PlanetDefinition planet(String id, String faction) {
@@ -118,6 +147,21 @@ public final class GalacticProgressionCoordinatorTest {
 
     private static ProgressionEvent event(UUID player, ProgressionEventType type, String subject, int amount) {
         return new ProgressionEvent(UUID.randomUUID(), player, type, subject, amount);
+    }
+
+    private static ProgressionEvent courierEvent(UUID player) {
+        return event(player, ProgressionEventType.DELIVERY_COMPLETED,
+                "courier/" + UUID.randomUUID(), 1);
+    }
+
+    private static void assertRejectedUnchanged(
+            ProgressionState state,
+            ProgressionEvent event,
+            String reason
+    ) {
+        ProgressionDecision decision = GalacticProgressionCoordinator.apply(state, event);
+        assertTrue(!decision.accepted() && decision.reason().equals(reason) && decision.state() == state,
+                reason + " must reject without mutating progression");
     }
 
     private static ProgressionState accepted(ProgressionState state, ProgressionEvent event) {

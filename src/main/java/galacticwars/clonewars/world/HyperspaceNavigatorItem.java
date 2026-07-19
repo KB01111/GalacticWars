@@ -1,5 +1,6 @@
 package galacticwars.clonewars.world;
 
+import dev.architectury.registry.menu.MenuRegistry;
 import galacticwars.clonewars.menu.CommandCenterNavigationMenuProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,7 +24,8 @@ public final class HyperspaceNavigatorItem extends Item {
             player.sendSystemMessage(Component.translatable("message.galacticwars.travel.not_owner"));
             return InteractionResult.FAIL;
         }
-        player.openMenu(new CommandCenterNavigationMenuProvider());
+        MenuRegistry.openExtendedMenu(
+                serverPlayer, new CommandCenterNavigationMenuProvider(serverPlayer));
         return InteractionResult.SUCCESS;
     }
 }

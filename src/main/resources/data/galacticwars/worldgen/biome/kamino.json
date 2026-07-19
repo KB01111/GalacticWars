@@ -1,0 +1,75 @@
+{
+  "attributes": {
+    "minecraft:audio/background_music": {
+      "default": {
+        "max_delay": 24000,
+        "min_delay": 12000,
+        "sound": "minecraft:music.game"
+      },
+      "underwater": {
+        "max_delay": 24000,
+        "min_delay": 12000,
+        "sound": "minecraft:music.under_water"
+      }
+    },
+    "minecraft:visual/sky_color": "#4d6f8f"
+  },
+  "carvers": ["minecraft:cave", "minecraft:cave_extra_underground", "minecraft:canyon"],
+  "downfall": 1.0,
+  "effects": {"water_color": "#315a78"},
+  "features": [
+    [],
+    ["minecraft:lake_lava_underground"],
+    ["minecraft:amethyst_geode"],
+    ["minecraft:monster_room", "minecraft:monster_room_deep"],
+    [],
+    [],
+    [
+      "minecraft:ore_dirt", "minecraft:ore_gravel",
+      "minecraft:ore_granite_upper", "minecraft:ore_granite_lower",
+      "minecraft:ore_diorite_upper", "minecraft:ore_diorite_lower",
+      "minecraft:ore_andesite_upper", "minecraft:ore_andesite_lower",
+      "minecraft:ore_tuff", "minecraft:ore_coal_upper", "minecraft:ore_coal_lower",
+      "minecraft:ore_iron_upper", "minecraft:ore_iron_middle", "minecraft:ore_iron_small",
+      "minecraft:ore_gold", "minecraft:ore_gold_lower",
+      "minecraft:ore_redstone", "minecraft:ore_redstone_lower",
+      "minecraft:ore_diamond", "minecraft:ore_diamond_medium",
+      "minecraft:ore_diamond_large", "minecraft:ore_diamond_buried",
+      "minecraft:ore_lapis", "minecraft:ore_lapis_buried", "minecraft:ore_copper",
+      "minecraft:underwater_magma", "minecraft:disk_sand",
+      "minecraft:disk_clay", "minecraft:disk_gravel"
+    ],
+    [],
+    ["minecraft:spring_water", "minecraft:spring_lava"],
+    [
+      "minecraft:glow_lichen", "minecraft:seagrass_normal", "minecraft:kelp_cold"
+    ],
+    ["minecraft:freeze_top_layer"]
+  ],
+  "has_precipitation": true,
+  "spawn_costs": {},
+  "spawners": {
+    "ambient": [],
+    "axolotls": [],
+    "creature": [
+      {"type": "galacticwars:clone_trooper", "maxCount": 4, "minCount": 2, "weight": 10},
+      {"type": "galacticwars:arc_trooper", "maxCount": 1, "minCount": 1, "weight": 2},
+      {"type": "galacticwars:jedi_knight", "maxCount": 1, "minCount": 1, "weight": 1},
+      {"type": "galacticwars:republic_civilian", "maxCount": 3, "minCount": 1, "weight": 5}
+    ],
+    "misc": [],
+    "monster": [],
+    "underground_water_creature": [
+      {"type": "minecraft:glow_squid", "maxCount": 6, "minCount": 4, "weight": 10}
+    ],
+    "water_ambient": [
+      {"type": "minecraft:cod", "maxCount": 6, "minCount": 3, "weight": 10}
+    ],
+    "water_creature": [
+      {"type": "minecraft:squid", "maxCount": 4, "minCount": 1, "weight": 1},
+      {"type": "minecraft:dolphin", "maxCount": 2, "minCount": 1, "weight": 1},
+      {"type": "minecraft:nautilus", "maxCount": 1, "minCount": 1, "weight": 5}
+    ]
+  },
+  "temperature": 0.5
+}

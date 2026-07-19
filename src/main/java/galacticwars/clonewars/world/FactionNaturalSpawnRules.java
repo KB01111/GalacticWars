@@ -1,6 +1,7 @@
 package galacticwars.clonewars.world;
 
 import galacticwars.clonewars.data.GameplayDataManager;
+import galacticwars.clonewars.data.GameplayDataSnapshot;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,8 +27,17 @@ public final class FactionNaturalSpawnRules {
             return true;
         }
         String entityTypeId = BuiltInRegistries.ENTITY_TYPE.getKey(entityType).toString();
-        return level.getLevel().dimension().equals(Level.OVERWORLD)
-                && GameplayDataManager.snapshot().overworldSpawnProfileForEntity(entityTypeId).isPresent()
+        GameplayDataSnapshot snapshot = GameplayDataManager.snapshot();
+        boolean factionAllowsSpawn;
+        if (level.getLevel().dimension().equals(Level.OVERWORLD)) {
+            factionAllowsSpawn = snapshot.overworldSpawnProfileForEntity(entityTypeId).isPresent();
+        } else {
+            String dimensionId = level.getLevel().dimension().identifier().toString();
+            PlanetFactionSpawnPolicy.Evaluation evaluation = PlanetFactionSpawnPolicy.evaluate(
+                    snapshot, dimensionId, entityTypeId);
+            factionAllowsSpawn = evaluation.knownPlanetDimension() && evaluation.allowed();
+        }
+        return factionAllowsSpawn
                 && level.getBlockState(position).isAir()
                 && level.getBlockState(position.above()).isAir()
                 && level.getFluidState(position).isEmpty()

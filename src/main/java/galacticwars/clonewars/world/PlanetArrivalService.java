@@ -2,15 +2,20 @@ package galacticwars.clonewars.world;
 
 import galacticwars.clonewars.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.AABB;
 
 import java.util.List;
 import java.util.Optional;
 
 public final class PlanetArrivalService {
     private static final int PLATFORM_RADIUS = 2;
+    private static final int HOME_SEARCH_RADIUS = 24;
+    private static final int[] HOME_VERTICAL_OFFSETS = {0, 1, -1, 2, -2, 3, -3};
     private static final List<BlockPos> CANDIDATE_OFFSETS = List.of(
             BlockPos.ZERO,
             new BlockPos(32, 0, 0),
@@ -36,6 +41,42 @@ public final class PlanetArrivalService {
             Optional<BlockPos> created = createPlatform(level, offset.getX(), offset.getZ());
             if (created.isPresent()) {
                 return created;
+            }
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<BlockPos> findHomeArrival(
+            ServerLevel level,
+            BlockPos commandCenter,
+            Entity traveler
+    ) {
+        for (int radius = 2; radius <= HOME_SEARCH_RADIUS; radius++) {
+            for (int yOffset : HOME_VERTICAL_OFFSETS) {
+                for (int x = -radius; x <= radius; x++) {
+                    Optional<BlockPos> north = safeHomeCandidate(
+                            level, commandCenter.offset(x, yOffset, -radius), traveler);
+                    if (north.isPresent()) {
+                        return north;
+                    }
+                    Optional<BlockPos> south = safeHomeCandidate(
+                            level, commandCenter.offset(x, yOffset, radius), traveler);
+                    if (south.isPresent()) {
+                        return south;
+                    }
+                }
+                for (int z = -radius + 1; z < radius; z++) {
+                    Optional<BlockPos> west = safeHomeCandidate(
+                            level, commandCenter.offset(-radius, yOffset, z), traveler);
+                    if (west.isPresent()) {
+                        return west;
+                    }
+                    Optional<BlockPos> east = safeHomeCandidate(
+                            level, commandCenter.offset(radius, yOffset, z), traveler);
+                    if (east.isPresent()) {
+                        return east;
+                    }
+                }
             }
         }
         return Optional.empty();
@@ -107,5 +148,25 @@ public final class PlanetArrivalService {
 
     private static boolean clearForPlayer(BlockState state) {
         return state.canBeReplaced() && state.getFluidState().isEmpty();
+    }
+
+    private static Optional<BlockPos> safeHomeCandidate(
+            ServerLevel level,
+            BlockPos feet,
+            Entity traveler
+    ) {
+        level.getChunkAt(feet);
+        BlockPos floor = feet.below();
+        if (!level.getBlockState(floor).isFaceSturdy(level, floor, Direction.UP)
+                || !level.getFluidState(feet).isEmpty()
+                || !level.getFluidState(feet.above()).isEmpty()) {
+            return Optional.empty();
+        }
+        AABB current = traveler.getBoundingBox();
+        AABB destination = current.move(
+                feet.getX() + 0.5D - traveler.getX(),
+                feet.getY() - traveler.getY(),
+                feet.getZ() + 0.5D - traveler.getZ());
+        return level.noCollision(traveler, destination) ? Optional.of(feet) : Optional.empty();
     }
 }

@@ -1,0 +1,37 @@
+{
+  "parent": "galacticwars:onboarding/command_center",
+  "criteria": {
+    "campaign_state": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "announce_to_chat": false,
+    "description": {
+      "translate": "advancement.galacticwars.onboarding.faction_pledged.description"
+    },
+    "frame": "task",
+    "icon": {
+      "id": "galacticwars:command_marker"
+    },
+    "show_toast": true,
+    "title": {
+      "translate": "advancement.galacticwars.onboarding.faction_pledged.title"
+    }
+  },
+  "requirements": [
+    [
+      "campaign_state"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "galacticwars:energy_cell",
+      "galacticwars:dc15_blaster",
+      "galacticwars:e5_blaster",
+      "galacticwars:westar_blaster",
+      "galacticwars:scatter_blaster"
+    ]
+  },
+  "sends_telemetry_event": false
+}

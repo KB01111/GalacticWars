@@ -1,15 +1,19 @@
 package galacticwars.clonewars.menu;
 
+import dev.architectury.registry.menu.ExtendedMenuProvider;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
-public final class CommandCenterOperationsMenuProvider implements MenuProvider {
+import java.util.Objects;
+
+public final class CommandCenterOperationsMenuProvider implements ExtendedMenuProvider {
     private final BlockPos hallPos;
+    private CommandCenterDashboardState preparedDashboard;
 
     public CommandCenterOperationsMenuProvider(BlockPos hallPos) {
         this.hallPos = hallPos.immutable();
@@ -22,15 +26,16 @@ public final class CommandCenterOperationsMenuProvider implements MenuProvider {
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
-        return new CommandCenterOperationsMenu(containerId, inventory, hallPos);
+        CommandCenterOperationsMenu menu = new CommandCenterOperationsMenu(
+                containerId, inventory, hallPos);
+        preparedDashboard = menu.dashboardState();
+        return menu;
     }
 
     @Override
-    public void writeClientSideData(AbstractContainerMenu menu, RegistryFriendlyByteBuf buffer) {
+    public void saveExtraData(FriendlyByteBuf buffer) {
         buffer.writeBlockPos(hallPos);
-        if (!(menu instanceof CommandCenterOperationsMenu operations)) {
-            throw new IllegalArgumentException("Command Center provider received an incompatible menu");
-        }
-        CommandCenterDashboardCodec.write(buffer, operations.dashboardState());
+        CommandCenterDashboardCodec.write(buffer, Objects.requireNonNull(
+                preparedDashboard, "createMenu must run before extra menu data is encoded"));
     }
 }

@@ -162,7 +162,13 @@ final class LaunchContentValidator {
 
     private static List<JsonObject> objects(ResourceManager manager, String directory, String array) throws IOException {
         FileToIdConverter converter = FileToIdConverter.json("galacticwars/" + directory);
-        Map<Identifier, Resource> resources = converter.listMatchingResourcesFromNamespace(manager, GalacticWars.MODID);
+        Map<Identifier, Resource> resources = converter.listMatchingResources(manager).entrySet().stream()
+                .filter(entry -> entry.getKey().getNamespace().equals(GalacticWars.MODID))
+                .collect(java.util.stream.Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (first, ignored) -> first,
+                        java.util.LinkedHashMap::new));
         if (resources.isEmpty()) throw new IllegalArgumentException("Missing launch content directory " + directory);
         java.util.ArrayList<JsonObject> result = new java.util.ArrayList<>();
         for (Map.Entry<Identifier, Resource> entry : resources.entrySet()) {

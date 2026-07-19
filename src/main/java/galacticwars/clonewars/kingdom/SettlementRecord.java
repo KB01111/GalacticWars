@@ -29,6 +29,11 @@ public record SettlementRecord(
         int revision,
         List<UUID> additionalCommanderIds
 ) {
+    public static final int MAX_ACTIVE_BUILD_PROJECTS = 32;
+    public static final int MAX_RECENT_TERMINAL_BUILD_PROJECTS = 32;
+    public static final int MAX_ACTIVE_WORK_ORDERS = 64;
+    public static final int MAX_RECENT_TERMINAL_WORK_ORDERS = 32;
+
     public SettlementRecord {
         Objects.requireNonNull(id, "id");
         dimensionId = KingdomNormalizers.normalize(dimensionId, "dimensionId");
@@ -54,10 +59,22 @@ public record SettlementRecord(
             migratedWorksites.add(frontierWorksite(id, dimensionId, hallX, hallY, hallZ));
             worksites = List.copyOf(migratedWorksites);
         }
-        buildProjects = List.copyOf(Objects.requireNonNull(buildProjects, "buildProjects"));
-        workOrders = List.copyOf(Objects.requireNonNull(workOrders, "workOrders"));
+        List<BuildProject> suppliedProjects = List.copyOf(
+                Objects.requireNonNull(buildProjects, "buildProjects"));
+        List<WorkOrder> suppliedOrders = List.copyOf(
+                Objects.requireNonNull(workOrders, "workOrders"));
         recruitmentCampaigns = List.copyOf(Objects.requireNonNull(recruitmentCampaigns, "recruitmentCampaigns"));
         Objects.requireNonNull(rewards, "rewards");
+        SettlementTerminalLedger ledger = rewards.terminalLedger();
+        for (BuildProject project : suppliedProjects) {
+            ledger = ledger.recordProject(project);
+        }
+        for (WorkOrder workOrder : suppliedOrders) {
+            ledger = ledger.recordWorkOrder(workOrder);
+        }
+        rewards = rewards.withTerminalLedger(ledger);
+        buildProjects = compactBuildProjects(suppliedProjects);
+        workOrders = compactWorkOrders(suppliedOrders);
         if (revision < 0) {
             throw new IllegalArgumentException("revision cannot be negative");
         }
@@ -134,7 +151,9 @@ public record SettlementRecord(
     }
 
     public boolean containsCompletedProject(BuildProject project) {
-        return buildProjects.stream().anyMatch(existing -> existing.state() == BuildProjectState.COMPLETED
+        Objects.requireNonNull(project, "project");
+        return rewards.terminalLedger().completedBuild(project)
+                || buildProjects.stream().anyMatch(existing -> existing.state() == BuildProjectState.COMPLETED
                 && existing.blueprintId().equals(project.blueprintId())
                 && existing.dimensionId().equals(project.dimensionId())
                 && existing.originX() == project.originX()
@@ -362,6 +381,10 @@ public record SettlementRecord(
         Objects.requireNonNull(project, "project");
         if (project.revision() != 0 || project.state() != BuildProjectState.ACTIVE
                 || !project.completedPlacements().isEmpty()
+                || rewards.terminalLedger().terminalProject(project.id())
+                || rewards.terminalLedger().completedBuild(project)
+                || buildProjects.stream().filter(existing -> !existing.state().terminal()).count()
+                        >= MAX_ACTIVE_BUILD_PROJECTS
                 || buildProjects.stream().anyMatch(existing -> existing.id().equals(project.id()))) {
             return this;
         }
@@ -406,6 +429,11 @@ public record SettlementRecord(
             }
         }
         if (!allowInsert || workOrder.revision() != 0) {
+            return this;
+        }
+        if (rewards.terminalLedger().terminalWorkOrder(workOrder.id())
+                || workOrders.stream().filter(order -> !order.state().terminal()).count()
+                        >= MAX_ACTIVE_WORK_ORDERS) {
             return this;
         }
         updated.add(workOrder);
@@ -536,5 +564,35 @@ public record SettlementRecord(
         return new SettlementRecord(id, dimensionId, hallX, hallY, hallZ, claimRadius, housingCapacity,
                 recruitIds, commanderId, commanderPolicy, updatedWorksites, updatedProjects, updatedOrders,
                 recruitmentCampaigns, rewards, nextRevision, additionalCommanderIds);
+    }
+
+    private static List<BuildProject> compactBuildProjects(List<BuildProject> projects) {
+        int terminalCount = (int) projects.stream().filter(project -> project.state().terminal()).count();
+        int terminalsToSkip = Math.max(0, terminalCount - MAX_RECENT_TERMINAL_BUILD_PROJECTS);
+        java.util.ArrayList<BuildProject> compacted = new java.util.ArrayList<>(
+                projects.size() - terminalsToSkip);
+        for (BuildProject project : projects) {
+            if (project.state().terminal() && terminalsToSkip > 0) {
+                terminalsToSkip--;
+                continue;
+            }
+            compacted.add(project);
+        }
+        return List.copyOf(compacted);
+    }
+
+    private static List<WorkOrder> compactWorkOrders(List<WorkOrder> workOrders) {
+        int terminalCount = (int) workOrders.stream().filter(order -> order.state().terminal()).count();
+        int terminalsToSkip = Math.max(0, terminalCount - MAX_RECENT_TERMINAL_WORK_ORDERS);
+        java.util.ArrayList<WorkOrder> compacted = new java.util.ArrayList<>(
+                workOrders.size() - terminalsToSkip);
+        for (WorkOrder workOrder : workOrders) {
+            if (workOrder.state().terminal() && terminalsToSkip > 0) {
+                terminalsToSkip--;
+                continue;
+            }
+            compacted.add(workOrder);
+        }
+        return List.copyOf(compacted);
     }
 }

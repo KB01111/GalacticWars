@@ -1,18 +1,24 @@
 package galacticwars.clonewars.menu;
 
+import dev.architectury.registry.menu.MenuRegistry;
 import galacticwars.clonewars.army.ArmyLocation;
 import galacticwars.clonewars.army.ArmyFormation;
 import galacticwars.clonewars.army.ArmyCommandType;
 import galacticwars.clonewars.army.ArmyGroupOrder;
+import galacticwars.clonewars.army.ArmySupplyPolicy;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.kingdom.KingdomMemberRole;
 import galacticwars.clonewars.kingdom.KingdomRelation;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.kingdom.BuildProject;
 import galacticwars.clonewars.kingdom.BuildProjectState;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ActionAvailability;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.CombatTargetSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.NearbyPlayerSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.PositionSummary;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.StockRequirementSummary;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.VehicleFabricationSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.WorkerSummary;
 import galacticwars.clonewars.kingdom.CommandTargetResolver;
 import galacticwars.clonewars.kingdom.KingdomRecord;
@@ -30,6 +36,7 @@ import galacticwars.clonewars.settlement.ConstructionPlan;
 import galacticwars.clonewars.settlement.ConstructionProjectService;
 import galacticwars.clonewars.settlement.KingdomBaseBlueprint;
 import galacticwars.clonewars.vehicle.VehicleFabricationService;
+import galacticwars.clonewars.world.PlanetTravelService;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Comparator;
@@ -38,7 +45,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -71,6 +78,7 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
     public static final int RESUME_WORKER = 74;
     public static final int RECALL_WORKER = 75;
     public static final int PAUSE_WORKER = 76;
+    public static final int PLAYER_CLASS = 90;
     public static final int REGISTER_OUTPOST = 30;
     public static final int INVITE_NEAREST = 31;
     public static final int ACCEPT_INVITE = 32;
@@ -92,7 +100,7 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
     private CommandCenterDashboardState dashboardState;
     private int dashboardRevision;
 
-    public CommandCenterOperationsMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buffer) {
+    public CommandCenterOperationsMenu(int id, Inventory inventory, FriendlyByteBuf buffer) {
         this(id, inventory, buffer.readBlockPos(), CommandCenterDashboardCodec.read(buffer));
     }
 
@@ -162,7 +170,8 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
             if (!hall.canUse(player, galacticwars.clonewars.kingdom.KingdomPermission.TRAVEL)) {
                 return report(serverPlayer, false, "permission_denied");
             }
-            serverPlayer.openMenu(new CommandCenterNavigationMenuProvider());
+            MenuRegistry.openExtendedMenu(
+                    serverPlayer, new CommandCenterNavigationMenuProvider(serverPlayer));
             return true;
         } else if (buttonId == CLAIM_REWARDS) {
             success = ProgressionSavedData.get(level).claimCreditRewards(serverPlayer) > 0;
@@ -257,9 +266,23 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                 success = group != null && data.issueArmyOrder(player.getUUID(), group.id(),
                         group.order().withFormation(formation));
             } else if (buttonId == SUPPLY_SQUAD) {
-                success = group != null && hasSupplyCell(hall)
-                        && data.changeArmySupply(player.getUUID(), group.id(), 16);
-                if (success) consumeSupplyCell(hall);
+                int supplyCellSlot = findSupplyCellSlot(hall);
+                int suppliedUnits = kingdom == null ? 0 : ArmySupplyPolicy.unitsPerEnergyCell(
+                        FactionBalanceService.resolve(kingdom.factionId()).supplyEfficiencyPercent());
+                if (group == null) {
+                    success = false;
+                } else if (supplyCellSlot < 0) {
+                    success = false;
+                    reason = "supply_cell_required";
+                } else if (data.changeArmySupply(
+                        player.getUUID(), group.id(), suppliedUnits)) {
+                    success = true;
+                    reason = "squad_supplied";
+                    consumeSupplyCell(hall, supplyCellSlot);
+                } else {
+                    success = false;
+                    reason = "supply_update_rejected";
+                }
             } else if (buttonId == HOLD_SQUAD || buttonId == MOVE_SQUAD) {
                 ArmyCommandType type = buttonId == HOLD_SQUAD
                         ? ArmyCommandType.HOLD_POSITION : ArmyCommandType.MOVE_TO_POSITION;
@@ -545,6 +568,29 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                         && recruit.getRecruitDuty()
                                 != galacticwars.clonewars.recruitment.RecruitDuty.COMMANDER)
                 .toList();
+        var navigationOptions = PlanetTravelService.navigationOptions(serverPlayer);
+        ActionAvailability navigationAvailability = navigationOptions.stream()
+                .filter(option -> option.available())
+                .findFirst()
+                .map(option -> ActionAvailability.accepted())
+                .orElseGet(() -> navigationOptions.stream()
+                        .filter(option -> !option.destinationId().equals(
+                                PlanetTravelService.HOME_DESTINATION_ID))
+                        .findFirst()
+                        .or(() -> navigationOptions.stream().findFirst())
+                        .map(option -> ActionAvailability.rejected(option.reason()))
+                        .orElseGet(() -> ActionAvailability.rejected("destination_unavailable")));
+        List<VehicleFabricationSummary> fabrication = VEHICLES.stream().map(vehicleId -> {
+            var assessment = VehicleFabricationService.assess(serverPlayer, hall, vehicleId);
+            return new VehicleFabricationSummary(
+                    assessment.vehicleId(),
+                    new ActionAvailability(assessment.available(), assessment.reason()),
+                    assessment.requiredCredits(),
+                    assessment.materials().stream().map(material ->
+                            new StockRequirementSummary(
+                                    material.itemId(), material.required(), material.available()))
+                            .toList());
+        }).toList();
         return CommandCenterDashboardState.capture(
                 player.getUUID(), kingdom, data.armyGroupsForKingdom(kingdom.id()), commandCandidates,
                 nearbyCombatTargets(level, player, kingdom),
@@ -558,7 +604,8 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                                         player.distanceToSqr(target))))))
                         .toList(),
                 ProgressionSavedData.get(level).state(player.getUUID()), hall.treasuryCredits(),
-                hall.upkeepPaid(), data.kingdoms(), data.pendingInvites(), data.pendingDiplomacy(),
+                hall.upkeepPaid(), navigationAvailability, fabrication,
+                data.kingdoms(), data.pendingInvites(), data.pendingDiplomacy(),
                 level.getGameTime());
     }
 
@@ -572,6 +619,14 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
         boolean access = hall.canOpen(player) || hasPendingInvite(
                 KingdomSavedData.get(level), hall, player.getUUID(), level.getGameTime());
         return access && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(hallPos)) <= 64.0D;
+    }
+
+    /** Server-side authority check for workflows that temporarily replace the menu screen. */
+    public boolean authorizesClassSelection(Player player) {
+        return player.level() instanceof ServerLevel level
+                && level.getBlockEntity(hallPos) instanceof CommandCenterBlockEntity hall
+                && stillValid(player)
+                && hall.canOpen(player);
     }
 
     public static boolean hasPendingInvite(
@@ -744,20 +799,17 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
         return values[(formation.ordinal() + 1) % values.length];
     }
 
-    private static boolean hasSupplyCell(CommandCenterBlockEntity hall) {
-        for (int slot = 0; slot < hall.getContainerSize(); slot++) {
-            if (hall.getItem(slot).is(ModItems.ENERGY_CELL.get())) return true;
-        }
-        return false;
-    }
-
-    private static void consumeSupplyCell(CommandCenterBlockEntity hall) {
+    private static int findSupplyCellSlot(CommandCenterBlockEntity hall) {
         for (int slot = 0; slot < hall.getContainerSize(); slot++) {
             if (hall.getItem(slot).is(ModItems.ENERGY_CELL.get())) {
-                hall.getItem(slot).shrink(1);
-                hall.setChanged();
-                return;
+                return slot;
             }
         }
+        return -1;
+    }
+
+    private static void consumeSupplyCell(CommandCenterBlockEntity hall, int slot) {
+        hall.removeItem(slot, 1);
+        hall.setChanged();
     }
 }

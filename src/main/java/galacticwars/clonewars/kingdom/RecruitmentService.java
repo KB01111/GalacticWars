@@ -1,5 +1,6 @@
 package galacticwars.clonewars.kingdom;
 
+import galacticwars.clonewars.faction.FactionBalanceService;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -18,13 +19,33 @@ public final class RecruitmentService {
             Set<String> alliedFactionIds
     ) {
         Objects.requireNonNull(kingdom, "kingdom");
+        return evaluateDirectHireWithLimit(
+                kingdom,
+                unitFactionId,
+                cost,
+                availableFunds,
+                upkeepPaid,
+                alliedFactionIds,
+                FactionBalanceService.effectiveRecruitLimit(kingdom.factionId()));
+    }
+
+    static RecruitmentEligibility evaluateDirectHireWithLimit(
+            KingdomRecord kingdom,
+            String unitFactionId,
+            int cost,
+            int availableFunds,
+            boolean upkeepPaid,
+            Set<String> alliedFactionIds,
+            int effectiveRecruitLimit
+    ) {
+        Objects.requireNonNull(kingdom, "kingdom");
         Objects.requireNonNull(unitFactionId, "unitFactionId");
         Objects.requireNonNull(alliedFactionIds, "alliedFactionIds");
         if (!upkeepPaid) {
             return RecruitmentEligibility.rejected("upkeep_unpaid");
         }
         RecruitmentEligibility eligibility = evaluateSettlementEligibility(
-                kingdom, unitFactionId, alliedFactionIds);
+                kingdom, unitFactionId, alliedFactionIds, effectiveRecruitLimit);
         if (!eligibility.accepted()) {
             return eligibility;
         }
@@ -46,6 +67,32 @@ public final class RecruitmentService {
             Set<String> alliedFactionIds
     ) {
         Objects.requireNonNull(kingdom, "kingdom");
+        return evaluateCommanderCampaignWithLimit(
+                kingdom,
+                actingCommander,
+                unitId,
+                unitFactionId,
+                professionId,
+                cost,
+                treasuryCredits,
+                currentGameTime,
+                alliedFactionIds,
+                FactionBalanceService.effectiveRecruitLimit(kingdom.factionId()));
+    }
+
+    static RecruitmentCampaignDecision evaluateCommanderCampaignWithLimit(
+            KingdomRecord kingdom,
+            UUID actingCommander,
+            String unitId,
+            String unitFactionId,
+            String professionId,
+            int cost,
+            int treasuryCredits,
+            long currentGameTime,
+            Set<String> alliedFactionIds,
+            int effectiveRecruitLimit
+    ) {
+        Objects.requireNonNull(kingdom, "kingdom");
         Objects.requireNonNull(actingCommander, "actingCommander");
         Objects.requireNonNull(alliedFactionIds, "alliedFactionIds");
         SettlementRecord settlement = kingdom.settlement();
@@ -60,7 +107,7 @@ public final class RecruitmentService {
             return RecruitmentCampaignDecision.rejected("campaign_in_progress");
         }
         RecruitmentEligibility eligibility = evaluateSettlementEligibility(
-                kingdom, unitFactionId, alliedFactionIds);
+                kingdom, unitFactionId, alliedFactionIds, effectiveRecruitLimit);
         if (!eligibility.accepted()) {
             return RecruitmentCampaignDecision.rejected(eligibility.reasonCode());
         }
@@ -70,7 +117,7 @@ public final class RecruitmentService {
         if (cost < 0 || cost > policy.maximumCampaignSpend()) {
             return RecruitmentCampaignDecision.rejected("campaign_budget_exceeded");
         }
-        if (treasuryCredits - cost < policy.minimumTreasuryReserve()) {
+        if ((long) treasuryCredits - cost < policy.minimumTreasuryReserve()) {
             return RecruitmentCampaignDecision.rejected("treasury_reserve_required");
         }
         RecruitmentCampaign campaign = new RecruitmentCampaign(
@@ -87,8 +134,15 @@ public final class RecruitmentService {
     private static RecruitmentEligibility evaluateSettlementEligibility(
             KingdomRecord kingdom,
             String unitFactionId,
-            Set<String> alliedFactionIds
+            Set<String> alliedFactionIds,
+            int effectiveRecruitLimit
     ) {
+        if (effectiveRecruitLimit < 0) {
+            throw new IllegalArgumentException("effectiveRecruitLimit cannot be negative");
+        }
+        if (kingdom.settlement().recruitIds().size() >= effectiveRecruitLimit) {
+            return RecruitmentEligibility.rejected("recruit_limit_reached");
+        }
         if (!kingdom.settlement().hasHousingSpace()) {
             return RecruitmentEligibility.rejected("housing_full");
         }

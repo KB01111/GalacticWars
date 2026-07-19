@@ -15,6 +15,7 @@ import net.minecraft.world.level.saveddata.SavedDataType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,7 +42,8 @@ public final class ProgressionSavedData extends SavedData {
     public static final SavedDataType<ProgressionSavedData> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "progression"),
             ProgressionSavedData::new,
-            CODEC);
+            CODEC,
+            null);
 
     private final Map<UUID, ProgressionState> states = new LinkedHashMap<>();
 
@@ -55,13 +57,14 @@ public final class ProgressionSavedData extends SavedData {
             HashMap<ProgressionEventType, Integer> totals = new HashMap<>();
             player.eventTotals().forEach((key, value) -> totals.put(type(key), Math.max(0, value)));
             HashMap<ProgressionEventType, Set<String>> subjects = new HashMap<>();
-            player.eventSubjects().forEach((key, values) -> subjects.put(type(key), Set.copyOf(values)));
+            player.eventSubjects().forEach((key, values) ->
+                    subjects.put(type(key), new LinkedHashSet<>(values)));
             states.put(player.playerId(), new ProgressionState(
                     ProgressionState.CURRENT_SCHEMA_VERSION,
                     player.playerId(),
                     player.factionId(),
                     Math.max(0, player.credits()),
-                    Set.copyOf(player.processedEvents()),
+                    new LinkedHashSet<>(player.processedEvents()),
                     totals,
                     subjects,
                     Set.copyOf(player.unlocks())));
@@ -130,10 +133,11 @@ public final class ProgressionSavedData extends SavedData {
             LinkedHashMap<String, Integer> totals = new LinkedHashMap<>();
             state.eventTotals().forEach((type, value) -> totals.put(key(type), value));
             LinkedHashMap<String, List<String>> subjects = new LinkedHashMap<>();
-            state.eventSubjects().forEach((type, values) -> subjects.put(key(type), values.stream().sorted().toList()));
+            state.eventSubjects().forEach((type, values) ->
+                    subjects.put(key(type), List.copyOf(values)));
             players.add(new PlayerState(
                     state.playerId(), state.factionId(), state.credits(),
-                    state.processedEventIds().stream().sorted().toList(), totals, subjects,
+                    List.copyOf(state.processedEventIds()), totals, subjects,
                     state.unlocks().stream().sorted().toList()));
         }
         return List.copyOf(players);

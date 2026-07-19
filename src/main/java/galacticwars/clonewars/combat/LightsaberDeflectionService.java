@@ -36,10 +36,13 @@ public final class LightsaberDeflectionService {
                 return false;
             }
             var activation = recruit.activateClassAbility(
-                    "galacticwars:saber_guard", gameTime, false, 0.0D, false);
-            if (!activation.accepted()) {
-                return false;
-            }
+                    "galacticwars:saber_guard",
+                    gameTime,
+                    false,
+                    0.0D,
+                    false,
+                    () -> bolt.deflectTowardOwner(defender));
+            return activation.accepted();
         }
         return bolt.deflectTowardOwner(defender);
     }

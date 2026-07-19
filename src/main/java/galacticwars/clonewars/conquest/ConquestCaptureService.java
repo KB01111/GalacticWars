@@ -9,6 +9,7 @@ import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.recruitment.NpcServiceBranch;
+import galacticwars.clonewars.registry.ModBlocks;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.UUID;
@@ -35,6 +36,14 @@ public final class ConquestCaptureService {
         if (state == null) {
             return CaptureResult.rejected("region_not_initialized", 0, "");
         }
+        if (!level.hasChunkAt(beacon)) {
+            return CaptureResult.rejected(
+                    "beacon_unloaded", state.progress(), state.controllingFaction());
+        }
+        if (!level.getBlockState(beacon).is(ModBlocks.CONTROL_BEACON.get())) {
+            return CaptureResult.rejected(
+                    "beacon_missing", state.progress(), state.controllingFaction());
+        }
         String normalizedFaction = namespacedFaction(state.controllingFaction());
         if (!normalizedFaction.equals(state.controllingFaction())) {
             state = state.withControllingFaction(normalizedFaction);
@@ -49,13 +58,19 @@ public final class ConquestCaptureService {
         if (player == null) {
             int progress = Math.max(0, state.progress() - 10);
             if (progress != state.progress()) {
-                state = state.withProgress("", progress);
+                state = state.withProgress(
+                        progress == 0 ? "" : state.capturingPlayer(), progress);
                 data.put(state);
             }
             return CaptureResult.accepted(false, "awaiting_commander", state);
         }
         String playerFaction = namespacedFaction(
                 ProgressionSavedData.get(level).state(player.getUUID()).factionId());
+        String playerKingdom = KingdomSavedData.get(level).kingdomForPlayer(player.getUUID())
+                .map(record -> record.id().toString()).orElse("");
+        String captureAuthority = captureAuthority(player.getUUID(), playerKingdom);
+        if ((!playerKingdom.isEmpty() && playerKingdom.equals(state.controllingKingdom()))
+                || (!playerFaction.isEmpty() && playerFaction.equals(state.controllingFaction()))) {
             if (state.progress() > 0) {
                 state = state.withProgress("", 0);
                 data.put(state);
@@ -67,9 +82,9 @@ public final class ConquestCaptureService {
         if (defenders >= friendly) {
             return CaptureResult.accepted(false, "defenders_holding", state);
         }
-        int progress = Math.min(
-                region.captureTicks(), state.progress() + (friendly - defenders) * 20);
-        ConquestControlState progressed = state.withProgress(player.getUUID().toString(), progress);
+        ConquestControlState progressed = advanceProgress(
+                state, captureAuthority, (friendly - defenders) * 20, region.captureTicks());
+        int progress = progressed.progress();
         if (progress < region.captureTicks()) {
             data.put(progressed);
             return CaptureResult.accepted(false, "capturing", progressed);
@@ -82,7 +97,7 @@ public final class ConquestCaptureService {
                 progression.state(player.getUUID()), eventId, region.id());
         if (!gate.accepted()) {
             ConquestControlState held = progressed.withProgress(
-                    "", Math.max(0, region.captureTicks() - 20));
+                    captureAuthority, Math.max(0, region.captureTicks() - 20));
             data.put(held);
             return CaptureResult.rejected(gate.reason(), held.progress(), held.controllingFaction());
         }
@@ -119,6 +134,32 @@ public final class ConquestCaptureService {
         return factionId == null || factionId.isBlank() || factionId.indexOf(':') >= 0
                 ? (factionId == null ? "" : factionId)
                 : "galacticwars:" + factionId;
+    }
+
+    static String captureAuthority(UUID playerId, String kingdomId) {
+        Objects.requireNonNull(playerId, "playerId");
+        return kingdomId == null || kingdomId.isBlank()
+                ? "player:" + playerId
+                : "kingdom:" + kingdomId;
+    }
+
+    static ConquestControlState advanceProgress(
+            ConquestControlState state,
+            String captureAuthority,
+            int progressDelta,
+            int captureTicks
+    ) {
+        Objects.requireNonNull(state, "state");
+        captureAuthority = Objects.requireNonNull(captureAuthority, "captureAuthority").trim();
+        if (captureAuthority.isEmpty() || progressDelta < 0 || captureTicks <= 0) {
+            throw new IllegalArgumentException("invalid capture progress input");
+        }
+        int startingProgress = state.capturingPlayer().equals(captureAuthority)
+                ? state.progress()
+                : 0;
+        long advanced = (long) startingProgress + progressDelta;
+        int boundedProgress = (int) Math.min(captureTicks, advanced);
+        return state.withProgress(captureAuthority, boundedProgress);
     }
 
     public record CaptureResult(

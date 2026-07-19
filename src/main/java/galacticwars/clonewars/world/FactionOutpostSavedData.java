@@ -18,6 +18,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
 public final class FactionOutpostSavedData extends SavedData {
+    private static final int SCHEMA_VERSION = 2;
     private static final Codec<FactionOutpostRecord> OUTPOST_CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UUIDUtil.CODEC.fieldOf("id").forGetter(FactionOutpostRecord::id),
             Codec.STRING.fieldOf("faction_id").forGetter(FactionOutpostRecord::factionId),
@@ -33,21 +34,35 @@ public final class FactionOutpostSavedData extends SavedData {
             Codec.LONG.optionalFieldOf("last_activity", 0L).forGetter(FactionOutpostRecord::lastActivityGameTime)
     ).apply(instance, FactionOutpostRecord::new));
 
+    private static final Codec<FactionOutpostSiteProgress> SITE_PROGRESS_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    UUIDUtil.CODEC.fieldOf("outpost_id").forGetter(FactionOutpostSiteProgress::outpostId),
+                    Codec.intRange(0, FactionOutpostSitePlan.candidateCount() - 1)
+                            .fieldOf("next_candidate")
+                            .forGetter(FactionOutpostSiteProgress::nextCandidateIndex),
+                    Codec.LONG.fieldOf("next_attempt_game_time")
+                            .forGetter(FactionOutpostSiteProgress::nextAttemptGameTime)
+            ).apply(instance, FactionOutpostSiteProgress::new));
+
     public static final Codec<FactionOutpostSavedData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.INT.optionalFieldOf("schema_version", 1).forGetter(data -> 1),
+            Codec.INT.optionalFieldOf("schema_version", 1).forGetter(data -> SCHEMA_VERSION),
             OUTPOST_CODEC.listOf().optionalFieldOf("outposts", List.of()).forGetter(FactionOutpostSavedData::outposts),
             UUIDUtil.CODEC.listOf().optionalFieldOf("generated_sites", List.of())
-                    .forGetter(data -> List.copyOf(data.generatedSiteIds))
+                    .forGetter(data -> List.copyOf(data.generatedSiteIds)),
+            SITE_PROGRESS_CODEC.listOf().optionalFieldOf("site_progress", List.of())
+                    .forGetter(data -> List.copyOf(data.siteProgressByOutpost.values()))
     ).apply(instance, FactionOutpostSavedData::new));
 
     public static final SavedDataType<FactionOutpostSavedData> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "overworld_faction_outposts"),
             FactionOutpostSavedData::new,
-            CODEC);
+            CODEC,
+            null);
 
     private final Map<UUID, FactionOutpostRecord> outpostsById = new LinkedHashMap<>();
     private final Map<UUID, UUID> outpostIdsByNpc = new LinkedHashMap<>();
     private final LinkedHashSet<UUID> generatedSiteIds = new LinkedHashSet<>();
+    private final Map<UUID, FactionOutpostSiteProgress> siteProgressByOutpost = new LinkedHashMap<>();
 
     public FactionOutpostSavedData() {
     }
@@ -55,12 +70,25 @@ public final class FactionOutpostSavedData extends SavedData {
     private FactionOutpostSavedData(
             int schemaVersion,
             List<FactionOutpostRecord> outposts,
-            List<UUID> generatedSiteIds
+            List<UUID> generatedSiteIds,
+            List<FactionOutpostSiteProgress> siteProgress
     ) {
-        if (schemaVersion > 1) throw new IllegalArgumentException("unsupported faction outpost schema " + schemaVersion);
+        if (schemaVersion > SCHEMA_VERSION) {
+            throw new IllegalArgumentException("unsupported faction outpost schema " + schemaVersion);
+        }
         outposts.forEach(this::index);
         this.generatedSiteIds.addAll(generatedSiteIds);
         this.generatedSiteIds.retainAll(outpostsById.keySet());
+        for (FactionOutpostSiteProgress progress : siteProgress) {
+            if (!outpostsById.containsKey(progress.outpostId())
+                    || this.generatedSiteIds.contains(progress.outpostId())) {
+                continue;
+            }
+            if (siteProgressByOutpost.putIfAbsent(progress.outpostId(), progress) != null) {
+                throw new IllegalArgumentException(
+                        "duplicate faction outpost site progress " + progress.outpostId());
+            }
+        }
     }
 
     public static FactionOutpostSavedData get(ServerLevel level) {
@@ -84,9 +112,63 @@ public final class FactionOutpostSavedData extends SavedData {
     }
 
     public void markSiteGenerated(UUID outpostId) {
-        if (outpostsById.containsKey(outpostId) && generatedSiteIds.add(outpostId)) {
+        if (!outpostsById.containsKey(outpostId)) {
+            return;
+        }
+        boolean changed = generatedSiteIds.add(outpostId);
+        changed |= siteProgressByOutpost.remove(outpostId) != null;
+        if (changed) {
             this.setDirty();
         }
+    }
+
+    /**
+     * Claims the next bounded search window for an outpost. Advancing the persisted cursor before
+     * returning makes the claim exclusive to a single resident for the configured retry interval.
+     */
+    public Optional<FactionOutpostSitePlan.AttemptWindow> claimSiteGenerationAttempt(
+            UUID outpostId,
+            long gameTime
+    ) {
+        if (!outpostsById.containsKey(outpostId) || generatedSiteIds.contains(outpostId)) {
+            return Optional.empty();
+        }
+        FactionOutpostSiteProgress current = siteProgressByOutpost.getOrDefault(
+                outpostId, FactionOutpostSiteProgress.initial(outpostId));
+        Optional<FactionOutpostSiteProgress.Claim> claimed = current.claim(gameTime);
+        if (claimed.isEmpty()) {
+            return Optional.empty();
+        }
+        FactionOutpostSiteProgress.Claim claim = claimed.orElseThrow();
+        siteProgressByOutpost.put(outpostId, claim.followingProgress());
+        this.setDirty();
+        return Optional.of(claim.window());
+    }
+
+    public Optional<FactionOutpostSiteProgress> siteGenerationProgress(UUID outpostId) {
+        return Optional.ofNullable(siteProgressByOutpost.get(outpostId));
+    }
+
+    /** Atomically publishes the relocated logical center after the physical shelter is complete. */
+    public Optional<FactionOutpostRecord> completeSiteGeneration(
+            UUID outpostId,
+            BlockPos generatedCenter,
+            long gameTime
+    ) {
+        FactionOutpostRecord current = outpostsById.get(outpostId);
+        if (current == null) {
+            return Optional.empty();
+        }
+        if (generatedSiteIds.contains(outpostId)) {
+            return Optional.of(current);
+        }
+        FactionOutpostRecord relocated = current.relocatedTo(
+                generatedCenter.getX(), generatedCenter.getY(), generatedCenter.getZ(), gameTime);
+        index(relocated);
+        generatedSiteIds.add(outpostId);
+        siteProgressByOutpost.remove(outpostId);
+        this.setDirty();
+        return Optional.of(relocated);
     }
 
     public Optional<FactionOutpostRecord> assignNaturalNpc(

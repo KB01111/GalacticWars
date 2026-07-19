@@ -9,9 +9,8 @@ import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
 import galacticwars.clonewars.Config;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Creates a fresh YACL screen backed by the existing NeoForge common config. */
+/** Creates a fresh YACL screen backed by the loader-neutral common config. */
 public final class GalacticWarsConfigScreen {
     private GalacticWarsConfigScreen() {
     }
@@ -26,7 +25,6 @@ public final class GalacticWarsConfigScreen {
                                 .description(OptionDescription.of(
                                         text("config.galacticwars.group.foundation.description")))
                                 .option(booleanOption("log_startup", Config.LOG_STARTUP))
-                                .option(booleanOption("enable_content_seed", Config.ENABLE_CONTENT_SEED))
                                 .build())
                         .build())
                 .category(ConfigCategory.createBuilder()
@@ -50,7 +48,7 @@ public final class GalacticWarsConfigScreen {
 
     private static Option<Boolean> booleanOption(
             String key,
-            ModConfigSpec.BooleanValue value
+            Config.BooleanValue value
     ) {
         return Option.<Boolean>createBuilder()
                 .name(text("config.galacticwars.option." + key))

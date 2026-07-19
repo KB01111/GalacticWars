@@ -1,1 +1,18 @@
-{"type":"galacticwars:planet","generator":{"type":"minecraft:noise","settings":"minecraft:overworld","biome_source":{"type":"minecraft:fixed","biome":"minecraft:plains"}}}
+{
+  "type": "galacticwars:coruscant",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "galacticwars:coruscant",
+      "features": true,
+      "lakes": false,
+      "structure_overrides": [],
+      "layers": [
+        {"height": 1, "block": "minecraft:bedrock"},
+        {"height": 100, "block": "minecraft:stone"},
+        {"height": 20, "block": "galacticwars:duracrete"},
+        {"height": 7, "block": "galacticwars:coruscant_panel"}
+      ]
+    }
+  }
+}

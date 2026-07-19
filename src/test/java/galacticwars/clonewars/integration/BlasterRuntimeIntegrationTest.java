@@ -18,13 +18,17 @@ public final class BlasterRuntimeIntegrationTest {
         String components = read("src/main/java/galacticwars/clonewars/registry/ModDataComponents.java");
         String item = read("src/main/java/galacticwars/clonewars/combat/BlasterItem.java");
         String hud = read("src/main/java/galacticwars/clonewars/client/gui/BlasterHeatHud.java");
-        String client = read("src/main/java/galacticwars/clonewars/GalacticWarsClient.java");
-        assertContains(components, "builder.persistent", "persistent blaster heat component");
+        String fabricClient = read(
+                "fabric/src/main/kotlin/galacticwars/clonewars/fabric/GalacticWarsFabricClient.kt");
+        String neoForgeClient = read(
+                "neoforge/src/main/kotlin/galacticwars/clonewars/neoforge/GalacticWarsNeoForgeClient.kt");
+        assertContains(components, ".persistent(codec)", "persistent blaster heat component");
         assertContains(item, "BlasterHeatPolicy.canFire", "server heat gate");
         assertContains(item, "inventoryTick", "server cooling tick");
         assertContains(item, "level.isClientSide()", "client inventory mutation guard");
         assertContains(hud, "heatedSegments", "segmented heat display");
-        assertContains(client, "RegisterGuiLayersEvent", "HUD layer registration");
+        assertContains(fabricClient, "HudElementRegistry.attachElementAfter", "Fabric HUD layer registration");
+        assertContains(neoForgeClient, "RegisterGuiLayersEvent", "NeoForge HUD layer registration");
     }
 
     private static void ungroupedRangedRecruitsUseTheirWeapons() throws IOException {

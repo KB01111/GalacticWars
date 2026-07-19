@@ -1,26 +1,26 @@
 # Galactic Wars: Clone Wars
 
-Galactic Wars: Clone Wars is an unofficial, GPL-3.0-only NeoForge 26.2 fan mod focused on faction armies, working settlements, planetary travel, vehicles, Force progression, quests, trading, and conquest.
+Galactic Wars: Clone Wars is an unofficial, GPL-3.0-only Architectury mod for Minecraft 26.2 on Fabric and NeoForge. It focuses on faction armies, working settlements, planetary travel, vehicles, Force progression, quests, trading, and conquest.
 
 This is a clean-break conversion. Existing KingdomWars-Middle-Earth worlds and registry IDs are not compatible; start a fresh world.
 
 ## Installation
 
-1. Install the matching Minecraft 26.2 and NeoForge 26.2 client or dedicated server.
-2. Place the Galactic Wars JAR, GeckoLib 5.5.3+, SmartBrainLib 2.0.x, and Framework 0.13.x in the instance's `mods` folder.
-3. Install YACL 3.9.5 or newer compatible 26.2 build on clients for the in-game configuration screen. Dedicated servers do not require YACL.
-4. Remove earlier KingdomWars-Middle-Earth builds from that folder and create a fresh world.
-5. Keep the same Galactic Wars, GeckoLib, SmartBrainLib, and Framework versions on every multiplayer client and server.
+1. Install Java 25 and Minecraft 26.2 with either Fabric Loader 0.19.3+ or NeoForge 26.2.0.25-beta+.
+2. Install the matching `galacticwars-fabric` or `galacticwars-neoforge` JAR.
+3. Install the loader-matched Architectury API 21.0.5+, GeckoLib 5.5.3+, SmartBrainLib 2.0.x, and YACL 3.9.5+ builds. Fabric also requires Fabric API and Fabric Language Kotlin; NeoForge requires Kotlin for Forge.
+4. Remove earlier KingdomWars-Middle-Earth builds and start a fresh world.
+5. Keep the same loader, Galactic Wars build, and dependency versions on every multiplayer client and server.
 
 ## Requirements
 
 - Minecraft 26.2
-- NeoForge 26.2.0.7-beta or newer compatible 26.2 build
 - Java 25
+- Architectury API 21.0.5 or newer compatible release
+- Fabric Loader 0.19.3, Fabric API 0.155.2+26.2, and Fabric Language Kotlin 1.13.13+kotlin.2.4.10; or NeoForge 26.2.0.25-beta and Kotlin for Forge 6.3.0
 - GeckoLib 5.5.3 or newer compatible release
-- SmartBrainLib 2.0.x for NeoForge 26.2
-- MrCrayfish's Framework 0.13.x for NeoForge 26.2
-- YACL 3.9.5 or newer compatible 26.2 release (client only)
+- SmartBrainLib 2.0.x for the selected loader
+- YACL 3.9.5 or newer compatible 26.2 release for the selected loader
 
 ## Controls
 
@@ -67,7 +67,7 @@ Credits, unlocks, quest milestones, vehicles, Force choices, and conquest use an
 - [x] Implement runtime Force input, targeting, persistence/sync, effects, HUD feedback, unlock gates, energy, cooldown replay protection, regeneration, allied-NPC protection, and PvP policy.
 - [x] Load the fifteen quest, trade, vehicle, planet, Force, and conquest definitions through the atomic datapack manager and persist player progress.
 - [x] Connect physical conquest capture to controlling-faction patrols, regional merchant stock, arrival safety, rewards, and protected-build placement.
-- [x] Complete automated dedicated-server, two-player authority, replay, persistence, codec, content-contract, and 46-GameTest runtime gates.
+- [x] Complete automated dedicated-server, two-player authority, replay, persistence, codec, content-contract, and 47-GameTest runtime gates.
 - [x] Record the fresh-client Command Center visual acceptance pass and verify every faction campaign through the five-path runtime matrix.
 
 Post-release candidates: Dathomir, Naboo, Kashyyyk, additional unit families, more vehicles, free-flight space combat, capital ships, bosses, longer campaigns, and localization.
@@ -75,12 +75,14 @@ Post-release candidates: Dathomir, Naboo, Kashyyyk, additional unit families, mo
 ## Development
 
 ```powershell
-.\gradlew.bat clean build
+.\gradlew.bat clean buildAll
 .\gradlew.bat runHarnesses
 .\gradlew.bat runGameTestServer
+.\gradlew.bat :fabric:runClient
+.\gradlew.bat :neoforge:runClient
 ```
 
-Executable `*Test.java` harnesses are part of `check`. Generated or edited textures must satisfy `docs/galacticwars-asset-manifest.json`; generation provenance is recorded in `docs/galacticwars-asset-provenance.md`.
+`buildAll` produces loader-specific JARs under `fabric/build/libs` and `neoforge/build/libs`. Executable `*Test.java` harnesses are part of `check`; NeoForge hosts the shared Minecraft GameTest suite. Generated or edited textures must satisfy `docs/galacticwars-asset-manifest.json`, and generation provenance is recorded in `docs/galacticwars-asset-provenance.md`.
 
 ## Licensing and fan-project notice
 

@@ -96,7 +96,7 @@ Every NPC behavior must have an observable purpose, a bounded failure policy, an
 
 - **GeckoLib:** entity, item, armor, vehicle, and purposeful gameplay animations.
 - **SmartBrainLib:** NPC sensors, behavior scheduling, memory, and local pathing.
-- **Framework:** versioned, bounded, replay-safe client/server messages and synchronized command state.
+- **Architectury:** versioned, bounded, replay-safe cross-loader payloads and synchronized command state.
 - **YACL:** client configuration and accessibility preferences only; never a required gameplay menu.
 
 ## Delivery milestones

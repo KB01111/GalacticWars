@@ -27,6 +27,19 @@ public final class LaunchContentCatalogTest {
                 "a".repeat(LaunchContentDefinitions.MAX_SERIALIZED_PLANET_ID_BYTES + 1),
                 "galacticwars:test", "arrival", "theme", "republic"),
                 "oversized planet id rejected");
+        assertThrows(() -> new LaunchContentDefinitions.TradeDefinition(
+                        "oversized_amount", "republic", 1, "minecraft:stone",
+                        LaunchContentDefinitions.MAX_TRADE_ITEM_COUNT + 1, "faction_intro"),
+                "oversized trade amount rejected");
+        assertThrows(() -> new LaunchContentDefinitions.TradeDefinition(
+                        "oversized_price", "republic",
+                        LaunchContentDefinitions.MAX_TRADE_CREDIT_PRICE + 1,
+                        "minecraft:stone", 1, "faction_intro"),
+                "oversized trade price rejected");
+        assertThrows(() -> new LaunchContentDefinitions.TradeDefinition(
+                        "x".repeat(LaunchContentDefinitions.MAX_SERIALIZED_TRADE_TEXT_BYTES + 1),
+                        "republic", 1, "minecraft:stone", 1, "faction_intro"),
+                "oversized trade id rejected");
         System.out.println("LaunchContentCatalogTest passed");
     }
 

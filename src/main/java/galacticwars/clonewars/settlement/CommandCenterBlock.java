@@ -1,6 +1,7 @@
 package galacticwars.clonewars.settlement;
 
 import com.mojang.serialization.MapCodec;
+import dev.architectury.registry.menu.MenuRegistry;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -98,7 +99,7 @@ public final class CommandCenterBlock extends BaseEntityBlock {
         }
         if (existing.isEmpty()
                 || ProgressionSavedData.get(serverLevel).state(player.getUUID()).factionId().isEmpty()) {
-            player.openMenu(new FactionSelectionMenuProvider(pos));
+            MenuRegistry.openExtendedMenu(player, new FactionSelectionMenuProvider(pos));
         }
     }
 
@@ -130,14 +131,14 @@ public final class CommandCenterBlock extends BaseEntityBlock {
             return InteractionResult.FAIL;
         }
         if (!memberAccess && player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.openMenu(new CommandCenterOperationsMenuProvider(pos));
+            MenuRegistry.openExtendedMenu(serverPlayer, new CommandCenterOperationsMenuProvider(pos));
             return InteractionResult.SUCCESS;
         }
 
         Optional<KingdomRecord> existing = data.kingdomForOwner(authorityOwner);
         if (existing.isEmpty()) {
             if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.openMenu(new FactionSelectionMenuProvider(pos));
+                MenuRegistry.openExtendedMenu(serverPlayer, new FactionSelectionMenuProvider(pos));
             }
             return InteractionResult.SUCCESS;
         }
@@ -158,19 +159,21 @@ public final class CommandCenterBlock extends BaseEntityBlock {
                 player.sendSystemMessage(Component.translatable("message.galacticwars.command_center.command_denied"));
                 return InteractionResult.FAIL;
             }
-            if (!ProgressionSavedData.get(serverLevel).state(player.getUUID()).factionId().isEmpty()) {
-                player.openMenu(new CommandCenterNavigationMenuProvider());
+            if (!ProgressionSavedData.get(serverLevel).state(player.getUUID()).factionId().isEmpty()
+                    && player instanceof ServerPlayer serverPlayer) {
+                MenuRegistry.openExtendedMenu(
+                        serverPlayer, new CommandCenterNavigationMenuProvider(serverPlayer));
                 return InteractionResult.SUCCESS;
             }
             if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.openMenu(new FactionSelectionMenuProvider(pos));
+                MenuRegistry.openExtendedMenu(serverPlayer, new FactionSelectionMenuProvider(pos));
             }
             return InteractionResult.SUCCESS;
         }
 
         hall.settlePendingCampaignRefunds(serverLevel);
         if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.openMenu(new CommandCenterOperationsMenuProvider(pos));
+            MenuRegistry.openExtendedMenu(serverPlayer, new CommandCenterOperationsMenuProvider(pos));
         }
         return InteractionResult.SUCCESS;
     }

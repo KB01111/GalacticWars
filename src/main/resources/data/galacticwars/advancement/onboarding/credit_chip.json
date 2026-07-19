@@ -1,0 +1,40 @@
+{
+  "criteria": {
+    "credit_chip": {
+      "conditions": {
+        "items": [
+          {
+            "items": "galacticwars:credit_chip"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "announce_to_chat": false,
+    "background": "minecraft:gui/advancements/backgrounds/stone",
+    "description": {
+      "translate": "advancement.galacticwars.onboarding.credit_chip.description"
+    },
+    "frame": "task",
+    "icon": {
+      "id": "galacticwars:credit_chip"
+    },
+    "show_toast": true,
+    "title": {
+      "translate": "advancement.galacticwars.onboarding.credit_chip.title"
+    }
+  },
+  "requirements": [
+    [
+      "credit_chip"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "galacticwars:command_center"
+    ]
+  },
+  "sends_telemetry_event": false
+}

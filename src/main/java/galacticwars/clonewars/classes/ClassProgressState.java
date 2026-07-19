@@ -56,6 +56,22 @@ public record ClassProgressState(
         return new ClassProgressState(CURRENT_SCHEMA_VERSION, normalized, 1, 0L, MAX_RESOURCE, Map.of());
     }
 
+    /**
+     * Changes a player's loadout without erasing earned rank, focus, or active cooldowns.
+     * Fresh actors still begin with the standard rank-one assignment.
+     */
+    public ClassProgressState switchClass(UnitClassId classId) {
+        String normalized = Objects.requireNonNull(classId, "classId").toString();
+        if (this.classId.equals(normalized)) {
+            return this;
+        }
+        if (this.classId.isEmpty()) {
+            return assign(classId);
+        }
+        return new ClassProgressState(
+                schemaVersion, normalized, rank, experience, resource, cooldownEnds);
+    }
+
     public ClassProgressState gainExperience(long amount) {
         if (amount <= 0L || classId.isEmpty() || rank >= MAX_RANK) {
             return this;

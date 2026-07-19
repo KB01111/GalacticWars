@@ -1,9 +1,12 @@
 package galacticwars.clonewars.network;
 
+import galacticwars.clonewars.GalacticWars;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /** Replay-addressable request for server-owned menu actions with explicit optional targets. */
 public record MenuActionPayload(
@@ -12,7 +15,9 @@ public record MenuActionPayload(
         int actionId,
         Optional<UUID> primaryTargetId,
         Optional<UUID> secondaryTargetId
-) {
+) implements CustomPacketPayload {
+    public static final Type<MenuActionPayload> TYPE = new Type<>(
+            Identifier.fromNamespaceAndPath(GalacticWars.MODID, "menu_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, MenuActionPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeUUID(payload.replayId());
@@ -43,5 +48,10 @@ public record MenuActionPayload(
 
     private static Optional<UUID> readOptionalUuid(RegistryFriendlyByteBuf buffer) {
         return buffer.readBoolean() ? Optional.of(buffer.readUUID()) : Optional.empty();
+    }
+
+    @Override
+    public Type<MenuActionPayload> type() {
+        return TYPE;
     }
 }

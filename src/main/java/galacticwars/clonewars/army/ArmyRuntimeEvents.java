@@ -10,9 +10,9 @@ import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
 
-import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -27,23 +27,20 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-@EventBusSubscriber(modid = GalacticWars.MODID)
+/** Loader-neutral server runtime for live and virtual army groups. */
 public final class ArmyRuntimeEvents {
     private static final int PLAYER_RADIUS = 128;
     private static final int HIBERNATE_DELAY_TICKS = 100;
+    private static final double MIN_EFFECTIVE_MOVEMENT_SPEED = 0.01D;
+    private static final double MAX_EFFECTIVE_MOVEMENT_SPEED = 4.0D;
     private static final Map<UUID, Integer> idleTicks = new LinkedHashMap<>();
+    private static final Set<UUID> materializingRecruitIds = new LinkedHashSet<>();
 
     private ArmyRuntimeEvents() {
     }
 
-    @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
-        MinecraftServer server = event.getServer();
+    public static void onServerTick(MinecraftServer server) {
         if (server.getTickCount() % 20 != 0) {
             return;
         }
@@ -72,22 +69,25 @@ public final class ArmyRuntimeEvents {
         }
     }
 
-    @SubscribeEvent
-    public static void onEntityJoin(EntityJoinLevelEvent event) {
-        if (!(event.getLevel() instanceof ServerLevel level)
-                || !(event.getEntity() instanceof GalacticRecruitEntity recruit)
-                || !event.loadedFromDisk()) {
-            return;
+    /**
+     * Rejects stale army entities restored from chunk data while allowing the
+     * exact recruits created by the bounded rematerialization transaction.
+     */
+    public static boolean allowEntityAddition(Entity entity, Level entityLevel) {
+        if (!(entityLevel instanceof ServerLevel level)
+                || !(entity instanceof GalacticRecruitEntity recruit)) {
+            return true;
         }
         Optional<ArmyGroupRecord> group = KingdomSavedData.get(level).armyGroupForRecruit(recruit.getUUID());
         if (group.isEmpty()) {
-            return;
+            return true;
         }
         ArmyGroupRecord record = group.orElseThrow();
-        if (record.simulation().lifecycleState() == ArmyGroupLifecycleState.VIRTUAL
-                || recruit.getArmySnapshotGeneration() < record.simulation().snapshotGeneration()) {
-            event.setCanceled(true);
-        }
+        boolean expectedRematerialization = materializingRecruitIds.contains(recruit.getUUID())
+                && recruit.getArmySnapshotGeneration() == record.simulation().snapshotGeneration();
+        return expectedRematerialization
+                || record.simulation().lifecycleState() != ArmyGroupLifecycleState.VIRTUAL
+                && recruit.getArmySnapshotGeneration() >= record.simulation().snapshotGeneration();
     }
 
     private static void maybeHibernate(KingdomSavedData data, ServerLevel level, ArmyGroupRecord group) {
@@ -219,9 +219,19 @@ public final class ArmyRuntimeEvents {
             }
             ArmyPosition planned = positions.get(index);
             GalacticRecruitEntity recruit = createRecruit(level, snapshot, group.id(), planned);
-            if (recruit == null || !level.addFreshEntity(recruit)) {
+            if (recruit == null) {
                 complete = false;
                 continue;
+            }
+            boolean added;
+            materializingRecruitIds.add(recruit.getUUID());
+            try {
+                added = level.addFreshEntity(recruit);
+            } finally {
+                materializingRecruitIds.remove(recruit.getUUID());
+            }
+            if (!added) {
+                complete = false;
             }
         }
         if (!complete) {
@@ -272,10 +282,25 @@ public final class ArmyRuntimeEvents {
             if (unit.isEmpty()) {
                 return OptionalDouble.empty();
             }
-            slowest = Math.min(slowest, unit.orElseThrow().movementSpeed());
+            ArmyUnitDefinition definition = unit.orElseThrow();
+            int mobilityPercent = FactionBalanceService.resolve(
+                    definition.factionId().toString()).mobilityPercent();
+            slowest = Math.min(slowest,
+                    effectiveMovementSpeed(definition.movementSpeed(), mobilityPercent));
             found = true;
         }
         return found ? OptionalDouble.of(slowest) : OptionalDouble.empty();
+    }
+
+    static double effectiveMovementSpeed(double baseMovementSpeed, int mobilityPercent) {
+        if (!Double.isFinite(baseMovementSpeed) || baseMovementSpeed < 0.0D) {
+            throw new IllegalArgumentException("baseMovementSpeed must be finite and non-negative");
+        }
+        int boundedPercent = Math.max(1,
+                Math.min(FactionBalanceService.MAX_PERCENT, mobilityPercent));
+        double adjusted = baseMovementSpeed * boundedPercent / 100.0D;
+        return Math.max(MIN_EFFECTIVE_MOVEMENT_SPEED,
+                Math.min(MAX_EFFECTIVE_MOVEMENT_SPEED, adjusted));
     }
 
     private static List<GalacticRecruitEntity> liveMembers(ServerLevel level, ArmyGroupRecord group) {

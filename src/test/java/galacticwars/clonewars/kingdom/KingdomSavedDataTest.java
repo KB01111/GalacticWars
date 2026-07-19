@@ -31,6 +31,8 @@ public final class KingdomSavedDataTest {
         String source = read("src/main/java/galacticwars/clonewars/kingdom/KingdomSavedData.java");
         assertContains(source, "foundKingdom", "kingdom founding");
         assertContains(source, "registerRecruit", "recruit registration");
+        assertContains(source, "FactionBalanceService.effectiveRecruitLimit(kingdom.factionId())",
+                "authoritative kingdom faction recruit cap");
         assertContains(source, "unregisterRecruit", "recruit removal");
         assertContains(source, "activateHall", "Hall activation and relocation");
         assertContains(source, "deactivateHall", "Hall deactivation");

@@ -159,8 +159,10 @@ public final class ContentAssetGenerator {
     }
 
     private static void generateRecipes() throws IOException {
-        shaped("command_center", "[\"LSL\",\"SES\",\"LSL\"]",
-                "{\"L\":\"" + MOD + ":nightsister_weave_log\",\"S\":\"" + MOD + ":duracrete\",\"E\":\"galacticwars:credit_chip\"}",
+        shaped("command_center", "[\"CIC\",\"RPR\",\"SSS\"]",
+                "{\"C\":\"minecraft:copper_block\",\"I\":\"minecraft:iron_ingot\","
+                        + "\"R\":\"minecraft:redstone\",\"P\":\"galacticwars:credit_chip\","
+                        + "\"S\":\"minecraft:stone_bricks\"}",
                 MOD + ":command_center", 1, "building");
         write("data/" + MOD + "/recipe/duracrete_stonecutting.json", """
                 {"type":"minecraft:stonecutting","ingredient":"minecraft:stone","result":{"id":"%s:duracrete"}}
@@ -178,6 +180,42 @@ public final class ContentAssetGenerator {
         shapeless("mandalorian_alloy_ingot", List.of("minecraft:iron_ingot", MOD + ":mandalorian_fiber"), MOD + ":mandalorian_alloy_ingot", 1);
         shapeless("separatist_alloy_shard", List.of("minecraft:iron_ingot", "minecraft:netherrack"), MOD + ":separatist_alloy_shard", 4);
         shaped("separatist_alloy_ingot", "[\"XX\",\"XX\"]", "{\"X\":\"" + MOD + ":separatist_alloy_shard\"}", MOD + ":separatist_alloy_ingot", 1, "misc");
+
+        shaped("claim_transponder", "[\"RCR\",\"GEG\",\"RIR\"]",
+                "{\"R\":\"minecraft:redstone\",\"C\":\"minecraft:compass\","
+                        + "\"G\":\"minecraft:gold_ingot\",\"E\":\"minecraft:ender_pearl\","
+                        + "\"I\":\"minecraft:iron_ingot\"}",
+                MOD + ":claim_transponder", 1, "equipment");
+        shaped("e5_blaster", "[\"ARA\",\" CE\",\"  I\"]",
+                "{\"A\":\"" + MOD + ":separatist_alloy_ingot\",\"R\":\"minecraft:redstone\","
+                        + "\"C\":\"minecraft:copper_ingot\",\"E\":\"" + MOD + ":energy_cell\","
+                        + "\"I\":\"minecraft:iron_ingot\"}",
+                MOD + ":e5_blaster", 1, "equipment");
+        shaped("westar_blaster", "[\"MGM\",\" CE\",\"  I\"]",
+                "{\"M\":\"" + MOD + ":mandalorian_alloy_ingot\",\"G\":\"minecraft:gold_ingot\","
+                        + "\"C\":\"minecraft:copper_ingot\",\"E\":\"" + MOD + ":energy_cell\","
+                        + "\"I\":\"minecraft:iron_ingot\"}",
+                MOD + ":westar_blaster", 1, "equipment");
+        shaped("scatter_blaster", "[\"BRB\",\"CEC\",\" I \"]",
+                "{\"B\":\"" + MOD + ":beskar_ingot\",\"R\":\"minecraft:redstone_block\","
+                        + "\"C\":\"minecraft:copper_ingot\",\"E\":\"" + MOD + ":energy_cell\","
+                        + "\"I\":\"minecraft:iron_ingot\"}",
+                MOD + ":scatter_blaster", 1, "equipment");
+
+        for (String color : List.of("blue", "green", "red", "purple", "yellow", "white")) {
+            shapedGrouped(color + "_lightsaber", "[\" D \",\"AEA\",\" I \"]",
+                    "{\"D\":\"minecraft:" + color + "_dye\",\"A\":\"minecraft:amethyst_shard\","
+                            + "\"E\":\"" + MOD + ":energy_cell\",\"I\":\"minecraft:iron_ingot\"}",
+                    MOD + ":" + color + "_lightsaber", 1, "equipment", MOD + ":lightsabers");
+        }
+        shapedGrouped("power_drill", "[\"PPP\",\" E \",\" I \"]", powerToolKey(),
+                MOD + ":power_drill", 1, "equipment", MOD + ":power_tools");
+        shapedGrouped("plasma_cutter", "[\"PP \",\"PE \",\" I \"]", powerToolKey(),
+                MOD + ":plasma_cutter", 1, "equipment", MOD + ":power_tools");
+        shapedGrouped("sonic_excavator", "[\" P \",\" E \",\" I \"]", powerToolKey(),
+                MOD + ":sonic_excavator", 1, "equipment", MOD + ":power_tools");
+        shapedGrouped("hydrospanner", "[\"PP \",\" E \",\" I \"]", powerToolKey(),
+                MOD + ":hydrospanner", 1, "equipment", MOD + ":power_tools");
 
         Map<String, String> tokenMaterials = Map.of(
                 "republic", MOD + ":republic_plastoid_ingot",
@@ -211,6 +249,11 @@ public final class ContentAssetGenerator {
         shaped(family + "_chestplate", "[\"X X\",\"XXX\",\"XXX\"]", "{\"X\":\"" + material + "\"}", MOD + ":" + family + "_chestplate", 1, "equipment");
         shaped(family + "_leggings", "[\"XXX\",\"X X\",\"X X\"]", "{\"X\":\"" + material + "\"}", MOD + ":" + family + "_leggings", 1, "equipment");
         shaped(family + "_boots", "[\"X X\",\"X X\"]", "{\"X\":\"" + material + "\"}", MOD + ":" + family + "_boots", 1, "equipment");
+    }
+
+    private static String powerToolKey() {
+        return "{\"P\":\"" + MOD + ":republic_plastoid_ingot\","
+                + "\"E\":\"" + MOD + ":energy_cell\",\"I\":\"minecraft:iron_ingot\"}";
     }
 
     private static void generateLootAndTags() throws IOException {
@@ -253,6 +296,20 @@ public final class ContentAssetGenerator {
         write("data/" + MOD + "/recipe/" + name + ".json", """
                 {"type":"minecraft:crafting_shaped","category":"%s","pattern":%s,"key":%s,"result":{"id":"%s","count":%d}}
                 """.formatted(category, pattern, key, result, count));
+    }
+
+    private static void shapedGrouped(
+            String name,
+            String pattern,
+            String key,
+            String result,
+            int count,
+            String category,
+            String group
+    ) throws IOException {
+        write("data/" + MOD + "/recipe/" + name + ".json", """
+                {"type":"minecraft:crafting_shaped","category":"%s","group":"%s","pattern":%s,"key":%s,"result":{"id":"%s","count":%d}}
+                """.formatted(category, group, pattern, key, result, count));
     }
 
     private static void shapeless(String name, List<String> ingredients, String result, int count) throws IOException {

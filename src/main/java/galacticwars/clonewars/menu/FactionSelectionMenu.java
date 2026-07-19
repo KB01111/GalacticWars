@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,7 +32,7 @@ public final class FactionSelectionMenu extends AbstractContainerMenu {
     private final BlockPos commandCenterPos;
     private final List<String> factionIds;
 
-    public FactionSelectionMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf extraData) {
+    public FactionSelectionMenu(int containerId, Inventory inventory, FriendlyByteBuf extraData) {
         this(containerId, inventory, extraData.readBlockPos(), readFactionIds(extraData));
     }
 
@@ -178,7 +178,7 @@ public final class FactionSelectionMenu extends AbstractContainerMenu {
         return factionIds;
     }
 
-    private static List<String> readFactionIds(RegistryFriendlyByteBuf buffer) {
+    private static List<String> readFactionIds(FriendlyByteBuf buffer) {
         int size = buffer.readVarInt();
         if (size < 0 || size > 64) {
             throw new IllegalArgumentException("invalid faction selection payload size " + size);

@@ -37,7 +37,8 @@ public final class FactionAlignmentSavedData extends SavedData {
     public static final SavedDataType<FactionAlignmentSavedData> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "faction_alignments"),
             FactionAlignmentSavedData::new,
-            CODEC);
+            CODEC,
+            null);
 
     private final int schemaVersion;
     private final Map<UUID, FactionAlignment> alignments = new LinkedHashMap<>();

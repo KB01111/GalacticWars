@@ -33,7 +33,8 @@ public final class ClassProgressSavedData extends SavedData {
     public static final SavedDataType<ClassProgressSavedData> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "class_progress"),
             ClassProgressSavedData::new,
-            CODEC);
+            CODEC,
+            null);
 
     private final Map<UUID, ClassProgressState> states = new LinkedHashMap<>();
 

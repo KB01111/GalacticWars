@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "galacticwars:power_tools",
+  "pattern": [
+    " P ",
+    " E ",
+    " I "
+  ],
+  "key": {
+    "P": "galacticwars:republic_plastoid_ingot",
+    "E": "galacticwars:energy_cell",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "id": "galacticwars:sonic_excavator",
+    "count": 1
+  }
+}

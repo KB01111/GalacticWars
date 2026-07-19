@@ -12,6 +12,8 @@ import galacticwars.clonewars.registry.ModItems;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.LinkedHashSet;
+import java.util.ArrayList;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -23,16 +25,20 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.DismountHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import galacticwars.clonewars.combat.BlasterBoltEntity;
 
 /** Server-driven vehicle shared by the five launch chassis. */
@@ -46,7 +52,12 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
             GalacticVehicleEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> HEALTH = SynchedEntityData.defineId(
             GalacticVehicleEntity.class, EntityDataSerializers.INT);
-    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.vehicle.idle");
+    private static final EntityDataAccessor<Integer> MAXIMUM_HEALTH = SynchedEntityData.defineId(
+            GalacticVehicleEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> FUEL_CAPACITY = SynchedEntityData.defineId(
+            GalacticVehicleEntity.class, EntityDataSerializers.INT);
+    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("vehicle.idle");
+    private static final RawAnimation TRAVEL = RawAnimation.begin().thenLoop("vehicle.travel");
     private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
     private final LinkedHashSet<UUID> processedInputIds = new LinkedHashSet<>();
     private float inputForward;
@@ -65,8 +76,12 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
     public void deploy(UUID ownerId, String factionId) {
         entityData.set(OWNER, ownerId.toString());
         entityData.set(FACTION, factionId);
-        entityData.set(FUEL, fuelCapacity());
-        entityData.set(HEALTH, maxVehicleHealth());
+        int configuredFuelCapacity = fuelCapacity();
+        int configuredMaximumHealth = maxVehicleHealth();
+        entityData.set(FUEL_CAPACITY, configuredFuelCapacity);
+        entityData.set(MAXIMUM_HEALTH, configuredMaximumHealth);
+        entityData.set(FUEL, configuredFuelCapacity);
+        entityData.set(HEALTH, configuredMaximumHealth);
     }
 
     @Override
@@ -75,6 +90,8 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
         builder.define(FACTION, "");
         builder.define(FUEL, 0);
         builder.define(HEALTH, 1);
+        builder.define(MAXIMUM_HEALTH, 40);
+        builder.define(FUEL_CAPACITY, 1000);
     }
 
     @Override
@@ -83,15 +100,21 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
         output.putString("Faction", factionId());
         output.putInt("Fuel", fuel());
         output.putInt("Health", health());
-        output.putInt("VehicleDataVersion", 1);
+        output.putInt("MaximumHealth", syncedMaximumHealth());
+        output.putInt("FuelCapacity", syncedFuelCapacity());
+        output.putInt("VehicleDataVersion", 2);
     }
 
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         entityData.set(OWNER, input.read("Owner", UUIDUtil.CODEC).map(UUID::toString).orElse(""));
         entityData.set(FACTION, input.getStringOr("Faction", ""));
-        entityData.set(FUEL, Math.max(0, Math.min(fuelCapacity(), input.getIntOr("Fuel", 0))));
-        entityData.set(HEALTH, Math.max(0, Math.min(maxVehicleHealth(), input.getIntOr("Health", 1))));
+        int savedFuelCapacity = Math.max(1, input.getIntOr("FuelCapacity", fuelCapacity()));
+        int savedMaximumHealth = Math.max(1, input.getIntOr("MaximumHealth", maxVehicleHealth()));
+        entityData.set(FUEL_CAPACITY, savedFuelCapacity);
+        entityData.set(MAXIMUM_HEALTH, savedMaximumHealth);
+        entityData.set(FUEL, Math.max(0, Math.min(savedFuelCapacity, input.getIntOr("Fuel", 0))));
+        entityData.set(HEALTH, Math.max(0, Math.min(savedMaximumHealth, input.getIntOr("Health", 1))));
     }
 
     @Override
@@ -195,6 +218,46 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
     }
 
     @Override
+    protected Vec3 getPassengerAttachmentPoint(
+            Entity passenger, EntityDimensions dimensions, float scale
+    ) {
+        int seat = getPassengers().indexOf(passenger);
+        Vec3 local = passengerSeatOffset(seat);
+        if (local == null) {
+            return super.getPassengerAttachmentPoint(passenger, dimensions, scale);
+        }
+        return local.scale(scale).yRot(-getYRot() * (float) (Math.PI / 180.0D));
+    }
+
+    @Override
+    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
+        Vec3 escape = getCollisionHorizontalEscapeVector(
+                getBbWidth() * Mth.SQRT_OF_TWO, passenger.getBbWidth(), passenger.getYRot());
+        double targetX = getX() + escape.x;
+        double targetZ = getZ() + escape.z;
+        BlockPos upper = BlockPos.containing(targetX, getBoundingBox().maxY, targetZ);
+        BlockPos lower = upper.below();
+        ArrayList<Vec3> candidates = new ArrayList<>(2);
+        double upperFloor = level().getBlockFloorHeight(upper);
+        if (DismountHelper.isBlockFloorValid(upperFloor)) {
+            candidates.add(new Vec3(targetX, upper.getY() + upperFloor, targetZ));
+        }
+        double lowerFloor = level().getBlockFloorHeight(lower);
+        if (DismountHelper.isBlockFloorValid(lowerFloor)) {
+            candidates.add(new Vec3(targetX, lower.getY() + lowerFloor, targetZ));
+        }
+        for (Pose pose : passenger.getDismountPoses()) {
+            for (Vec3 candidate : candidates) {
+                if (DismountHelper.canDismountTo(level(), candidate, passenger, pose)) {
+                    passenger.setPose(pose);
+                    return candidate;
+                }
+            }
+        }
+        return super.getDismountLocationForPassenger(passenger);
+    }
+
+    @Override
     public boolean isPickable() {
         return true;
     }
@@ -210,8 +273,8 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
     public String factionId() { return entityData.get(FACTION); }
     public int fuel() { return entityData.get(FUEL); }
     public int health() { return entityData.get(HEALTH); }
-    public int maxHealthForHud() { return maxVehicleHealth(); }
-    public int fuelCapacityForHud() { return fuelCapacity(); }
+    public int syncedMaximumHealth() { return Math.max(1, entityData.get(MAXIMUM_HEALTH)); }
+    public int syncedFuelCapacity() { return Math.max(1, entityData.get(FUEL_CAPACITY)); }
     public String vehicleId() { return BuiltInRegistries.ENTITY_TYPE.getKey(getType()).getPath(); }
 
     public void damageVehicle(int amount) {
@@ -308,6 +371,29 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
                 ? "passenger" : definition.seatRoles().get(seat);
     }
 
+    private Vec3 passengerSeatOffset(int seat) {
+        if (seat < 0) {
+            return null;
+        }
+        return switch (vehicleId()) {
+            case "aat" -> seat == 0
+                    ? new Vec3(0.0D, 1.125D, -0.125D)
+                    : new Vec3(0.0D, 1.55D, 0.0D);
+            case "laat_gunship" -> switch (seat) {
+                case 0 -> new Vec3(-0.38D, 1.0D, -2.0D);
+                case 1 -> new Vec3(0.38D, 1.0D, -2.0D);
+                case 2 -> new Vec3(-0.56D, 0.625D, -0.50D);
+                case 3 -> new Vec3(0.56D, 0.625D, -0.50D);
+                case 4 -> new Vec3(-0.56D, 0.625D, 0.125D);
+                case 5 -> new Vec3(0.56D, 0.625D, 0.125D);
+                case 6 -> new Vec3(-0.56D, 0.625D, 0.75D);
+                case 7 -> new Vec3(0.56D, 0.625D, 0.75D);
+                default -> null;
+            };
+            default -> null;
+        };
+    }
+
     private int fuelCapacity() {
         var definition = LaunchContentCatalog.data().vehicles().get(vehicleId());
         return definition == null ? 1000 : definition.fuelCapacity();
@@ -329,7 +415,8 @@ public final class GalacticVehicleEntity extends Entity implements GeoEntity {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>("vehicle", 5, state -> state.setAndContinue(IDLE)));
+        controllers.add(new AnimationController<>("vehicle", 5, state -> state.setAndContinue(
+                getDeltaMovement().lengthSqr() > 0.0004D ? TRAVEL : IDLE)));
     }
 
     @Override

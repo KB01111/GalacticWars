@@ -90,7 +90,11 @@ public final class SurvivalContentRoadmapTest {
         for (String recipe : List.of(
                 "command_center", "duracrete_stonecutting", "nightsister_weave_sapling", "nightsister_weave",
                 "beskar_ore", "beskar_ingot_from_smelting", "beskar_ingot_from_blasting",
-                "republic_plastoid_ingot", "mandalorian_alloy_ingot", "separatist_alloy_shard", "separatist_alloy_ingot")) {
+                "republic_plastoid_ingot", "mandalorian_alloy_ingot", "separatist_alloy_shard", "separatist_alloy_ingot",
+                "claim_transponder", "dc15_blaster", "e5_blaster", "westar_blaster", "scatter_blaster",
+                "blue_lightsaber", "green_lightsaber", "red_lightsaber", "purple_lightsaber",
+                "yellow_lightsaber", "white_lightsaber", "power_drill", "plasma_cutter",
+                "sonic_excavator", "hydrospanner")) {
             assertTrue(Files.exists(DATA.resolve("recipe/" + recipe + ".json")), recipe + " recipe");
         }
     }

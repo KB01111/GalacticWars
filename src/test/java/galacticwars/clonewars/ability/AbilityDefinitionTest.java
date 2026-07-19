@@ -7,7 +7,6 @@ public final class AbilityDefinitionTest {
     public static void main(String[] args) {
         activeAbilityContract();
         passiveAbilityContract();
-        forceAbilitiesStayDisabled();
         System.out.println("AbilityDefinitionTest passed");
     }
 
@@ -45,19 +44,6 @@ public final class AbilityDefinitionTest {
                 ability.id(), ability.displayName(), ability.kind(), ability.activation(),
                 20, 0, ability.range(), ability.aiEvaluationIntervalTicks(), true),
                 "passive cooldown rejected");
-    }
-
-    private static void forceAbilitiesStayDisabled() {
-        assertThrows(() -> new AbilityDefinition(
-                AbilityId.of("future_force_push"),
-                "Future Force Push",
-                AbilityKind.FORCE,
-                AbilityActivation.TARGET,
-                60,
-                20,
-                12.0D,
-                20,
-                true), "enabled Force ability rejected");
     }
 
     private static void assertThrows(Runnable action, String label) {

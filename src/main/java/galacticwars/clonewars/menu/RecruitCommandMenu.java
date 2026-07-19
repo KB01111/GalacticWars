@@ -3,7 +3,7 @@ package galacticwars.clonewars.menu;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.registry.ModMenuTypes;
 import galacticwars.clonewars.workforce.WorkerProfessionCatalog;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
@@ -50,7 +50,7 @@ public class RecruitCommandMenu extends AbstractContainerMenu {
     private final Level level;
     private final boolean armyCommandAccess;
 
-    public RecruitCommandMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf extraData) {
+    public RecruitCommandMenu(int containerId, Inventory inventory, FriendlyByteBuf extraData) {
         this(containerId, inventory, extraData.readVarInt(), extraData.readBoolean());
     }
 

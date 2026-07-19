@@ -1,0 +1,35 @@
+{
+  "parent": "galacticwars:onboarding/credit_chip",
+  "criteria": {
+    "command_center": {
+      "conditions": {
+        "items": [
+          {
+            "items": "galacticwars:command_center"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "announce_to_chat": false,
+    "description": {
+      "translate": "advancement.galacticwars.onboarding.command_center.description"
+    },
+    "frame": "task",
+    "icon": {
+      "id": "galacticwars:command_center"
+    },
+    "show_toast": true,
+    "title": {
+      "translate": "advancement.galacticwars.onboarding.command_center.title"
+    }
+  },
+  "requirements": [
+    [
+      "command_center"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

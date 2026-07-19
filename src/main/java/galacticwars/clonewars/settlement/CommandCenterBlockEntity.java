@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import galacticwars.clonewars.data.GameplayDataManager;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.kingdom.KingdomRecord;
 import galacticwars.clonewars.kingdom.KingdomActionId;
 import galacticwars.clonewars.kingdom.KingdomGameplayAction;
@@ -51,6 +52,7 @@ public final class CommandCenterBlockEntity extends BaseContainerBlockEntity {
     private @Nullable UUID ownerId;
     private String factionId = FALLBACK_FACTIONS.getFirst();
     private long lastUpkeepGameTime;
+    private long pendingUpkeepCredits;
     private boolean upkeepClockInitialized;
     private boolean upkeepPaid = true;
     private boolean removalPrepared;
@@ -137,17 +139,48 @@ public final class CommandCenterBlockEntity extends BaseContainerBlockEntity {
             this.setChangedAndSync();
             return this.upkeepPaid;
         }
-        if (gameTime - this.lastUpkeepGameTime < 24000) {
-            return this.upkeepPaid;
+        int upkeepPercent = FactionBalanceService.resolve(this.factionId).upkeepPercent();
+        int dailyUpkeep = Math.max(1, FactionBalanceService.applyPercentCeil(
+                Math.max(0, population), upkeepPercent));
+        long elapsedTicks = Math.max(0L, gameTime - this.lastUpkeepGameTime);
+        long elapsedDays = elapsedTicks / 24000L;
+        boolean changed = false;
+        if (elapsedDays > 0L) {
+            this.pendingUpkeepCredits = saturatingAdd(
+                    this.pendingUpkeepCredits,
+                    saturatingMultiply(dailyUpkeep, elapsedDays));
+            this.lastUpkeepGameTime = gameTime - elapsedTicks % 24000L;
+            changed = true;
         }
-        int upkeepPercent = GameplayDataManager.snapshot().faction(this.factionId)
-                .map(definition -> definition.strategy().upkeepPercent()).orElse(100);
-        int upkeep = Math.max(1, Math.floorDiv(Math.addExact(
-                Math.multiplyExact(Math.max(0, population), upkeepPercent), 99), 100));
-        this.upkeepPaid = this.reserveCredits(upkeep);
-        this.lastUpkeepGameTime = gameTime;
-        this.setChangedAndSync();
+        if (this.pendingUpkeepCredits > 0L) {
+            boolean paid = this.pendingUpkeepCredits <= Integer.MAX_VALUE
+                    && this.reserveCredits((int) this.pendingUpkeepCredits);
+            if (paid) {
+                this.pendingUpkeepCredits = 0L;
+            }
+            changed |= this.upkeepPaid != paid || paid;
+            this.upkeepPaid = paid;
+        }
+        if (changed) {
+            this.setChangedAndSync();
+        }
         return this.upkeepPaid;
+    }
+
+    private static long saturatingAdd(long first, long second) {
+        if (first < 0L || second < 0L) {
+            throw new IllegalArgumentException("upkeep values cannot be negative");
+        }
+        return Long.MAX_VALUE - first < second ? Long.MAX_VALUE : first + second;
+    }
+
+    private static long saturatingMultiply(int value, long multiplier) {
+        if (value < 0 || multiplier < 0L) {
+            throw new IllegalArgumentException("upkeep values cannot be negative");
+        }
+        return value != 0 && multiplier > Long.MAX_VALUE / value
+                ? Long.MAX_VALUE
+                : value * multiplier;
     }
 
     public boolean reserveCredits(int amount) {
@@ -185,8 +218,8 @@ public final class CommandCenterBlockEntity extends BaseContainerBlockEntity {
     }
 
     @Override
-    public void onLoad() {
-        super.onLoad();
+    public void clearRemoved() {
+        super.clearRemoved();
         if (this.level instanceof ServerLevel serverLevel) {
             this.settlePendingCampaignRefunds(serverLevel);
         }
@@ -234,6 +267,7 @@ public final class CommandCenterBlockEntity extends BaseContainerBlockEntity {
             this.factionId = factions.getFirst();
         }
         this.lastUpkeepGameTime = Math.max(0L, input.getLongOr("LastUpkeepGameTime", 0L));
+        this.pendingUpkeepCredits = Math.max(0L, input.getLongOr("PendingUpkeepCredits", 0L));
         this.upkeepClockInitialized = input.getBooleanOr(
                 "UpkeepClockInitialized",
                 this.lastUpkeepGameTime > 0L);
@@ -247,6 +281,7 @@ public final class CommandCenterBlockEntity extends BaseContainerBlockEntity {
         output.storeNullable("CommandCenterOwner", UUIDUtil.CODEC, this.ownerId);
         output.putString("CommandCenterFaction", this.factionId);
         output.putLong("LastUpkeepGameTime", this.lastUpkeepGameTime);
+        output.putLong("PendingUpkeepCredits", this.pendingUpkeepCredits);
         output.putBoolean("UpkeepClockInitialized", this.upkeepClockInitialized);
         output.putBoolean("UpkeepPaid", this.upkeepPaid);
     }

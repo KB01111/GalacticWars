@@ -19,7 +19,8 @@ public final class AssetManifestCompletenessTest {
     private static final Path MANIFEST = Path.of("docs/galacticwars-asset-manifest.json");
     private static final Path ASSET_ROOT = Path.of("src/main/resources/assets/galacticwars");
     private static final Set<String> UNIQUE_BATCHES = Set.of(
-            "units", "equipped_armor", "combat_and_tools", "planets", "vehicles", "effects_and_gui");
+            "units", "equipped_armor", "combat_and_tools", "planets", "vehicles", "effects_and_gui",
+            "field_command_and_deployment");
     private static final List<String> FACTIONS = List.of(
             "republic", "separatist", "mandalorian", "hutt_cartel", "nightsister");
     private static final List<String> UNITS = List.of(
@@ -50,7 +51,7 @@ public final class AssetManifestCompletenessTest {
         assertContains(manifest, "\"schema_version\": 1", "asset schema");
         assertContains(manifest, "\"namespace\": \"galacticwars\"", "asset namespace");
         for (String batch : List.of("core", "factions", "units", "equipped_armor", "combat_and_tools",
-                "planets", "vehicles", "effects_and_gui")) {
+                "planets", "vehicles", "effects_and_gui", "field_command_and_deployment")) {
             assertContains(manifest, "\"id\": \"" + batch + "\"", "asset batch " + batch);
         }
         for (String id : UNITS) assertContains(manifest, "\"" + id + "\"", "unit manifest id " + id);
@@ -98,6 +99,15 @@ public final class AssetManifestCompletenessTest {
         item(assets, "core", "credit_chip");
         item(assets, "core", "energy_cell");
         transparent(assets, "core", "galactic_wars_tab", "textures/gui/galactic_wars_tab.png", "64x64");
+
+        opaque(assets, "field_command_and_deployment", "control_beacon",
+                "textures/block/control_beacon.png", "16x16");
+        for (String id : List.of(
+                "blueprint_projector", "claim_transponder", "command_marker", "hyperspace_navigator",
+                "barc_speeder_deployment_kit", "at_rt_deployment_kit", "stap_deployment_kit",
+                "aat_deployment_kit", "laat_gunship_deployment_kit")) {
+            item(assets, "field_command_and_deployment", id);
+        }
 
         for (String faction : FACTIONS) {
             item(assets, "factions", faction + "_identity_chip");
@@ -217,6 +227,7 @@ public final class AssetManifestCompletenessTest {
         assertContains(geometryText, "\"texture_width\": 256", "vehicle texture width " + id);
         assertContains(geometryText, "\"texture_height\": 256", "vehicle texture height " + id);
         assertContains(animationText, "\"vehicle.idle\"", "vehicle idle animation " + id);
+        assertContains(animationText, "\"vehicle.travel\"", "vehicle travel animation " + id);
     }
 
     private static void validateFactionEquipment(String faction) throws IOException {

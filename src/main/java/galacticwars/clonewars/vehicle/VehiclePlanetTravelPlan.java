@@ -8,7 +8,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Relative;
+import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /** Preflighted owner-driven vehicle transfer with compensating rollback. */
 public final class VehiclePlanetTravelPlan {
@@ -16,7 +18,7 @@ public final class VehiclePlanetTravelPlan {
     private final ServerLevel source;
     private final ServerLevel destination;
     private final BlockPos target;
-    private final GalacticVehicleEntity vehicle;
+    private GalacticVehicleEntity vehicle;
     private final List<ServerPlayer> passengers;
     private final double sourceX;
     private final double sourceY;
@@ -61,9 +63,10 @@ public final class VehiclePlanetTravelPlan {
             }
             passengers.add(player);
         }
-        AABB clearance = new AABB(target).inflate(
-                Math.max(1.5D, vehicle.getBbWidth()), Math.max(2.0D, vehicle.getBbHeight()),
-                Math.max(1.5D, vehicle.getBbWidth()));
+        AABB clearance = vehicle.getBoundingBox().move(
+                target.getX() + 0.5D - vehicle.getX(),
+                target.getY() - vehicle.getY(),
+                target.getZ() + 0.5D - vehicle.getZ());
         if (!destination.noCollision(vehicle, clearance)) {
             return new VehiclePlanetTravelPlan(owner, destination, target, vehicle, passengers,
                     false, "vehicle_clearance_unavailable");
@@ -74,16 +77,26 @@ public final class VehiclePlanetTravelPlan {
     public boolean accepted() { return accepted; }
     public String reason() { return reason; }
     public boolean transfersVehicle() { return vehicle != null; }
+    public List<ServerPlayer> travelers() {
+        return vehicle == null ? List.of(owner) : passengers;
+    }
 
     public boolean transfer() {
         if (!accepted || vehicle == null) return accepted;
         vehicle.ejectPassengers();
-        if (!vehicle.teleportTo(destination, target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D,
-                Set.<Relative>of(), vehicle.getYRot(), vehicle.getXRot(), false)) {
+        Entity transferred = vehicle.teleport(new TeleportTransition(
+                destination,
+                Vec3.atBottomCenterOf(target),
+                Vec3.ZERO,
+                vehicle.getYRot(),
+                vehicle.getXRot(),
+                Set.<Relative>of(),
+                TeleportTransition.DO_NOTHING));
+        if (!(transferred instanceof GalacticVehicleEntity transferredVehicle)) {
             remountAtSource();
             return false;
         }
-        ArrayList<ServerPlayer> moved = new ArrayList<>();
+        vehicle = transferredVehicle;
         for (int index = 0; index < passengers.size(); index++) {
             ServerPlayer passenger = passengers.get(index);
             boolean teleported = passenger.teleportTo(destination,
@@ -92,19 +105,32 @@ public final class VehiclePlanetTravelPlan {
                     target.getZ() + 0.5D + (index / 2) * 0.5D,
                     Set.<Relative>of(), passenger.getYRot(), passenger.getXRot(), false);
             if (!teleported) {
-                moved.forEach(this::rollbackPlayer);
                 rollbackVehicle();
                 return false;
             }
-            moved.add(passenger);
         }
-        passengers.forEach(passenger -> passenger.startRiding(vehicle, true, true));
+        for (ServerPlayer passenger : passengers) {
+            if (!passenger.startRiding(vehicle, true, true)) {
+                rollbackVehicle();
+                return false;
+            }
+        }
         return true;
     }
 
     private void rollbackVehicle() {
-        vehicle.teleportTo(source, sourceX, sourceY, sourceZ, Set.<Relative>of(),
-                vehicle.getYRot(), vehicle.getXRot(), false);
+        vehicle.ejectPassengers();
+        Entity rolledBack = vehicle.teleport(new TeleportTransition(
+                source,
+                new Vec3(sourceX, sourceY, sourceZ),
+                Vec3.ZERO,
+                vehicle.getYRot(),
+                vehicle.getXRot(),
+                Set.<Relative>of(),
+                TeleportTransition.DO_NOTHING));
+        if (rolledBack instanceof GalacticVehicleEntity rolledBackVehicle) {
+            vehicle = rolledBackVehicle;
+        }
         passengers.forEach(this::rollbackPlayer);
         passengers.forEach(passenger -> passenger.startRiding(vehicle, true, true));
     }

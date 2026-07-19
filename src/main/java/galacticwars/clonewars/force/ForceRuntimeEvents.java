@@ -1,21 +1,22 @@
 package galacticwars.clonewars.force;
 
-import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.progression.ForceSavedData;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraft.server.MinecraftServer;
 
-@EventBusSubscriber(modid = GalacticWars.MODID)
+/** Loader-neutral Force regeneration and authoritative HUD synchronization. */
 public final class ForceRuntimeEvents {
     private ForceRuntimeEvents() {
     }
 
-    @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
-        if (event.getServer().getTickCount() % 5 != 0) return;
-        ForceSavedData data = ForceSavedData.get(event.getServer().overworld());
-        event.getServer().getPlayerList().getPlayers().forEach(player ->
-                data.regenerate(player.getUUID(), 1));
+    public static void onServerTick(MinecraftServer server) {
+        if (server.getTickCount() % 5 != 0) return;
+        ForceSavedData data = ForceSavedData.get(server.overworld());
+        boolean synchronizeHud = server.getTickCount() % 20 == 0;
+        server.getPlayerList().getPlayers().forEach(player -> {
+            data.regenerate(player.getUUID(), 1);
+            if (synchronizeHud) {
+                ForceWorldEffectService.syncSnapshot(player, data);
+            }
+        });
     }
 }

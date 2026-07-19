@@ -15,9 +15,23 @@ public final class ClassAbilityRuntimeServiceTest {
 
     public static void main(String[] args) {
         activationIsServerAuthoritativeAndAtomic();
+        areaAbilitiesDoNotRequireAnAimedTarget();
         npcEvaluationIsStaggered();
         experienceRanksAreBounded();
+        playerLoadoutSwitchPreservesProgressAndCombatState();
         System.out.println("ClassAbilityRuntimeServiceTest passed");
+    }
+
+    private static void areaAbilitiesDoNotRequireAnAimedTarget() {
+        AbilityDefinition area = new AbilityDefinition(
+                AbilityId.of("tactical_scan"), "Tactical Scan", AbilityKind.TACTICAL,
+                AbilityActivation.AREA, 160, 20, 20.0D, 40, true);
+        UnitClassDefinition areaClass = unitClass(area.id());
+        ClassAbilityRuntimeService.ActivationDecision decision = ClassAbilityRuntimeService.activate(
+                areaClass, area, ClassProgressState.unassigned().assign(areaClass.id()),
+                100L, false, 0.0D, false, false);
+        assertTrue(decision.accepted(), "area ability does not require a crosshair target");
+        assertEquals(80, decision.state().resource(), "area ability resource charge");
     }
 
     private static void activationIsServerAuthoritativeAndAtomic() {
@@ -71,6 +85,21 @@ public final class ClassAbilityRuntimeServiceTest {
                 .activate(AbilityId.of("suppressive_fire"), 15, 200L, 100L);
         assertEquals(ClassProgressState.MAX_RESOURCE, spent.regenerate(Integer.MAX_VALUE).resource(),
                 "resource regeneration saturates without overflow");
+    }
+
+    private static void playerLoadoutSwitchPreservesProgressAndCombatState() {
+        ClassProgressState current = ClassProgressState.unassigned()
+                .assign(UnitClassId.of("clone_trooper"))
+                .gainExperience(100L)
+                .activate(AbilityId.of("suppressive_fire"), 15, 200L, 100L);
+        ClassProgressState switched = current.switchClass(UnitClassId.of("arc_trooper"));
+        assertEquals("galacticwars:arc_trooper", switched.classId(), "switched class id");
+        assertEquals(current.rank(), switched.rank(), "rank survives a loadout switch");
+        assertEquals(current.experience(), switched.experience(), "experience survives a loadout switch");
+        assertEquals(current.resource(), switched.resource(), "focus survives a loadout switch");
+        assertEquals(current.cooldownEnds(), switched.cooldownEnds(), "cooldowns survive a loadout switch");
+        assertEquals(switched, switched.switchClass(UnitClassId.of("arc_trooper")),
+                "reselecting the active class is idempotent");
     }
 
     private static AbilityDefinition ability() {

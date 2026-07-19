@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "First-hand Clone Wars battle, recruitment, settlement, logistics, vehicle, planet, and Force gameplay.",
+  "authors": ["KB"],
+  "contact": {},
+  "license": "GPL-3.0-only",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["galacticwars.clonewars.fabric.GalacticWarsFabric"],
+    "client": ["galacticwars.clonewars.fabric.GalacticWarsFabricClient"]
+  },
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "fabric-language-kotlin": ">=${fabric_language_kotlin_version}",
+    "minecraft": "~${minecraft_version}",
+    "fabric-api": ">=${fabric_api_version}",
+    "architectury": ">=${architectury_api_version}",
+    "geckolib": ">=${geckolib_version}",
+    "smartbrainlib": ">=${smartbrainlib_version}",
+    "yet_another_config_lib_v3": ">=${yacl_version}"
+  }
+}

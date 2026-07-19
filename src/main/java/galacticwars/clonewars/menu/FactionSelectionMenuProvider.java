@@ -1,15 +1,15 @@
 package galacticwars.clonewars.menu;
 
 import galacticwars.clonewars.data.GameplayDataManager;
+import dev.architectury.registry.menu.ExtendedMenuProvider;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
-public final class FactionSelectionMenuProvider implements MenuProvider {
+public final class FactionSelectionMenuProvider implements ExtendedMenuProvider {
     private final BlockPos commandCenterPos;
 
     public FactionSelectionMenuProvider(BlockPos commandCenterPos) {
@@ -27,7 +27,7 @@ public final class FactionSelectionMenuProvider implements MenuProvider {
     }
 
     @Override
-    public void writeClientSideData(AbstractContainerMenu menu, RegistryFriendlyByteBuf buffer) {
+    public void saveExtraData(FriendlyByteBuf buffer) {
         buffer.writeBlockPos(commandCenterPos);
         var factionIds = GameplayDataManager.snapshot().selectableFactions().stream()
                 .map(definition -> definition.id().toString()).toList();

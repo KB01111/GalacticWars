@@ -1,41 +1,60 @@
 package galacticwars.clonewars.registry;
 
+import dev.architectury.registry.menu.MenuRegistry;
+import dev.architectury.registry.registries.DeferredRegister;
+import dev.architectury.registry.registries.RegistrySupplier;
 import galacticwars.clonewars.GalacticWars;
-import galacticwars.clonewars.menu.RecruitCommandMenu;
 import galacticwars.clonewars.menu.CommandCenterNavigationMenu;
+import galacticwars.clonewars.menu.CommandCenterOperationsMenu;
 import galacticwars.clonewars.menu.FactionSelectionMenu;
 import galacticwars.clonewars.menu.MerchantTradeMenu;
-import galacticwars.clonewars.menu.CommandCenterOperationsMenu;
+import galacticwars.clonewars.menu.RecruitCommandMenu;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 public final class ModMenuTypes {
     public static final DeferredRegister<MenuType<?>> MENU_TYPES =
-            DeferredRegister.create(Registries.MENU, GalacticWars.MODID);
+            DeferredRegister.create(GalacticWars.MODID, Registries.MENU);
 
-    public static final DeferredHolder<MenuType<?>, MenuType<RecruitCommandMenu>> RECRUIT_COMMAND =
-            MENU_TYPES.register("recruit_command", () -> IMenuTypeExtension.create(RecruitCommandMenu::new));
-    public static final DeferredHolder<MenuType<?>, MenuType<CommandCenterNavigationMenu>> COMMAND_CENTER_NAVIGATION =
+    public static final RegistrySupplier<MenuType<RecruitCommandMenu>> RECRUIT_COMMAND =
+            MENU_TYPES.register("recruit_command", () -> MenuRegistry.ofExtended(
+                    (id, inventory, buffer) -> new RecruitCommandMenu(
+                            id, inventory, registryBuffer(buffer, inventory))));
+    public static final RegistrySupplier<MenuType<CommandCenterNavigationMenu>> COMMAND_CENTER_NAVIGATION =
             MENU_TYPES.register("command_center_navigation",
-                    () -> IMenuTypeExtension.create(CommandCenterNavigationMenu::new));
-    public static final DeferredHolder<MenuType<?>, MenuType<FactionSelectionMenu>> FACTION_SELECTION =
+                    () -> MenuRegistry.ofExtended((id, inventory, buffer) ->
+                            new CommandCenterNavigationMenu(
+                                    id, inventory, registryBuffer(buffer, inventory))));
+    public static final RegistrySupplier<MenuType<FactionSelectionMenu>> FACTION_SELECTION =
             MENU_TYPES.register("faction_selection",
-                    () -> IMenuTypeExtension.create(FactionSelectionMenu::new));
-    public static final DeferredHolder<MenuType<?>, MenuType<MerchantTradeMenu>> MERCHANT_TRADE =
+                    () -> MenuRegistry.ofExtended((id, inventory, buffer) ->
+                            new FactionSelectionMenu(
+                                    id, inventory, registryBuffer(buffer, inventory))));
+    public static final RegistrySupplier<MenuType<MerchantTradeMenu>> MERCHANT_TRADE =
             MENU_TYPES.register("merchant_trade",
-                    () -> IMenuTypeExtension.create(MerchantTradeMenu::new));
-    public static final DeferredHolder<MenuType<?>, MenuType<CommandCenterOperationsMenu>> COMMAND_CENTER_OPERATIONS =
+                    () -> MenuRegistry.ofExtended((id, inventory, buffer) ->
+                            new MerchantTradeMenu(
+                                    id, inventory, registryBuffer(buffer, inventory))));
+    public static final RegistrySupplier<MenuType<CommandCenterOperationsMenu>> COMMAND_CENTER_OPERATIONS =
             MENU_TYPES.register("command_center_operations",
-                    () -> IMenuTypeExtension.create(CommandCenterOperationsMenu::new));
+                    () -> MenuRegistry.ofExtended((id, inventory, buffer) ->
+                            new CommandCenterOperationsMenu(
+                                    id, inventory, registryBuffer(buffer, inventory))));
 
     private ModMenuTypes() {
     }
 
-    public static void register(IEventBus modEventBus) {
-        MENU_TYPES.register(modEventBus);
+    public static void register() {
+        MENU_TYPES.register();
+    }
+
+    private static RegistryFriendlyByteBuf registryBuffer(
+            FriendlyByteBuf buffer,
+            Inventory inventory
+    ) {
+        return new RegistryFriendlyByteBuf(buffer, inventory.player.registryAccess());
     }
 }

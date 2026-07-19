@@ -9,14 +9,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-
 import java.util.List;
 
 /** Bounded simulation for kingdom systems that must not depend on a menu interaction. */
-@EventBusSubscriber(modid = GalacticWars.MODID)
 public final class KingdomSimulationEvents {
     private static final int INTERVAL_TICKS = 20;
     private static final int KINGDOM_BUDGET = 4;
@@ -25,9 +20,7 @@ public final class KingdomSimulationEvents {
     private KingdomSimulationEvents() {
     }
 
-    @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
-        MinecraftServer server = event.getServer();
+    public static void onServerTick(MinecraftServer server) {
         if (server.getTickCount() % INTERVAL_TICKS != 0) {
             return;
         }

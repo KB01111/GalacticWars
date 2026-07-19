@@ -10,14 +10,15 @@ public final class NetworkThreadDispatchTest {
     public static void main(String[] args) throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/galacticwars/clonewars/network/GalacticNetwork.java"));
-        int dispatches = source.split("context\\.execute", -1).length - 1;
-        if (dispatches != 5) {
-            throw new AssertionError("Every Framework payload handler must dispatch to the main thread");
+        int dispatches = source.split("context\\.queue", -1).length - 1;
+        if (dispatches != 9) {
+            throw new AssertionError("Every Architectury payload handler must dispatch to the main thread");
         }
-        if (!source.contains("PacketFlow.SERVERBOUND")
-                || !source.contains("PacketFlow.CLIENTBOUND")
-                || !source.contains("@RegistryContainer")) {
-            throw new AssertionError("Framework channel must declare discovery and packet direction");
+        int c2sRegistrations = source.split("NetworkManager\\.registerC2S", -1).length - 1;
+        int s2cRegistrations = source.split("NetworkManager\\.registerS2C", -1).length - 1;
+        if (c2sRegistrations != 5 || s2cRegistrations != 4
+                || !source.contains("CustomPacketPayload")) {
+            throw new AssertionError("Architectury networking must register all nine typed payload directions");
         }
         System.out.println("NetworkThreadDispatchTest passed");
     }

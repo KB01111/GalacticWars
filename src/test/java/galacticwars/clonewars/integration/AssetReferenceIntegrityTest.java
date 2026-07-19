@@ -145,7 +145,7 @@ public final class AssetReferenceIntegrityTest {
                 .map(line -> line.substring("mod_version=".length()).trim())
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("mod_version missing from " + GRADLE_PROPERTIES));
-        return Path.of("build/libs/galacticwars-" + version + ".jar");
+        return Path.of("neoforge/build/libs/galacticwars-neoforge-" + version + ".jar");
     }
 
     private static Set<String> sourceResourceEntries() throws IOException {

@@ -1,5 +1,6 @@
 package galacticwars.clonewars.conquest;
 
+import dev.architectury.event.events.common.TickEvent;
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.data.LaunchContentDefinitions;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
@@ -9,7 +10,9 @@ import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.recruitment.NpcServiceBranch;
 import galacticwars.clonewars.registry.ModBlocks;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -23,21 +26,24 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.entity.EntitySpawnReason;
 import galacticwars.clonewars.registry.ModEntityTypes;
 import net.minecraft.world.entity.EntityType;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-@EventBusSubscriber(modid = GalacticWars.MODID)
 public final class ConquestRuntimeEvents {
+    private static final AtomicBoolean REGISTERED = new AtomicBoolean();
+
     private ConquestRuntimeEvents() {
     }
 
-    @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
-        if (event.getServer().getTickCount() % 20 != 0) return;
+    public static void register() {
+        if (REGISTERED.compareAndSet(false, true)) {
+            TickEvent.SERVER_POST.register(ConquestRuntimeEvents::onServerTick);
+        }
+    }
+
+    public static void onServerTick(MinecraftServer server) {
+        if (server.getTickCount() % 20 != 0) return;
         for (LaunchContentDefinitions.ConquestRegionDefinition region
                 : LaunchContentCatalog.data().conquestRegions().values()) {
-            tickRegion(event.getServer(), region);
+            tickRegion(server, region);
         }
     }
 
@@ -53,20 +59,39 @@ public final class ConquestRuntimeEvents {
         }
         if (level == null) return;
         ConquestSavedData data = ConquestSavedData.get(level);
-        ConquestControlState state = data.state(region.id()).orElseGet(() -> {
-            BlockPos beacon = resolveBeacon(level, region);
-            ConquestControlState created = new ConquestControlState(region.id(), planet.dimensionId(),
+        ConquestControlState state = data.state(region.id()).orElse(null);
+        if (state == null) {
+            BlockPos beacon = resolveBeacon(level, region).orElse(null);
+            if (beacon == null || !level.setBlockAndUpdate(
+                    beacon, ModBlocks.CONTROL_BEACON.get().defaultBlockState())) {
+                return;
+            }
+            state = new ConquestControlState(region.id(), planet.dimensionId(),
                     beacon.getX(), beacon.getY(), beacon.getZ(), namespacedFaction(region.defenderFaction()),
                     "", "", 0, 0L);
-            if (level.getBlockState(beacon).canBeReplaced()) {
-                level.setBlockAndUpdate(beacon, ModBlocks.CONTROL_BEACON.get().defaultBlockState());
-            }
-            data.put(created);
-            return created;
-        });
+            data.put(state);
+        }
         BlockPos beacon = new BlockPos(state.beaconX(), state.beaconY(), state.beaconZ());
+        if (!ensureBeaconPresent(level, beacon)) {
+            return;
+        }
         spawnControlPatrol(level, state, beacon);
         ConquestCaptureService.tick(level, region, beacon);
+    }
+
+    /** Keeps the persisted capture coordinate backed by a visible, protected world landmark. */
+    public static boolean ensureBeaconPresent(ServerLevel level, BlockPos beacon) {
+        if (!level.hasChunkAt(beacon)) {
+            return false;
+        }
+        if (level.getBlockState(beacon).is(ModBlocks.CONTROL_BEACON.get())) {
+            return true;
+        }
+        if (!level.getBlockState(beacon).canBeReplaced()) {
+            return false;
+        }
+        return level.setBlockAndUpdate(beacon, ModBlocks.CONTROL_BEACON.get().defaultBlockState())
+                && level.getBlockState(beacon).is(ModBlocks.CONTROL_BEACON.get());
     }
 
     private static String namespacedFaction(String factionId) {
@@ -75,7 +100,10 @@ public final class ConquestRuntimeEvents {
                 : "galacticwars:" + factionId;
     }
 
-    private static BlockPos resolveBeacon(ServerLevel level, LaunchContentDefinitions.ConquestRegionDefinition region) {
+    private static Optional<BlockPos> resolveBeacon(
+            ServerLevel level,
+            LaunchContentDefinitions.ConquestRegionDefinition region
+    ) {
         KingdomSavedData kingdoms = KingdomSavedData.get(level);
         String dimension = level.dimension().identifier().toString();
         for (int ring = 0; ring <= 8; ring++) {
@@ -84,16 +112,16 @@ public final class ConquestRuntimeEvents {
                     if (ring > 0 && Math.abs(dx) != ring && Math.abs(dz) != ring) continue;
                     int x = region.landmarkX() + dx * 16;
                     int z = region.landmarkZ() + dz * 16;
+                    BlockPos horizontal = new BlockPos(x, level.getMinY(), z);
+                    if (!level.hasChunkAt(horizontal)) continue;
                     if (kingdoms.claimAt(dimension, new ChunkPos(x >> 4, z >> 4)).isPresent()) continue;
                     int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                     BlockPos candidate = new BlockPos(x, y, z);
-                    if (level.getBlockState(candidate).canBeReplaced()) return candidate;
+                    if (level.getBlockState(candidate).canBeReplaced()) return Optional.of(candidate);
                 }
             }
         }
-        return new BlockPos(region.landmarkX(),
-                level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                        region.landmarkX(), region.landmarkZ()), region.landmarkZ());
+        return Optional.empty();
     }
 
     public static boolean arrivalClear(ServerLevel level, ServerPlayer player, BlockPos arrival) {

@@ -3,7 +3,6 @@ package galacticwars.clonewars.classes;
 import galacticwars.clonewars.ability.AbilityActivation;
 import galacticwars.clonewars.ability.AbilityDefinition;
 import galacticwars.clonewars.ability.AbilityId;
-import galacticwars.clonewars.ability.AbilityKind;
 
 import java.util.Objects;
 
@@ -30,7 +29,7 @@ public final class ClassAbilityRuntimeService {
         if (!classDefinition.abilityIds().contains(ability.id())) {
             return ActivationDecision.rejected("ability_not_in_class", state);
         }
-        if (!ability.enabled() || ability.kind() == AbilityKind.FORCE) {
+        if (!ability.enabled()) {
             return ActivationDecision.rejected("ability_disabled", state);
         }
         if (ability.activation() == AbilityActivation.PASSIVE) {

@@ -1,1 +1,10 @@
-{"replace":false,"values":["galacticwars:beskar_ore","galacticwars:duracrete"]}
+{
+  "replace": false,
+  "values": [
+    "galacticwars:beskar_ore",
+    "galacticwars:duracrete",
+    "galacticwars:geonosis_rock",
+    "galacticwars:kamino_panel",
+    "galacticwars:coruscant_panel"
+  ]
+}

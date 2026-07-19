@@ -20,6 +20,10 @@ public final class GalacticProgressionCoordinator {
         if (event.type() == ProgressionEventType.CREDIT_TRANSACTION) {
             return ProgressionDecision.rejected("physical_currency_required", state);
         }
+        ProgressionIntegrityPolicy.Validation integrity = ProgressionIntegrityPolicy.validate(event);
+        if (!integrity.accepted()) {
+            return ProgressionDecision.rejected(integrity.reason(), state);
+        }
         String faction = state.factionId();
         if (event.type() == ProgressionEventType.FACTION_PLEDGED) {
             if (!LaunchContentCatalog.factions().contains(event.subjectId())) {
@@ -126,7 +130,7 @@ public final class GalacticProgressionCoordinator {
             case "tatooine", "geonosis", "kamino", "coruscant" ->
                     state.hasSubjectPath(ProgressionEventType.PLANET_VISITED, objective);
             case "clone_trooper", "b1_battle_droid", "mandalorian_warrior", "hutt_enforcer",
-                    "nightsister_acolyte", "bounty_hunter", "smuggler" ->
+                    "nightsister_acolyte", "mandalorian_marksman", "bounty_hunter", "smuggler" ->
                     state.hasSubjectPath(ProgressionEventType.RECRUIT_HIRED, objective);
             case "delivery_completed" -> state.total(ProgressionEventType.DELIVERY_COMPLETED) > 0;
             case "vehicle_acquired" -> state.total(ProgressionEventType.VEHICLE_ACQUIRED) > 0;

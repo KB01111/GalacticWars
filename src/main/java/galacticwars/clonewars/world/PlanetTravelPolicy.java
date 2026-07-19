@@ -3,11 +3,13 @@ package galacticwars.clonewars.world;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
 
 public final class PlanetTravelPolicy {
+    public static final String HOME_DESTINATION_ID = "home";
+
     private PlanetTravelPolicy() {
     }
 
     public static TravelAuthorization authorize(
-            String planetId,
+            String destinationId,
             boolean owner,
             boolean authoritativeCommandCenter,
             boolean factionPledged,
@@ -16,19 +18,20 @@ public final class PlanetTravelPolicy {
             boolean destinationLoaded,
             boolean alreadyThere
     ) {
-        if (!LaunchContentCatalog.planets().contains(planetId)) {
+        boolean returningHome = HOME_DESTINATION_ID.equals(destinationId);
+        if (!returningHome && !LaunchContentCatalog.planets().contains(destinationId)) {
             return TravelAuthorization.rejected("unknown_planet");
         }
         if (!owner || !authoritativeCommandCenter) {
             return TravelAuthorization.rejected("not_owner");
         }
-        if (!factionPledged) {
+        if (!returningHome && !factionPledged) {
             return TravelAuthorization.rejected("faction_required");
         }
-        if (!travelUnlocked) {
+        if (!returningHome && !travelUnlocked) {
             return TravelAuthorization.rejected("planet_travel_locked");
         }
-        if (!upkeepPaid) {
+        if (!returningHome && !upkeepPaid) {
             return TravelAuthorization.rejected("upkeep_unpaid");
         }
         if (!destinationLoaded) {

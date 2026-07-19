@@ -1,3 +1,6 @@
 {
-  "parent": "minecraft:item/compass_16"
+  "parent": "minecraft:item/compass_16",
+  "textures": {
+    "layer0": "galacticwars:item/hyperspace_navigator"
+  }
 }

@@ -2,6 +2,7 @@ package galacticwars.clonewars.menu;
 
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.BuildSummary;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ActionAvailability;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.BlueprintSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ClaimSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.CombatTargetSummary;
@@ -15,9 +16,11 @@ import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ObjectiveSumma
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.PositionSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.QuestSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.SquadSummary;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.StockRequirementSummary;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.VehicleFabricationSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.WorkerSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.WorkOrderSummary;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,14 +32,14 @@ import java.util.function.Function;
 /** Bounded wire format for Command Center dashboard snapshots. */
 public final class CommandCenterDashboardCodec {
     private static final int MAX_STRING = 128;
-    private static final int MAX_ENTRIES = 64;
+    private static final int MAX_ENTRIES = CommandCenterDashboardState.MAX_DASHBOARD_ENTRIES;
     private static final int MAX_QUESTS = 16;
     private static final int MAX_OBJECTIVES = 16;
 
     private CommandCenterDashboardCodec() {
     }
 
-    public static void write(RegistryFriendlyByteBuf buffer, CommandCenterDashboardState state) {
+    public static void write(FriendlyByteBuf buffer, CommandCenterDashboardState state) {
         buffer.writeVarLong(state.generatedGameTime());
         buffer.writeBoolean(state.kingdomAvailable());
         buffer.writeUUID(state.actorId());
@@ -46,6 +49,9 @@ public final class CommandCenterDashboardCodec {
         buffer.writeVarInt(state.treasuryCredits());
         buffer.writeVarInt(state.pendingRewardCredits());
         buffer.writeBoolean(state.upkeepPaid());
+        writeAvailability(buffer, state.navigationAvailability());
+        writeList(buffer, state.vehicleFabrication(), 16,
+                CommandCenterDashboardCodec::writeVehicleFabrication);
         buffer.writeVarInt(state.recruitCount());
         buffer.writeVarInt(state.housingCapacity());
         buffer.writeVarInt(state.settlementCount());
@@ -78,7 +84,7 @@ public final class CommandCenterDashboardCodec {
                 CommandCenterDashboardCodec::writeDiplomacyProposal);
     }
 
-    public static CommandCenterDashboardState read(RegistryFriendlyByteBuf buffer) {
+    public static CommandCenterDashboardState read(FriendlyByteBuf buffer) {
         return new CommandCenterDashboardState(
                 buffer.readVarLong(),
                 buffer.readBoolean(),
@@ -89,6 +95,8 @@ public final class CommandCenterDashboardCodec {
                 nonNegative(buffer.readVarInt(), "treasuryCredits"),
                 nonNegative(buffer.readVarInt(), "pendingRewardCredits"),
                 buffer.readBoolean(),
+                readAvailability(buffer),
+                readList(buffer, 16, CommandCenterDashboardCodec::readVehicleFabrication),
                 nonNegative(buffer.readVarInt(), "recruitCount"),
                 nonNegative(buffer.readVarInt(), "housingCapacity"),
                 nonNegative(buffer.readVarInt(), "settlementCount"),
@@ -115,7 +123,51 @@ public final class CommandCenterDashboardCodec {
                 readList(buffer, MAX_ENTRIES, CommandCenterDashboardCodec::readDiplomacyProposal));
     }
 
-    private static void writeSquad(RegistryFriendlyByteBuf buffer, SquadSummary value) {
+    private static void writeAvailability(FriendlyByteBuf buffer, ActionAvailability value) {
+        buffer.writeBoolean(value.available());
+        writeString(buffer, value.reason());
+    }
+
+    private static ActionAvailability readAvailability(FriendlyByteBuf buffer) {
+        return new ActionAvailability(buffer.readBoolean(), readString(buffer));
+    }
+
+    private static void writeVehicleFabrication(
+            FriendlyByteBuf buffer, VehicleFabricationSummary value
+    ) {
+        writeString(buffer, value.vehicleId());
+        writeAvailability(buffer, value.availability());
+        buffer.writeVarInt(value.requiredCredits());
+        writeList(buffer, value.materials(), 16,
+                CommandCenterDashboardCodec::writeStockRequirement);
+    }
+
+    private static VehicleFabricationSummary readVehicleFabrication(FriendlyByteBuf buffer) {
+        return new VehicleFabricationSummary(
+                readString(buffer), readAvailability(buffer),
+                nonNegative(buffer.readVarInt(), "fabricationCredits"),
+                readList(buffer, 16, CommandCenterDashboardCodec::readStockRequirement));
+    }
+
+    private static void writeStockRequirement(
+            FriendlyByteBuf buffer, StockRequirementSummary value
+    ) {
+        writeString(buffer, value.itemId());
+        buffer.writeVarInt(value.required());
+        buffer.writeVarInt(value.available());
+    }
+
+    private static StockRequirementSummary readStockRequirement(FriendlyByteBuf buffer) {
+        String itemId = readString(buffer);
+        int required = nonNegative(buffer.readVarInt(), "fabricationMaterialRequired");
+        int available = nonNegative(buffer.readVarInt(), "fabricationMaterialAvailable");
+        if (required < 1) {
+            throw new IllegalArgumentException("fabrication material requirement must be positive");
+        }
+        return new StockRequirementSummary(itemId, required, available);
+    }
+
+    private static void writeSquad(FriendlyByteBuf buffer, SquadSummary value) {
         buffer.writeUUID(value.id());
         writeString(buffer, value.name());
         writeOptionalUuid(buffer, value.commanderId());
@@ -128,7 +180,7 @@ public final class CommandCenterDashboardCodec {
         buffer.writeVarInt(value.supplyUnits());
     }
 
-    private static SquadSummary readSquad(RegistryFriendlyByteBuf buffer) {
+    private static SquadSummary readSquad(FriendlyByteBuf buffer) {
         return new SquadSummary(
                 buffer.readUUID(), readString(buffer), readOptionalUuid(buffer),
                 readList(buffer, MAX_ENTRIES, target -> target.readUUID()),
@@ -137,7 +189,7 @@ public final class CommandCenterDashboardCodec {
     }
 
     private static void writeCombatTarget(
-            RegistryFriendlyByteBuf buffer, CombatTargetSummary value
+            FriendlyByteBuf buffer, CombatTargetSummary value
     ) {
         buffer.writeUUID(value.entityId());
         writeString(buffer, value.displayName());
@@ -145,13 +197,13 @@ public final class CommandCenterDashboardCodec {
         buffer.writeVarInt(value.distanceBlocks());
     }
 
-    private static CombatTargetSummary readCombatTarget(RegistryFriendlyByteBuf buffer) {
+    private static CombatTargetSummary readCombatTarget(FriendlyByteBuf buffer) {
         return new CombatTargetSummary(
                 buffer.readUUID(), readString(buffer), readString(buffer),
                 nonNegative(buffer.readVarInt(), "combatTargetDistance"));
     }
 
-    private static void writeClaim(RegistryFriendlyByteBuf buffer, ClaimSummary value) {
+    private static void writeClaim(FriendlyByteBuf buffer, ClaimSummary value) {
         buffer.writeUUID(value.id());
         writeString(buffer, value.dimensionId());
         buffer.writeVarInt(value.centerChunkX());
@@ -160,13 +212,13 @@ public final class CommandCenterDashboardCodec {
         buffer.writeBoolean(value.capital());
     }
 
-    private static ClaimSummary readClaim(RegistryFriendlyByteBuf buffer) {
+    private static ClaimSummary readClaim(FriendlyByteBuf buffer) {
         return new ClaimSummary(
                 buffer.readUUID(), readString(buffer), buffer.readVarInt(), buffer.readVarInt(),
                 nonNegative(buffer.readVarInt(), "claimChunkCount"), buffer.readBoolean());
     }
 
-    private static void writeBlueprint(RegistryFriendlyByteBuf buffer, BlueprintSummary value) {
+    private static void writeBlueprint(FriendlyByteBuf buffer, BlueprintSummary value) {
         buffer.writeUUID(value.targetId());
         writeString(buffer, value.blueprintId());
         writeString(buffer, value.displayName());
@@ -180,7 +232,7 @@ public final class CommandCenterDashboardCodec {
         buffer.writeVarInt(value.commanderSlotReward());
     }
 
-    private static BlueprintSummary readBlueprint(RegistryFriendlyByteBuf buffer) {
+    private static BlueprintSummary readBlueprint(FriendlyByteBuf buffer) {
         return new BlueprintSummary(
                 buffer.readUUID(), readString(buffer), readString(buffer),
                 readList(buffer, 4, target -> target.readVarInt()),
@@ -191,17 +243,17 @@ public final class CommandCenterDashboardCodec {
                 nonNegative(buffer.readVarInt(), "blueprintCommanderReward"));
     }
 
-    private static void writeMaterial(RegistryFriendlyByteBuf buffer, MaterialSummary value) {
+    private static void writeMaterial(FriendlyByteBuf buffer, MaterialSummary value) {
         writeString(buffer, value.itemId());
         buffer.writeVarInt(value.count());
     }
 
-    private static MaterialSummary readMaterial(RegistryFriendlyByteBuf buffer) {
+    private static MaterialSummary readMaterial(FriendlyByteBuf buffer) {
         return new MaterialSummary(
                 readString(buffer), nonNegative(buffer.readVarInt(), "blueprintMaterialCount"));
     }
 
-    private static void writeBuild(RegistryFriendlyByteBuf buffer, BuildSummary value) {
+    private static void writeBuild(FriendlyByteBuf buffer, BuildSummary value) {
         buffer.writeUUID(value.id());
         writeString(buffer, value.blueprintId());
         writeString(buffer, value.state());
@@ -210,14 +262,14 @@ public final class CommandCenterDashboardCodec {
         writeString(buffer, value.blockedReason());
     }
 
-    private static BuildSummary readBuild(RegistryFriendlyByteBuf buffer) {
+    private static BuildSummary readBuild(FriendlyByteBuf buffer) {
         return new BuildSummary(
                 buffer.readUUID(), readString(buffer), readString(buffer),
                 nonNegative(buffer.readVarInt(), "completedPlacements"),
                 nonNegative(buffer.readVarInt(), "totalPlacements"), readString(buffer));
     }
 
-    private static void writeWorkOrder(RegistryFriendlyByteBuf buffer, WorkOrderSummary value) {
+    private static void writeWorkOrder(FriendlyByteBuf buffer, WorkOrderSummary value) {
         buffer.writeUUID(value.id());
         writeString(buffer, value.type());
         writeString(buffer, value.state());
@@ -227,14 +279,14 @@ public final class CommandCenterDashboardCodec {
         writeString(buffer, value.blockedReason());
     }
 
-    private static WorkOrderSummary readWorkOrder(RegistryFriendlyByteBuf buffer) {
+    private static WorkOrderSummary readWorkOrder(FriendlyByteBuf buffer) {
         return new WorkOrderSummary(
                 buffer.readUUID(), readString(buffer), readString(buffer), readOptionalUuid(buffer),
                 nonNegative(buffer.readVarInt(), "completedQuantity"),
                 nonNegative(buffer.readVarInt(), "quantity"), readString(buffer));
     }
 
-    private static void writeWorker(RegistryFriendlyByteBuf buffer, WorkerSummary value) {
+    private static void writeWorker(FriendlyByteBuf buffer, WorkerSummary value) {
         buffer.writeUUID(value.entityId());
         writeString(buffer, value.displayName());
         writeString(buffer, value.profession());
@@ -251,7 +303,7 @@ public final class CommandCenterDashboardCodec {
         buffer.writeVarInt(value.distanceBlocks());
     }
 
-    private static WorkerSummary readWorker(RegistryFriendlyByteBuf buffer) {
+    private static WorkerSummary readWorker(FriendlyByteBuf buffer) {
         return new WorkerSummary(
                 buffer.readUUID(), readString(buffer), readString(buffer), readString(buffer),
                 readString(buffer), readString(buffer), readOptionalPosition(buffer),
@@ -263,7 +315,7 @@ public final class CommandCenterDashboardCodec {
     }
 
     private static void writeOptionalPosition(
-            RegistryFriendlyByteBuf buffer, Optional<PositionSummary> value
+            FriendlyByteBuf buffer, Optional<PositionSummary> value
     ) {
         Optional<PositionSummary> normalized = value == null ? Optional.empty() : value;
         buffer.writeBoolean(normalized.isPresent());
@@ -275,7 +327,7 @@ public final class CommandCenterDashboardCodec {
         });
     }
 
-    private static Optional<PositionSummary> readOptionalPosition(RegistryFriendlyByteBuf buffer) {
+    private static Optional<PositionSummary> readOptionalPosition(FriendlyByteBuf buffer) {
         if (!buffer.readBoolean()) {
             return Optional.empty();
         }
@@ -283,7 +335,7 @@ public final class CommandCenterDashboardCodec {
                 readString(buffer), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()));
     }
 
-    private static void writeQuest(RegistryFriendlyByteBuf buffer, QuestSummary value) {
+    private static void writeQuest(FriendlyByteBuf buffer, QuestSummary value) {
         writeString(buffer, value.questId());
         buffer.writeBoolean(value.complete());
         buffer.writeVarInt(value.rewardCredits());
@@ -293,7 +345,7 @@ public final class CommandCenterDashboardCodec {
                 CommandCenterDashboardCodec::writeObjective);
     }
 
-    private static QuestSummary readQuest(RegistryFriendlyByteBuf buffer) {
+    private static QuestSummary readQuest(FriendlyByteBuf buffer) {
         return new QuestSummary(
                 readString(buffer), buffer.readBoolean(),
                 nonNegative(buffer.readVarInt(), "rewardCredits"),
@@ -301,51 +353,51 @@ public final class CommandCenterDashboardCodec {
                 readList(buffer, MAX_OBJECTIVES, CommandCenterDashboardCodec::readObjective));
     }
 
-    private static void writeObjective(RegistryFriendlyByteBuf buffer, ObjectiveSummary value) {
+    private static void writeObjective(FriendlyByteBuf buffer, ObjectiveSummary value) {
         writeString(buffer, value.objectiveId());
         buffer.writeBoolean(value.complete());
     }
 
-    private static ObjectiveSummary readObjective(RegistryFriendlyByteBuf buffer) {
+    private static ObjectiveSummary readObjective(FriendlyByteBuf buffer) {
         return new ObjectiveSummary(readString(buffer), buffer.readBoolean());
     }
 
-    private static void writeMember(RegistryFriendlyByteBuf buffer, MemberSummary value) {
+    private static void writeMember(FriendlyByteBuf buffer, MemberSummary value) {
         buffer.writeUUID(value.playerId());
         writeString(buffer, value.role());
     }
 
     private static void writeNearbyPlayer(
-            RegistryFriendlyByteBuf buffer, NearbyPlayerSummary value
+            FriendlyByteBuf buffer, NearbyPlayerSummary value
     ) {
         buffer.writeUUID(value.playerId());
         writeString(buffer, value.displayName());
         buffer.writeVarInt(value.distanceBlocks());
     }
 
-    private static NearbyPlayerSummary readNearbyPlayer(RegistryFriendlyByteBuf buffer) {
+    private static NearbyPlayerSummary readNearbyPlayer(FriendlyByteBuf buffer) {
         return new NearbyPlayerSummary(
                 buffer.readUUID(), readString(buffer),
                 nonNegative(buffer.readVarInt(), "nearbyPlayerDistance"));
     }
 
-    private static MemberSummary readMember(RegistryFriendlyByteBuf buffer) {
+    private static MemberSummary readMember(FriendlyByteBuf buffer) {
         return new MemberSummary(buffer.readUUID(), readString(buffer));
     }
 
     private static void writeForeignKingdom(
-            RegistryFriendlyByteBuf buffer, ForeignKingdomSummary value
+            FriendlyByteBuf buffer, ForeignKingdomSummary value
     ) {
         buffer.writeUUID(value.kingdomId());
         buffer.writeUUID(value.ownerId());
         writeString(buffer, value.factionId());
     }
 
-    private static ForeignKingdomSummary readForeignKingdom(RegistryFriendlyByteBuf buffer) {
+    private static ForeignKingdomSummary readForeignKingdom(FriendlyByteBuf buffer) {
         return new ForeignKingdomSummary(buffer.readUUID(), buffer.readUUID(), readString(buffer));
     }
 
-    private static void writeInvite(RegistryFriendlyByteBuf buffer, InviteSummary value) {
+    private static void writeInvite(FriendlyByteBuf buffer, InviteSummary value) {
         buffer.writeUUID(value.inviteId());
         buffer.writeUUID(value.kingdomId());
         buffer.writeUUID(value.inviterId());
@@ -354,14 +406,14 @@ public final class CommandCenterDashboardCodec {
         buffer.writeVarLong(value.expiresGameTime());
     }
 
-    private static InviteSummary readInvite(RegistryFriendlyByteBuf buffer) {
+    private static InviteSummary readInvite(FriendlyByteBuf buffer) {
         return new InviteSummary(
                 buffer.readUUID(), buffer.readUUID(), buffer.readUUID(), buffer.readUUID(),
                 readString(buffer), nonNegative(buffer.readVarLong(), "inviteExpiry"));
     }
 
     private static void writeDiplomacyProposal(
-            RegistryFriendlyByteBuf buffer, DiplomacyProposalSummary value
+            FriendlyByteBuf buffer, DiplomacyProposalSummary value
     ) {
         buffer.writeUUID(value.proposalId());
         buffer.writeUUID(value.proposerKingdomId());
@@ -370,35 +422,35 @@ public final class CommandCenterDashboardCodec {
         buffer.writeVarLong(value.expiresGameTime());
     }
 
-    private static DiplomacyProposalSummary readDiplomacyProposal(RegistryFriendlyByteBuf buffer) {
+    private static DiplomacyProposalSummary readDiplomacyProposal(FriendlyByteBuf buffer) {
         return new DiplomacyProposalSummary(
                 buffer.readUUID(), buffer.readUUID(), buffer.readUUID(), readString(buffer),
                 nonNegative(buffer.readVarLong(), "proposalExpiry"));
     }
 
-    private static void writeString(RegistryFriendlyByteBuf buffer, String value) {
+    private static void writeString(FriendlyByteBuf buffer, String value) {
         buffer.writeUtf(value == null ? "" : value, MAX_STRING);
     }
 
-    private static String readString(RegistryFriendlyByteBuf buffer) {
+    private static String readString(FriendlyByteBuf buffer) {
         return buffer.readUtf(MAX_STRING);
     }
 
-    private static void writeOptionalUuid(RegistryFriendlyByteBuf buffer, Optional<UUID> value) {
+    private static void writeOptionalUuid(FriendlyByteBuf buffer, Optional<UUID> value) {
         Optional<UUID> normalized = value == null ? Optional.empty() : value;
         buffer.writeBoolean(normalized.isPresent());
         normalized.ifPresent(buffer::writeUUID);
     }
 
-    private static Optional<UUID> readOptionalUuid(RegistryFriendlyByteBuf buffer) {
+    private static Optional<UUID> readOptionalUuid(FriendlyByteBuf buffer) {
         return buffer.readBoolean() ? Optional.of(buffer.readUUID()) : Optional.empty();
     }
 
     private static <T> void writeList(
-            RegistryFriendlyByteBuf buffer,
+            FriendlyByteBuf buffer,
             List<T> values,
             int limit,
-            BiConsumer<RegistryFriendlyByteBuf, T> writer
+            BiConsumer<FriendlyByteBuf, T> writer
     ) {
         int size = Math.min(values.size(), limit);
         buffer.writeVarInt(size);
@@ -408,9 +460,9 @@ public final class CommandCenterDashboardCodec {
     }
 
     private static <T> List<T> readList(
-            RegistryFriendlyByteBuf buffer,
+            FriendlyByteBuf buffer,
             int limit,
-            Function<RegistryFriendlyByteBuf, T> reader
+            Function<FriendlyByteBuf, T> reader
     ) {
         int size = buffer.readVarInt();
         if (size < 0 || size > limit) {

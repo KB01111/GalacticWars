@@ -1,1 +1,18 @@
-{"type":"galacticwars:planet","generator":{"type":"minecraft:noise","settings":"minecraft:overworld","biome_source":{"type":"minecraft:fixed","biome":"minecraft:ocean"}}}
+{
+  "type": "galacticwars:kamino",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "galacticwars:kamino",
+      "features": true,
+      "lakes": false,
+      "structure_overrides": [],
+      "layers": [
+        {"height": 1, "block": "minecraft:bedrock"},
+        {"height": 90, "block": "minecraft:stone"},
+        {"height": 10, "block": "galacticwars:kamino_panel"},
+        {"height": 27, "block": "minecraft:water"}
+      ]
+    }
+  }
+}

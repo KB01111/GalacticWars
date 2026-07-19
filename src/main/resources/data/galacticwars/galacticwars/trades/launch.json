@@ -2,6 +2,6 @@
   {"id":"republic_quartermaster","faction":"republic","cost":12,"item":"galacticwars:energy_cell","count":8,"unlock":"faction_intro","stock_tier":1},
   {"id":"separatist_foundry","faction":"separatist","cost":12,"item":"galacticwars:energy_cell","count":8,"unlock":"faction_intro","stock_tier":1},
   {"id":"mandalorian_armorer","faction":"mandalorian","cost":40,"item":"galacticwars:beskar_ingot","count":1,"unlock":"advanced_trading","stock_tier":2},
-  {"id":"hutt_broker","faction":"hutt_cartel","cost":28,"item":"galacticwars:scatter_blaster","count":1,"unlock":"advanced_trading","stock_tier":3,"regional_prerequisite":"tatooine_spaceport"},
+  {"id":"hutt_broker","faction":"hutt_cartel","cost":28,"item":"galacticwars:scatter_blaster","count":1,"unlock":"trading","stock_tier":2},
   {"id":"nightsister_matron","faction":"nightsister","cost":35,"item":"galacticwars:nightsister_bow","count":1,"unlock":"force_path","stock_tier":2}
 ]}

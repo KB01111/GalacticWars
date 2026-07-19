@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "BRB",
+    "CEC",
+    " I "
+  ],
+  "key": {
+    "B": "galacticwars:beskar_ingot",
+    "R": "minecraft:redstone_block",
+    "C": "minecraft:copper_ingot",
+    "E": "galacticwars:energy_cell",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "id": "galacticwars:scatter_blaster",
+    "count": 1
+  }
+}

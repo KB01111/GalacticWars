@@ -2,15 +2,14 @@ package galacticwars.clonewars.registry;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.architectury.registry.registries.DeferredRegister;
+import dev.architectury.registry.registries.RegistrySupplier;
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.combat.BlasterHeatPolicy;
 import galacticwars.clonewars.item.CommandTargetSelection;
 import galacticwars.clonewars.settlement.ConstructionPlan;
-import java.util.function.Supplier;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 public final class ModDataComponents {
     private static final Codec<BlasterHeatPolicy.BlasterHeatState> BLASTER_HEAT_CODEC =
@@ -22,23 +21,27 @@ public final class ModDataComponents {
                     Codec.INT.fieldOf("overheat_ticks")
                             .forGetter(BlasterHeatPolicy.BlasterHeatState::overheatTicks)
             ).apply(instance, BlasterHeatPolicy.BlasterHeatState::new));
-    private static final DeferredRegister.DataComponents COMPONENTS =
-            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, GalacticWars.MODID);
 
-    public static final Supplier<DataComponentType<BlasterHeatPolicy.BlasterHeatState>> BLASTER_HEAT =
-            COMPONENTS.registerComponentType("blaster_heat", builder ->
-                    builder.persistent(BLASTER_HEAT_CODEC));
-    public static final Supplier<DataComponentType<ConstructionPlan>> CONSTRUCTION_PLAN =
-            COMPONENTS.registerComponentType("construction_plan", builder ->
-                    builder.persistent(ConstructionPlan.CODEC));
-    public static final Supplier<DataComponentType<CommandTargetSelection>> COMMAND_TARGET =
-            COMPONENTS.registerComponentType("command_target", builder ->
-                    builder.persistent(CommandTargetSelection.CODEC));
+    public static final DeferredRegister<DataComponentType<?>> COMPONENTS =
+            DeferredRegister.create(GalacticWars.MODID, Registries.DATA_COMPONENT_TYPE);
+
+    public static final RegistrySupplier<DataComponentType<BlasterHeatPolicy.BlasterHeatState>> BLASTER_HEAT =
+            persistent("blaster_heat", BLASTER_HEAT_CODEC);
+    public static final RegistrySupplier<DataComponentType<ConstructionPlan>> CONSTRUCTION_PLAN =
+            persistent("construction_plan", ConstructionPlan.CODEC);
+    public static final RegistrySupplier<DataComponentType<CommandTargetSelection>> COMMAND_TARGET =
+            persistent("command_target", CommandTargetSelection.CODEC);
 
     private ModDataComponents() {
     }
 
-    public static void register(IEventBus eventBus) {
-        COMPONENTS.register(eventBus);
+    public static void register() {
+        COMPONENTS.register();
+    }
+
+    private static <T> RegistrySupplier<DataComponentType<T>> persistent(String name, Codec<T> codec) {
+        return COMPONENTS.register(name, () -> DataComponentType.<T>builder()
+                .persistent(codec)
+                .build());
     }
 }

@@ -1,20 +1,23 @@
 package galacticwars.clonewars.vehicle;
 
+import dev.architectury.registry.registries.RegistrySupplier;
 import galacticwars.clonewars.economy.CreditTransactionService;
+import galacticwars.clonewars.kingdom.KingdomPermission;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.registry.ModItems;
 import galacticwars.clonewars.settlement.CommandCenterBlockEntity;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.registries.DeferredItem;
 
 public final class VehicleFabricationService {
     private VehicleFabricationService() {
@@ -23,35 +26,86 @@ public final class VehicleFabricationService {
     public static String fabricate(
             ServerPlayer player, CommandCenterBlockEntity hall, String vehicleId
     ) {
-        if (!(player.level() instanceof ServerLevel level)) return "server_only";
-        var definition = LaunchContentCatalog.data().vehicles().get(vehicleId);
-        var state = ProgressionSavedData.get(level).state(player.getUUID());
-        if (definition == null) return "unknown_vehicle";
-        for (String requirement : definition.deploymentRequirements()) {
-            if (!requirementSatisfied(state, requirement)) {
-                return requirement.equals("supply_depot")
-                        ? "supply_depot_required" : "vehicle_quest_locked";
-            }
-        }
+        String normalizedVehicleId = Objects.requireNonNullElse(vehicleId, "").trim();
+        FabricationAssessment assessment = assess(player, hall, normalizedVehicleId);
+        if (!assessment.available()) return assessment.reason();
+        ServerLevel level = player.level();
+        var definition = LaunchContentCatalog.data().vehicles().get(normalizedVehicleId);
         Map<Item, Integer> inputs = resolveInputs(definition.fabricationInputs());
-        if (inputs.isEmpty()) return "invalid_recipe";
-        if (CreditTransactionService.containerBalance(hall) < definition.fabricationCredits()) {
+        if (!CreditTransactionService.withdrawContainer(hall, definition.fabricationCredits())) {
             return "insufficient_credits";
         }
-        for (Map.Entry<Item, Integer> input : inputs.entrySet()) {
-            if (count(hall, input.getKey()) < input.getValue()) return "missing_materials";
-        }
-        CreditTransactionService.withdrawContainer(hall, definition.fabricationCredits());
         inputs.forEach((item, count) -> consume(hall, item, count));
-        ItemStack kit = new ItemStack(kit(vehicleId).get());
+        ItemStack kit = new ItemStack(Objects.requireNonNull(kit(normalizedVehicleId)).get());
         player.getInventory().add(kit);
         if (!kit.isEmpty()) player.spawnAtLocation(level, kit);
+        return "accepted";
+    }
+
+    /** Server-authoritative, side-effect-free fabrication preflight used by the operations UI. */
+    public static FabricationAssessment assess(
+            ServerPlayer player, CommandCenterBlockEntity hall, String vehicleId
+    ) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(hall, "hall");
+        vehicleId = Objects.requireNonNullElse(vehicleId, "").trim();
+        if (!(player.level() instanceof ServerLevel level)) {
+            return FabricationAssessment.rejected(vehicleId, "server_only", 0, List.of());
+        }
+        var definition = LaunchContentCatalog.data().vehicles().get(vehicleId);
+        if (definition == null || kit(vehicleId) == null) {
+            return FabricationAssessment.rejected(vehicleId, "unknown_vehicle", 0, List.of());
+        }
+        Map<Item, Integer> inputs = resolveInputs(definition.fabricationInputs());
+        List<MaterialRequirement> materials = inputs.entrySet().stream()
+                .map(entry -> new MaterialRequirement(
+                        BuiltInRegistries.ITEM.getKey(entry.getKey()).toString(),
+                        entry.getValue(), count(hall, entry.getKey())))
+                .sorted(java.util.Comparator.comparing(MaterialRequirement::itemId))
+                .toList();
+        var state = ProgressionSavedData.get(level).state(player.getUUID());
+        String requirementFailure = definition.deploymentRequirements().stream()
+                .filter(requirement -> !requirementSatisfied(state, requirement))
+                .map(requirement -> requirement.equals("supply_depot")
+                        ? "supply_depot_required" : "vehicle_quest_locked")
+                .findFirst().orElse("accepted");
+        String reason = availabilityReason(
+                hall.canUse(player, KingdomPermission.USE_STORAGE),
+                hall.upkeepPaid(),
+                !inputs.isEmpty(),
+                requirementFailure,
+                CreditTransactionService.containerBalance(hall),
+                definition.fabricationCredits(),
+                materials.stream().allMatch(MaterialRequirement::satisfied));
+        return new FabricationAssessment(
+                vehicleId, reason.equals("accepted"), reason,
+                definition.fabricationCredits(), materials);
+    }
+
+    static String availabilityReason(
+            boolean permitted,
+            boolean upkeepPaid,
+            boolean recipeValid,
+            String requirementFailure,
+            int availableCredits,
+            int requiredCredits,
+            boolean materialsAvailable
+    ) {
+        if (!permitted) return "permission_denied";
+        if (!upkeepPaid) return "upkeep_unpaid";
+        if (!Objects.requireNonNull(requirementFailure, "requirementFailure").equals("accepted")) {
+            return requirementFailure;
+        }
+        if (!recipeValid) return "invalid_recipe";
+        if (availableCredits < requiredCredits) return "insufficient_credits";
+        if (!materialsAvailable) return "missing_materials";
         return "accepted";
     }
 
     private static Map<Item, Integer> resolveInputs(Map<String, Integer> configured) {
         LinkedHashMap<Item, Integer> result = new LinkedHashMap<>();
         for (Map.Entry<String, Integer> entry : configured.entrySet()) {
+            if (entry.getValue() == null || entry.getValue() < 1) return Map.of();
             Identifier id;
             try {
                 id = Identifier.parse(entry.getKey());
@@ -74,14 +128,14 @@ public final class VehicleFabricationService {
                 || state.hasSubject(ProgressionEventType.QUEST_ADVANCED, requirement);
     }
 
-    private static DeferredItem<? extends Item> kit(String id) {
+    private static RegistrySupplier<? extends Item> kit(String id) {
         return switch (id) {
             case "barc_speeder" -> ModItems.BARC_SPEEDER_DEPLOYMENT_KIT;
             case "at_rt" -> ModItems.AT_RT_DEPLOYMENT_KIT;
             case "stap" -> ModItems.STAP_DEPLOYMENT_KIT;
             case "aat" -> ModItems.AAT_DEPLOYMENT_KIT;
             case "laat_gunship" -> ModItems.LAAT_GUNSHIP_DEPLOYMENT_KIT;
-            default -> throw new IllegalArgumentException("unknown vehicle " + id);
+            default -> null;
         };
     }
 
@@ -103,5 +157,52 @@ public final class VehicleFabricationService {
             remaining -= removed;
         }
         hall.setChanged();
+    }
+
+    public record FabricationAssessment(
+            String vehicleId,
+            boolean available,
+            String reason,
+            int requiredCredits,
+            List<MaterialRequirement> materials
+    ) {
+        private static final int MAX_MATERIALS = 16;
+
+        public FabricationAssessment {
+            vehicleId = Objects.requireNonNullElse(vehicleId, "").trim();
+            reason = Objects.requireNonNull(reason, "reason").trim();
+            materials = List.copyOf(Objects.requireNonNull(materials, "materials"));
+            if (reason.isEmpty() || requiredCredits < 0 || materials.size() > MAX_MATERIALS) {
+                throw new IllegalArgumentException("invalid fabrication assessment");
+            }
+            if (available != reason.equals("accepted")) {
+                throw new IllegalArgumentException("fabrication availability and reason must agree");
+            }
+        }
+
+        private static FabricationAssessment rejected(
+                String vehicleId, String reason, int requiredCredits,
+                List<MaterialRequirement> materials
+        ) {
+            return new FabricationAssessment(
+                    vehicleId, false, reason, requiredCredits, materials);
+        }
+    }
+
+    public record MaterialRequirement(
+            String itemId,
+            int required,
+            int available
+    ) {
+        public MaterialRequirement {
+            itemId = Objects.requireNonNull(itemId, "itemId").trim();
+            if (itemId.isEmpty() || required < 1 || available < 0) {
+                throw new IllegalArgumentException("invalid fabrication material requirement");
+            }
+        }
+
+        public boolean satisfied() {
+            return available >= required;
+        }
     }
 }

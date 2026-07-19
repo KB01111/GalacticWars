@@ -4,40 +4,47 @@ import galacticwars.clonewars.Config;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.faction.FactionRelation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
-import net.minecraft.world.phys.EntityHitResult;
-import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 
+/** Loader-neutral projectile deflection and faction friendly-fire policy. */
 public final class BlasterCombatEvents {
     private BlasterCombatEvents() {
     }
 
-    public static void onProjectileImpact(ProjectileImpactEvent event) {
-        if (event.getProjectile() instanceof BlasterBoltEntity bolt
-                && event.getRayTraceResult() instanceof EntityHitResult boltHit
-                && boltHit.getEntity() instanceof LivingEntity defender
+    /**
+     * Handles a projectile collision before vanilla damage is applied.
+     *
+     * @return {@code true} when the collision was consumed by deflection or
+     *         friendly-fire protection
+     */
+    public static boolean handleProjectileImpact(AbstractArrow projectile, Entity target) {
+        if (projectile instanceof BlasterBoltEntity bolt
+                && target instanceof LivingEntity defender
                 && LightsaberDeflectionService.tryDeflect(
                         bolt, defender, defender.level().getGameTime())) {
-            event.setCanceled(true);
-            return;
+            return true;
         }
-        if (!(event.getProjectile() instanceof AbstractArrow arrow)
-                || !FactionRangedWeaponService.isProtectedFactionProjectile(arrow.getWeaponItem())
-                || !(arrow.getOwner() instanceof LivingEntity shooter)
-                || !(event.getRayTraceResult() instanceof EntityHitResult hit)) {
-            return;
+        if (!FactionRangedWeaponService.isProtectedFactionProjectile(projectile.getWeaponItem())
+                || !(projectile.getOwner() instanceof LivingEntity shooter)) {
+            return false;
         }
-        Entity target = hit.getEntity();
         boolean blocked = target instanceof Player player
                 ? blocksPlayerHit(shooter, player)
                 : target instanceof GalacticRecruitEntity recruit && blocksRecruitHit(shooter, recruit);
         if (blocked) {
-            event.setCanceled(true);
-            arrow.discard();
+            projectile.discard();
         }
+        return blocked;
+    }
+
+    /** Final cross-loader damage guard for vanilla arrow implementations. */
+    public static boolean blocksIncomingDamage(LivingEntity target, DamageSource source) {
+        return source.getDirectEntity() instanceof AbstractArrow arrow
+                && handleProjectileImpact(arrow, target);
     }
 
     private static boolean blocksPlayerHit(LivingEntity shooter, Player player) {

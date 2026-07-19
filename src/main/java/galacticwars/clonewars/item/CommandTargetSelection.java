@@ -65,8 +65,6 @@ public record CommandTargetSelection(
             return Optional.of(living);
         }
         return Optional.empty();
-        }
-        return Optional.empty();
     }
 
     public static Optional<CommandTargetSelection> fromInventory(ServerPlayer player) {

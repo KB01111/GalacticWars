@@ -24,6 +24,21 @@
       ]
     },
     {
+      "id": "field_command_and_deployment",
+      "assets": [
+        {"id":"control_beacon","kind":"block","size":"16x16","path":"textures/block/control_beacon.png","opaque":true,"model":"models/block/control_beacon.json"},
+        {"id":"blueprint_projector","kind":"item","size":"16x16","path":"textures/item/blueprint_projector.png","transparent":true,"model":"models/item/blueprint_projector.json"},
+        {"id":"claim_transponder","kind":"item","size":"16x16","path":"textures/item/claim_transponder.png","transparent":true,"model":"models/item/claim_transponder.json"},
+        {"id":"command_marker","kind":"item","size":"16x16","path":"textures/item/command_marker.png","transparent":true,"model":"models/item/command_marker.json"},
+        {"id":"hyperspace_navigator","kind":"item","size":"16x16","path":"textures/item/hyperspace_navigator.png","transparent":true,"model":"models/item/hyperspace_navigator.json"},
+        {"id":"barc_speeder_deployment_kit","kind":"item","size":"16x16","path":"textures/item/barc_speeder_deployment_kit.png","transparent":true,"model":"models/item/barc_speeder_deployment_kit.json"},
+        {"id":"at_rt_deployment_kit","kind":"item","size":"16x16","path":"textures/item/at_rt_deployment_kit.png","transparent":true,"model":"models/item/at_rt_deployment_kit.json"},
+        {"id":"stap_deployment_kit","kind":"item","size":"16x16","path":"textures/item/stap_deployment_kit.png","transparent":true,"model":"models/item/stap_deployment_kit.json"},
+        {"id":"aat_deployment_kit","kind":"item","size":"16x16","path":"textures/item/aat_deployment_kit.png","transparent":true,"model":"models/item/aat_deployment_kit.json"},
+        {"id":"laat_gunship_deployment_kit","kind":"item","size":"16x16","path":"textures/item/laat_gunship_deployment_kit.png","transparent":true,"model":"models/item/laat_gunship_deployment_kit.json"}
+      ]
+    },
+    {
       "id": "factions",
       "expand": {
         "factions": ["republic","separatist","mandalorian","hutt_cartel","nightsister"],

@@ -91,6 +91,9 @@ public final class BlasterBoltEntity extends AbstractArrow implements ItemSuppli
 
     @Override
     protected void onHitEntity(EntityHitResult hit) {
+        if (BlasterCombatEvents.handleProjectileImpact(this, hit.getEntity())) {
+            return;
+        }
         super.onHitEntity(hit);
         this.emitImpact();
         this.discard();

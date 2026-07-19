@@ -26,6 +26,27 @@ public final class PlanetTravelPolicyTest {
         assertTrue(PlanetTravelPolicy.authorize(
                 "tatooine", true, true, true, true, true, true, false).accepted(),
                 "fully authorized travel should pass");
+        assertRejected("not_owner", PlanetTravelPolicy.HOME_DESTINATION_ID,
+                false, true, false, false, false, true, false);
+        assertRejected("destination_unavailable", PlanetTravelPolicy.HOME_DESTINATION_ID,
+                true, true, false, false, false, false, false);
+        assertRejected("already_there", PlanetTravelPolicy.HOME_DESTINATION_ID,
+                true, true, false, false, false, true, true);
+        assertTrue(PlanetTravelPolicy.authorize(
+                PlanetTravelPolicy.HOME_DESTINATION_ID,
+                true, true, false, false, false, true, false).accepted(),
+                "authorized return home must remain available when outbound gates lapse");
+        var available = new PlanetTravelService.NavigationDestination(
+                "tatooine", true, "accepted");
+        assertTrue(available.available() && available.destinationId().equals("tatooine"),
+                "server navigation option should preserve accepted state");
+        boolean mismatchRejected = false;
+        try {
+            new PlanetTravelService.NavigationDestination("tatooine", true, "upkeep_unpaid");
+        } catch (IllegalArgumentException expected) {
+            mismatchRejected = true;
+        }
+        assertTrue(mismatchRejected, "navigation option reason must agree with availability");
         System.out.println("PlanetTravelPolicyTest passed");
     }
 

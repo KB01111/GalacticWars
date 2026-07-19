@@ -28,8 +28,11 @@ public final class ModRegistryCompatibilityTest {
                 "src/main/java/galacticwars/clonewars/entity/RecruitSpawnEggItem.java"));
 
         assertContains(modItems,
-                "ITEMS.registerItem(\"clone_trooper_spawn_egg\"",
-                "spawn egg registration must use DeferredRegister.Items#registerItem");
+                "registerItem(\"clone_trooper_spawn_egg\"",
+                "spawn egg registration must use the Architectury deferred item helper");
+        assertContains(modItems,
+                "return ITEMS.register(name, () -> factory.apply(properties(name)))",
+                "item helper must inject the registered item id before construction");
         assertContains(modItems,
                 "ModEntityTypes.CLONE_TROOPER.get(), \"clone_trooper\", properties)",
                 "spawn egg registration must retain its recruit type and visual material id");

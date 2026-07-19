@@ -10,10 +10,12 @@ import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
 import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.faction.FactionId;
-import galacticwars.clonewars.registry.ModItems;
+import galacticwars.clonewars.kingdom.KingdomRecord;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.recruitment.RecruitDuty;
+import galacticwars.clonewars.registry.ModItems;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -30,8 +32,11 @@ import net.minecraft.world.phys.AABB;
  * SavedData order for a loaded recruit.
  */
 public final class ArmyRecruitRuntimeController {
-    private static final int BEHAVIOR_INTERVAL = 10;
+    private static final int BEHAVIOR_INTERVAL = 2;
     private static final int TARGET_INTERVAL = 20;
+    private static final int MAX_COORDINATION_RADIUS = 64;
+    private static final int MELEE_ATTACK_COOLDOWN_TICKS = 20;
+    private static final int BOW_ATTACK_COOLDOWN_TICKS = 24;
 
     private UUID selectedTargetId;
     private int ticksUntilNextAttack;
@@ -68,6 +73,7 @@ public final class ArmyRecruitRuntimeController {
         ArmyPosition self = position(recruit);
         ArmyPosition ownerPosition = owner == null ? self : position(owner);
         int followRange = Math.max(4, (int) Math.round(recruit.getAttributeValue(Attributes.FOLLOW_RANGE)));
+        GroupCombatBalance combatBalance = groupCombatBalance(recruit, level, data, group, followRange);
 
         if (Math.floorMod(recruit.getUUID().hashCode(), TARGET_INTERVAL)
                 == Math.floorMod(recruit.tickCount, TARGET_INTERVAL)) {
@@ -93,7 +99,7 @@ public final class ArmyRecruitRuntimeController {
         }
         ArmyPosition fallback = commanderOrAnchor(level, group);
         ArmyTacticalDecision tactical = ArmyTacticalPlanner.plan(behavior, recruit.getRecruitVitals(), fallback);
-        apply(recruit, level, group, tactical);
+        apply(recruit, level, data, group, tactical, combatBalance);
     }
 
     private static ArmyGroupRecord advancePatrolWaypoint(
@@ -239,8 +245,10 @@ public final class ArmyRecruitRuntimeController {
     private void apply(
             GalacticRecruitEntity recruit,
             ServerLevel level,
+            KingdomSavedData data,
             ArmyGroupRecord group,
-            ArmyTacticalDecision tactical
+            ArmyTacticalDecision tactical,
+            GroupCombatBalance combatBalance
     ) {
         if (tactical.intent() != ArmyTacticalIntent.EXECUTE_ORDER) {
             recruit.setTarget(null);
@@ -266,26 +274,30 @@ public final class ArmyRecruitRuntimeController {
                         && recruit.distanceToSqr(target) <= recruit.getAttributeValue(Attributes.FOLLOW_RANGE)
                                 * recruit.getAttributeValue(Attributes.FOLLOW_RANGE)
                         && recruit.getSensing().hasLineOfSight(target)) {
-                    recruit.getNavigation().stop();
-                    if (weapon.getItem() instanceof BlasterItem blaster
-                            && BlasterHeatPolicy.canFire(blasterHeat)) {
-                        blaster.fireAt(level, recruit, target, weapon);
-                        blasterHeat = BlasterHeatPolicy.afterShot(blasterHeat);
-                    } else if (weapon.is(ModItems.NIGHTSISTER_BOW.get())
-                            && ticksUntilNextAttack == 0) {
-                        FactionRangedWeaponService.fireNightsisterBow(level, recruit, target, weapon);
-                        ticksUntilNextAttack = 24;
-                    }
-                } else if (recruit.isWithinMeleeAttackRange(target)
-                        && recruit.getSensing().hasLineOfSight(target)) {
-                    recruit.getNavigation().stop();
-                    if (ticksUntilNextAttack == 0) {
-                        recruit.swing(InteractionHand.MAIN_HAND);
-                        recruit.doHurtTarget(level, target);
-                        ticksUntilNextAttack = 20;
+                    if (weapon.getItem() instanceof BlasterItem blaster) {
+                        if (!hasBlasterSupply(data, group)) {
+                            meleeOrClose(recruit, level, target, combatBalance);
+                        } else {
+                            recruit.getNavigation().stop();
+                            if (BlasterHeatPolicy.canFire(blasterHeat)) {
+                                if (trySpendBlasterSupply(data, group)) {
+                                    blaster.fireAt(level, recruit, target, weapon);
+                                    blasterHeat = BlasterHeatPolicy.afterShot(blasterHeat);
+                                } else {
+                                    meleeOrClose(recruit, level, target, combatBalance);
+                                }
+                            }
+                        }
+                    } else {
+                        recruit.getNavigation().stop();
+                        if (weapon.is(ModItems.NIGHTSISTER_BOW.get())
+                                && ticksUntilNextAttack == 0) {
+                            FactionRangedWeaponService.fireNightsisterBow(level, recruit, target, weapon);
+                            ticksUntilNextAttack = combatBalance.cooldownTicks(BOW_ATTACK_COOLDOWN_TICKS);
+                        }
                     }
                 } else {
-                    move(recruit, position(target), 1.05D);
+                    meleeOrClose(recruit, level, target, combatBalance);
                 }
             }
             case MOVE_TO_POSITION, FOLLOW_OWNER, PROTECT_OWNER -> {
@@ -308,6 +320,105 @@ public final class ArmyRecruitRuntimeController {
                 recruit.getNavigation().stop();
             }
         }
+    }
+
+    private void meleeOrClose(
+            GalacticRecruitEntity recruit,
+            ServerLevel level,
+            LivingEntity target,
+            GroupCombatBalance combatBalance
+    ) {
+        if (recruit.isWithinMeleeAttackRange(target)
+                && recruit.getSensing().hasLineOfSight(target)) {
+            recruit.getNavigation().stop();
+            if (ticksUntilNextAttack == 0) {
+                recruit.swing(InteractionHand.MAIN_HAND);
+                recruit.doHurtTarget(level, target);
+                ticksUntilNextAttack = combatBalance.cooldownTicks(MELEE_ATTACK_COOLDOWN_TICKS);
+            }
+            return;
+        }
+        move(recruit, position(target), 1.05D);
+    }
+
+    private static boolean hasBlasterSupply(KingdomSavedData data, ArmyGroupRecord group) {
+        return data.armyGroup(group.id())
+                .map(ArmyGroupRecord::supplyUnits)
+                .filter(ArmySupplyPolicy::canFireBlaster)
+                .isPresent();
+    }
+
+    private static boolean trySpendBlasterSupply(KingdomSavedData data, ArmyGroupRecord group) {
+        ArmyGroupRecord current = data.armyGroup(group.id()).orElse(null);
+        if (current == null || !ArmySupplyPolicy.canFireBlaster(current.supplyUnits())) {
+            return false;
+        }
+        UUID authority = data.kingdom(current.kingdomId())
+                .map(KingdomRecord::ownerId)
+                .orElse(null);
+        return authority != null && data.changeArmySupply(
+                authority, current.id(), -ArmySupplyPolicy.BLASTER_SHOT_COST);
+    }
+
+    private static GroupCombatBalance groupCombatBalance(
+            GalacticRecruitEntity recruit,
+            ServerLevel level,
+            KingdomSavedData data,
+            ArmyGroupRecord group,
+            int followRange
+    ) {
+        LivingEntity commander = group.commanderId()
+                .map(level::getEntity)
+                .map(ArmyRecruitRuntimeController::living)
+                .orElse(null);
+        int coordinationRadius = Math.max(4, Math.min(MAX_COORDINATION_RADIUS, followRange));
+        if (commander == null
+                || recruit.distanceToSqr(commander) > (double) coordinationRadius * coordinationRadius) {
+            return GroupCombatBalance.uncoordinated();
+        }
+        KingdomRecord kingdom = data.kingdom(group.kingdomId()).orElse(null);
+        if (kingdom == null) {
+            return GroupCombatBalance.uncoordinated();
+        }
+        FactionBalanceService.ResolvedBalance balance = FactionBalanceService.resolve(kingdom.factionId());
+        int effectivePercent = effectiveCoordinationPercent(
+                balance.coordinationPercent(),
+                balance.withoutCommandNodePercent(),
+                data.isHallActive(kingdom.ownerId()));
+        return new GroupCombatBalance(true, effectivePercent);
+    }
+
+    static int effectiveCoordinationPercent(
+            int coordinationPercent,
+            int withoutCommandNodePercent,
+            boolean commandNodeActive
+    ) {
+        int boundedCoordination = Math.max(1,
+                Math.min(FactionBalanceService.MAX_PERCENT, coordinationPercent));
+        if (commandNodeActive) {
+            return boundedCoordination;
+        }
+        int combined = FactionBalanceService.applyPercentCeil(
+                boundedCoordination, withoutCommandNodePercent);
+        return Math.max(1, Math.min(FactionBalanceService.MAX_PERCENT, combined));
+    }
+
+    static int coordinatedAttackCooldownTicks(
+            int baseCooldownTicks,
+            int effectiveCoordinationPercent,
+            boolean commanderNearby
+    ) {
+        if (baseCooldownTicks <= 0) {
+            throw new IllegalArgumentException("baseCooldownTicks must be positive");
+        }
+        if (!commanderNearby) {
+            return baseCooldownTicks;
+        }
+        int boundedPercent = Math.max(1,
+                Math.min(FactionBalanceService.MAX_PERCENT, effectiveCoordinationPercent));
+        long numerator = (long) baseCooldownTicks * 100L;
+        long adjusted = (numerator + boundedPercent - 1L) / boundedPercent;
+        return (int) Math.max(1L, Math.min(Integer.MAX_VALUE, adjusted));
     }
 
     private static void move(GalacticRecruitEntity recruit, ArmyPosition target, double speed) {
@@ -365,6 +476,17 @@ public final class ArmyRecruitRuntimeController {
     }
 
     private record MemberOrder(ArmyCommand command, ArmyPosition behaviorAnchor) {
+    }
+
+    private record GroupCombatBalance(boolean commanderNearby, int effectiveCoordinationPercent) {
+        private static GroupCombatBalance uncoordinated() {
+            return new GroupCombatBalance(false, 100);
+        }
+
+        private int cooldownTicks(int baseCooldownTicks) {
+            return coordinatedAttackCooldownTicks(
+                    baseCooldownTicks, effectiveCoordinationPercent, commanderNearby);
+        }
     }
 
     private static boolean sameOwner(GalacticRecruitEntity first, GalacticRecruitEntity second) {

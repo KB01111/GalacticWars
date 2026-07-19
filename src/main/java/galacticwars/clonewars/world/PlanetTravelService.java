@@ -9,10 +9,13 @@ import galacticwars.clonewars.kingdom.KingdomActionId;
 import galacticwars.clonewars.kingdom.KingdomGameplayAction;
 import galacticwars.clonewars.kingdom.KingdomGameplayResult;
 import galacticwars.clonewars.kingdom.KingdomGameplayRuntimeService;
+import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.progression.ProgressionState;
 import galacticwars.clonewars.settlement.CommandCenterBlockEntity;
+import galacticwars.clonewars.vehicle.GalacticVehicleEntity;
+import galacticwars.clonewars.vehicle.VehiclePlanetTravelPlan;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -23,37 +26,90 @@ import net.minecraft.world.entity.Relative;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelData;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
-import galacticwars.clonewars.vehicle.VehiclePlanetTravelPlan;
 
 public final class PlanetTravelService {
+    public static final String HOME_DESTINATION_ID = PlanetTravelPolicy.HOME_DESTINATION_ID;
+
     private PlanetTravelService() {
     }
 
-    public static TravelResult travel(ServerPlayer player, String planetId) {
+    public static List<String> navigationDestinations() {
+        LinkedHashSet<String> destinations = new LinkedHashSet<>();
+        destinations.add(HOME_DESTINATION_ID);
+        destinations.addAll(LaunchContentCatalog.planets());
+        return List.copyOf(destinations);
+    }
+
+    /**
+     * Captures a side-effect-free, server-authored availability snapshot for the navigation UI.
+     * Travel still repeats every check immediately before moving the player.
+     */
+    public static List<NavigationDestination> navigationOptions(ServerPlayer player) {
+        Objects.requireNonNull(player, "player");
+        ServerLevel source = player.level();
+        KingdomSavedData kingdoms = KingdomSavedData.get(source);
+        ProgressionState state = ProgressionSavedData.get(source).state(player.getUUID());
+        ResolvedCommandCenter commandCenter = resolveCommandCenter(player, kingdoms).orElse(null);
+        return navigationDestinations().stream().map(destinationId -> {
+            boolean returningHome = HOME_DESTINATION_ID.equals(destinationId);
+            ResourceKey<Level> destinationKey = returningHome && commandCenter != null
+                    ? commandCenter.level().dimension()
+                    : dimensionKey(destinationId);
+            ServerLevel destination = returningHome && commandCenter != null
+                    ? commandCenter.level()
+                    : destinationKey == null ? null : source.getServer().getLevel(destinationKey);
+            PlanetTravelPolicy.TravelAuthorization authorization = PlanetTravelPolicy.authorize(
+                    destinationId,
+                    commandCenter != null
+                            && commandCenter.hall().canUse(player, KingdomPermission.TRAVEL),
+                    commandCenter != null,
+                    !state.factionId().isEmpty(),
+                    state.unlocks().contains("planet_travel"),
+                    commandCenter != null && commandCenter.hall().upkeepPaid(),
+                    destination != null,
+                    destinationKey != null && source.dimension().equals(destinationKey));
+            return new NavigationDestination(
+                    destinationId, authorization.accepted(), authorization.reason());
+        }).toList();
+    }
+
+    public static TravelResult travel(ServerPlayer player, String destinationId) {
         ServerLevel source = player.level();
         KingdomSavedData kingdoms = KingdomSavedData.get(source);
         ProgressionSavedData progression = ProgressionSavedData.get(source);
         ProgressionState state = progression.state(player.getUUID());
-        CommandCenterBlockEntity hall = resolveCommandCenter(player, kingdoms).orElse(null);
-        ResourceKey<Level> destinationKey = dimensionKey(planetId);
-        ServerLevel destination = destinationKey == null ? null : source.getServer().getLevel(destinationKey);
+        ResolvedCommandCenter commandCenter = resolveCommandCenter(player, kingdoms).orElse(null);
+        boolean returningHome = HOME_DESTINATION_ID.equals(destinationId);
+        ResourceKey<Level> destinationKey = returningHome && commandCenter != null
+                ? commandCenter.level().dimension()
+                : dimensionKey(destinationId);
+        ServerLevel destination = returningHome && commandCenter != null
+                ? commandCenter.level()
+                : destinationKey == null ? null : source.getServer().getLevel(destinationKey);
         PlanetTravelPolicy.TravelAuthorization authorization = PlanetTravelPolicy.authorize(
-                planetId,
-                hall != null && hall.canUse(player, KingdomPermission.TRAVEL),
-                hall != null,
+                destinationId,
+                commandCenter != null && commandCenter.hall().canUse(player, KingdomPermission.TRAVEL),
+                commandCenter != null,
                 !state.factionId().isEmpty(),
                 state.unlocks().contains("planet_travel"),
-                hall != null && hall.upkeepPaid(),
+                commandCenter != null && commandCenter.hall().upkeepPaid(),
                 destination != null,
                 destinationKey != null && source.dimension().equals(destinationKey));
         if (!authorization.accepted()) {
             return TravelResult.rejected(authorization.reason());
         }
 
-        Optional<BlockPos> arrival = PlanetArrivalService.findOrCreate(destination);
+        Optional<BlockPos> arrival = returningHome
+                ? PlanetArrivalService.findHomeArrival(
+                        destination,
+                        commandCenter.position(),
+                        player.getVehicle() instanceof GalacticVehicleEntity vehicle ? vehicle : player)
+                : PlanetArrivalService.findOrCreate(destination);
         if (arrival.isEmpty()) {
             return TravelResult.rejected("safe_arrival_unavailable");
         }
@@ -62,6 +118,34 @@ public final class PlanetTravelService {
                 .arrivalClear(destination, player, target)) {
             return TravelResult.rejected("hostile_arrival_blocked");
         }
+        return executeAuthorizedTransfer(player, destinationId, destination, target, kingdoms, progression);
+    }
+
+    static TravelResult executeAuthorizedTransfer(
+            ServerPlayer player,
+            String destinationId,
+            ServerLevel destination,
+            BlockPos target
+    ) {
+        ServerLevel source = player.level();
+        return executeAuthorizedTransfer(
+                player,
+                destinationId,
+                destination,
+                target,
+                KingdomSavedData.get(source),
+                ProgressionSavedData.get(source));
+    }
+
+    private static TravelResult executeAuthorizedTransfer(
+            ServerPlayer player,
+            String destinationId,
+            ServerLevel destination,
+            BlockPos target,
+            KingdomSavedData kingdoms,
+            ProgressionSavedData progression
+    ) {
+        ServerLevel source = player.level();
         VehiclePlanetTravelPlan vehicleTravel = VehiclePlanetTravelPlan.prepare(player, destination, target);
         if (!vehicleTravel.accepted()) {
             return TravelResult.rejected(vehicleTravel.reason());
@@ -91,28 +175,33 @@ public final class PlanetTravelService {
             return TravelResult.rejected("teleport_failed");
         }
         squadTravel.commit();
-        player.setRespawnPosition(new ServerPlayer.RespawnConfig(
-                LevelData.RespawnData.of(destinationKey, target, player.getYRot(), player.getXRot()), true), false);
+        for (ServerPlayer traveler : vehicleTravel.travelers()) {
+            traveler.setRespawnPosition(new ServerPlayer.RespawnConfig(
+                    LevelData.RespawnData.of(
+                            destination.dimension(), target,
+                            traveler.getYRot(), traveler.getXRot()), true), false);
+        }
 
         ProgressionState afterTravel = progression.state(player.getUUID());
-        if (!afterTravel.hasSubject(ProgressionEventType.PLANET_VISITED, planetId)) {
+        if (!HOME_DESTINATION_ID.equals(destinationId)
+                && !afterTravel.hasSubject(ProgressionEventType.PLANET_VISITED, destinationId)) {
             KingdomGameplayResult visit = KingdomGameplayRuntimeService.applyProgression(
                     progression, new KingdomGameplayAction(
-                            KingdomActionId.of("planet_visited", player.getUUID(), planetId),
-                            player.getUUID(), ProgressionEventType.PLANET_VISITED, planetId, 1));
+                            KingdomActionId.of("planet_visited", player.getUUID(), destinationId),
+                            player.getUUID(), ProgressionEventType.PLANET_VISITED, destinationId, 1));
             if (!visit.accepted()) {
                 GalacticWars.LOGGER.error("Planet visit progression rejected after successful travel for {}: {}",
                         player.getGameProfile().name(), visit.reason());
             }
         }
-        return TravelResult.accepted(planetId, target, squadTravel.transfersSquad());
+        return TravelResult.accepted(destinationId, target, squadTravel.transfersSquad());
     }
 
     public static boolean hasActiveCommandCenter(ServerPlayer player) {
         return resolveCommandCenter(player, KingdomSavedData.get(player.level())).isPresent();
     }
 
-    private static Optional<CommandCenterBlockEntity> resolveCommandCenter(
+    private static Optional<ResolvedCommandCenter> resolveCommandCenter(
             ServerPlayer player,
             KingdomSavedData kingdoms
     ) {
@@ -134,11 +223,11 @@ public final class PlanetTravelService {
                 || !hall.canUse(player, KingdomPermission.TRAVEL)) {
             return Optional.empty();
         }
-        return Optional.of(hall);
+        return Optional.of(new ResolvedCommandCenter(hall, hallLevel, hallPos));
     }
 
     private static ResourceKey<Level> dimensionKey(String planetId) {
-        if (!galacticwars.clonewars.progression.LaunchContentCatalog.planets().contains(planetId)) {
+        if (!LaunchContentCatalog.planets().contains(planetId)) {
             return null;
         }
         return ResourceKey.create(Registries.DIMENSION,
@@ -148,17 +237,42 @@ public final class PlanetTravelService {
     public record TravelResult(
             boolean accepted,
             String reason,
-            String planetId,
+            String destinationId,
             BlockPos arrival,
             boolean squadTransferred
     ) {
-        private static TravelResult accepted(String planetId, BlockPos arrival, boolean squadTransferred) {
-            return new TravelResult(true, "accepted", planetId, arrival, squadTransferred);
+        private static TravelResult accepted(String destinationId, BlockPos arrival, boolean squadTransferred) {
+            return new TravelResult(true, "accepted", destinationId, arrival, squadTransferred);
         }
 
         private static TravelResult rejected(String reason) {
             return new TravelResult(false, reason, "", BlockPos.ZERO, false);
         }
+    }
+
+    public record NavigationDestination(
+            String destinationId,
+            boolean available,
+            String reason
+    ) {
+        public NavigationDestination {
+            destinationId = Objects.requireNonNull(destinationId, "destinationId").trim();
+            reason = Objects.requireNonNull(reason, "reason").trim();
+            if (destinationId.isEmpty() || reason.isEmpty()) {
+                throw new IllegalArgumentException("navigation destination fields cannot be blank");
+            }
+            if (available != reason.equals("accepted")) {
+                throw new IllegalArgumentException(
+                        "navigation availability and reason must agree");
+            }
+        }
+    }
+
+    private record ResolvedCommandCenter(
+            CommandCenterBlockEntity hall,
+            ServerLevel level,
+            BlockPos position
+    ) {
     }
 
 }

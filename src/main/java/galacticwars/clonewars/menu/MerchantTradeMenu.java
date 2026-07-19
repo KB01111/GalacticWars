@@ -5,8 +5,9 @@ import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.registry.ModMenuTypes;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -18,21 +19,30 @@ import net.minecraft.world.level.Level;
 
 /** Bounded merchant offers; all costs and rewards are resolved again on the server. */
 public final class MerchantTradeMenu extends AbstractContainerMenu {
-    public static final int MAX_OFFERS = 32;
+    public static final int MAX_OFFERS = MerchantTradeOffer.MAX_OFFERS;
     private final Level level;
     private final int merchantEntityId;
-    private final List<String> tradeIds;
+    private final List<MerchantTradeOffer> offers;
     private final LinkedHashSet<UUID> processedActionIds = new LinkedHashSet<>();
 
-    public MerchantTradeMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf buffer) {
+    public MerchantTradeMenu(int containerId, Inventory inventory, FriendlyByteBuf buffer) {
         this(containerId, inventory, buffer.readVarInt(), readOffers(buffer));
     }
 
-    MerchantTradeMenu(int containerId, Inventory inventory, int merchantEntityId, List<String> tradeIds) {
+    MerchantTradeMenu(
+            int containerId,
+            Inventory inventory,
+            int merchantEntityId,
+            List<MerchantTradeOffer> offers
+    ) {
         super(ModMenuTypes.MERCHANT_TRADE.get(), containerId);
         this.level = inventory.player.level();
         this.merchantEntityId = merchantEntityId;
-        this.tradeIds = List.copyOf(tradeIds.subList(0, Math.min(MAX_OFFERS, tradeIds.size())));
+        Objects.requireNonNull(offers, "offers");
+        if (offers.size() > MAX_OFFERS) {
+            throw new IllegalArgumentException("merchant offer count exceeds " + MAX_OFFERS);
+        }
+        this.offers = List.copyOf(offers);
     }
 
     @Override
@@ -41,19 +51,24 @@ public final class MerchantTradeMenu extends AbstractContainerMenu {
     }
 
     public boolean handleReplayAction(ServerPlayer serverPlayer, UUID requestId, int buttonId) {
-        if (buttonId < 0 || buttonId >= tradeIds.size()
+        if (requestId == null || buttonId < 0 || buttonId >= offers.size()
                 || !stillValid(serverPlayer) || !processedActionIds.add(requestId)) {
             return false;
         }
         while (processedActionIds.size() > 64) {
             processedActionIds.remove(processedActionIds.iterator().next());
         }
+        MerchantTradeOffer offer = offers.get(buttonId);
         PhysicalTradeService.TradeResult result = PhysicalTradeService.purchase(
-                serverPlayer, requestId, tradeIds.get(buttonId),
-                level.getEntity(merchantEntityId) instanceof GalacticRecruitEntity merchant ? merchant : null);
+                serverPlayer,
+                requestId,
+                offer.tradeId(),
+                level.getEntity(merchantEntityId) instanceof GalacticRecruitEntity merchant
+                        ? merchant : null,
+                offer.quote());
         serverPlayer.sendSystemMessage(Component.translatable(
                 result.accepted() ? "message.galacticwars.trade.accepted" : "message.galacticwars.trade.rejected",
-                Component.literal(result.reason())));
+                Component.translatable(PhysicalTradeService.reasonTranslationKey(result.reason()))));
         return result.accepted();
     }
 
@@ -72,15 +87,14 @@ public final class MerchantTradeMenu extends AbstractContainerMenu {
     }
 
     public List<String> tradeIds() {
-        return tradeIds;
+        return offers.stream().map(MerchantTradeOffer::tradeId).toList();
     }
 
-    private static List<String> readOffers(RegistryFriendlyByteBuf buffer) {
-        int count = Math.min(MAX_OFFERS, Math.max(0, buffer.readVarInt()));
-        java.util.ArrayList<String> offers = new java.util.ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
-            offers.add(buffer.readUtf(128));
-        }
-        return List.copyOf(offers);
+    public List<MerchantTradeOffer> offers() {
+        return offers;
+    }
+
+    private static List<MerchantTradeOffer> readOffers(FriendlyByteBuf buffer) {
+        return MerchantTradeOffer.readOffers(buffer);
     }
 }

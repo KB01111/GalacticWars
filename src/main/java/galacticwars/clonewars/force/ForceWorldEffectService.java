@@ -64,7 +64,7 @@ public final class ForceWorldEffectService {
             ServerPlayer player, galacticwars.clonewars.progression.ForceRuntimeState state,
             String faction, long gameTime
     ) {
-        if (!GalacticNetwork.CHANNEL.isActive(player.connection.getConnection())) {
+        if (!GalacticNetwork.canPlayerReceive(player, ForceHudPayload.TYPE)) {
             return;
         }
         String[] abilities = faction.equals("republic")
@@ -79,6 +79,18 @@ public final class ForceWorldEffectService {
         }
         GalacticNetwork.CHANNEL.sendToPlayer(() -> player,
                 new ForceHudPayload(state.energy(), cooldowns[0], cooldowns[1], cooldowns[2]));
+    }
+
+    public static void syncSnapshot(ServerPlayer player, ForceSavedData forceData) {
+        if (!(player.level() instanceof ServerLevel level)) {
+            return;
+        }
+        var progression = ProgressionSavedData.get(level).state(player.getUUID());
+        String faction = path(progression.factionId());
+        if (!faction.equals("republic") && !faction.equals("nightsister")) {
+            return;
+        }
+        sendSnapshot(player, forceData.state(player.getUUID()), faction, level.getGameTime());
     }
 
     private static void apply(
@@ -105,12 +117,14 @@ public final class ForceWorldEffectService {
     }
 
     private static LivingEntity target(ServerPlayer player, double range) {
+        double boundedRange = Math.max(0.0D, Math.min(range, 64.0D));
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getLookAngle().normalize();
         return player.level().getEntitiesOfClass(LivingEntity.class,
-                        player.getBoundingBox().expandTowards(look.scale(range)).inflate(2.0D),
+                        player.getBoundingBox().inflate(boundedRange),
                         entity -> entity != player && entity.isAlive()
-                                && entity.distanceToSqr(player) <= range * range
+                                && entity.distanceToSqr(player) <= boundedRange * boundedRange
+                                && player.hasLineOfSight(entity)
                                 && canAffect(player, entity))
                 .stream()
                 .filter(entity -> {

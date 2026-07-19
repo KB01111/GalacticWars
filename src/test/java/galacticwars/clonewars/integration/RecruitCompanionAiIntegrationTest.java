@@ -56,7 +56,7 @@ public final class RecruitCompanionAiIntegrationTest {
         assertContains(controller, "ArmyEngagementPlanner.plan", "engagement planner");
         assertContains(controller, "ArmyTacticalPlanner.plan", "tactical planner");
         assertContains(controller, "TARGET_INTERVAL = 20", "bounded target cadence");
-        assertContains(controller, "BEHAVIOR_INTERVAL = 10", "bounded behavior cadence");
+        assertContains(controller, "BEHAVIOR_INTERVAL = 2", "responsive bounded behavior cadence");
         assertContains(controller, "recruit.isWithinMeleeAttackRange(target)", "runtime melee range");
         assertContains(controller, "recruit.doHurtTarget(level, target)", "runtime melee execution");
     }
@@ -69,11 +69,18 @@ public final class RecruitCompanionAiIntegrationTest {
                 "loadout-driven faction ranged-weapon detection");
         assertContains(controller, "blaster.fireAt(level, recruit, target", "server-authoritative ranged attack");
         assertContains(controller, "BlasterHeatPolicy.canFire", "ranged heat gate");
+        assertContains(controller, "ArmySupplyPolicy::canFireBlaster", "persisted squad supply gate");
+        assertContains(controller, "data.changeArmySupply(", "authoritative shot supply transaction");
+        assertBefore(controller, "trySpendBlasterSupply(data, group)",
+                "blaster.fireAt(level, recruit, target", "supply spend before accepted blaster shot");
+        assertContains(controller, "meleeOrClose(recruit, level, target, combatBalance)",
+                "empty-supply melee fallback");
         assertContains(controller, "FactionRangedWeaponService.supportsRecruitRangedCombat",
                 "data-driven blaster and Nightsister bow detection");
         assertContains(controller, "FactionRangedWeaponService.fireNightsisterBow",
                 "Nightsister archer ranged execution");
-        assertContains(events, "arrow.getOwner() instanceof LivingEntity shooter", "recruit projectile filtering");
+        assertContains(events, "projectile.getOwner() instanceof LivingEntity shooter",
+                "recruit projectile filtering");
         assertContains(events, "sameOwner(other, recruit)", "same-owner recruit projectile protection");
     }
 

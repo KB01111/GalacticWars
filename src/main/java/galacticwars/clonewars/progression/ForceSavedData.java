@@ -32,7 +32,7 @@ public final class ForceSavedData extends SavedData {
     ).apply(instance, ForceSavedData::new));
     public static final SavedDataType<ForceSavedData> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "force_state"),
-            ForceSavedData::new, CODEC);
+            ForceSavedData::new, CODEC, null);
 
     private final Map<UUID, ForceRuntimeState> states = new LinkedHashMap<>();
 

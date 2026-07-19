@@ -3,6 +3,7 @@ package galacticwars.clonewars.kingdom;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.mojang.datafixers.util.Either;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import galacticwars.clonewars.army.ArmyFormation;
@@ -286,11 +287,26 @@ final class KingdomCodecs {
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("revision", 0).forGetter(WorkOrder::revision)
     ).apply(instance, WorkOrder::new));
 
+    static final Codec<SettlementTerminalLedger> SETTLEMENT_TERMINAL_LEDGER = RecordCodecBuilder.create(
+            instance -> instance.group(
+                    UUIDUtil.CODEC.listOf().optionalFieldOf("terminal_project_ids", List.of())
+                            .forGetter(ledger -> List.copyOf(ledger.terminalProjectIds())),
+                    Codec.STRING.listOf().optionalFieldOf("completed_build_keys", List.of())
+                            .forGetter(ledger -> List.copyOf(ledger.completedBuildKeys())),
+                    UUIDUtil.CODEC.listOf().optionalFieldOf("terminal_work_order_ids", List.of())
+                            .forGetter(ledger -> List.copyOf(ledger.terminalWorkOrderIds()))
+            ).apply(instance, (projects, builds, workOrders) -> new SettlementTerminalLedger(
+                    new LinkedHashSet<>(projects), new LinkedHashSet<>(builds),
+                    new LinkedHashSet<>(workOrders))));
+
     static final Codec<SettlementRewards> SETTLEMENT_REWARDS = RecordCodecBuilder.create(instance -> instance.group(
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("external_storage_slots", 0)
                     .forGetter(SettlementRewards::externalStorageSlots),
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("commander_slots", 0)
-                    .forGetter(SettlementRewards::commanderSlots)
+                    .forGetter(SettlementRewards::commanderSlots),
+            SETTLEMENT_TERMINAL_LEDGER.optionalFieldOf(
+                    "terminal_ledger", SettlementTerminalLedger.empty())
+                    .forGetter(SettlementRewards::terminalLedger)
     ).apply(instance, SettlementRewards::new));
 
     static final Codec<SettlementRecord> SETTLEMENT = RecordCodecBuilder.create(instance -> instance.group(

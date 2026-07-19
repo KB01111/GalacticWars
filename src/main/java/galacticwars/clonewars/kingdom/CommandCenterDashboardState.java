@@ -32,6 +32,8 @@ public record CommandCenterDashboardState(
         int treasuryCredits,
         int pendingRewardCredits,
         boolean upkeepPaid,
+        ActionAvailability navigationAvailability,
+        List<VehicleFabricationSummary> vehicleFabrication,
         int recruitCount,
         int housingCapacity,
         int settlementCount,
@@ -57,6 +59,7 @@ public record CommandCenterDashboardState(
         List<InviteSummary> invites,
         List<DiplomacyProposalSummary> diplomacyProposals
 ) {
+    public static final int MAX_DASHBOARD_ENTRIES = 64;
     private static final UUID NO_KINGDOM = new UUID(0L, 0L);
 
     public CommandCenterDashboardState {
@@ -73,6 +76,10 @@ public record CommandCenterDashboardState(
                 || veteranRegionCaptures < 0) {
             throw new IllegalArgumentException("dashboard counters cannot be negative");
         }
+        navigationAvailability = Objects.requireNonNull(
+                navigationAvailability, "navigationAvailability");
+        vehicleFabrication = boundedCopy(
+                vehicleFabrication, "vehicleFabrication", 16);
         commandCandidateIds = List.copyOf(Objects.requireNonNull(
                 commandCandidateIds, "commandCandidateIds"));
         claims = List.copyOf(Objects.requireNonNull(claims, "claims"));
@@ -81,8 +88,8 @@ public record CommandCenterDashboardState(
         blueprints = List.copyOf(Objects.requireNonNull(blueprints, "blueprints"));
         constructionBuilderIds = List.copyOf(Objects.requireNonNull(
                 constructionBuilderIds, "constructionBuilderIds"));
-        builds = List.copyOf(Objects.requireNonNull(builds, "builds"));
-        workOrders = List.copyOf(Objects.requireNonNull(workOrders, "workOrders"));
+        builds = boundedCopy(builds, "builds", MAX_DASHBOARD_ENTRIES);
+        workOrders = boundedCopy(workOrders, "workOrders", MAX_DASHBOARD_ENTRIES);
         workers = List.copyOf(Objects.requireNonNull(workers, "workers"));
         campaign = List.copyOf(Objects.requireNonNull(campaign, "campaign"));
         nearbyPlayers = List.copyOf(Objects.requireNonNull(nearbyPlayers, "nearbyPlayers"));
@@ -97,7 +104,8 @@ public record CommandCenterDashboardState(
         Objects.requireNonNull(actorId, "actorId");
         return new CommandCenterDashboardState(
                 Math.max(0L, gameTime), false, actorId, NO_KINGDOM, "", "visitor",
-                0, 0, true, 0, 0, 0, 0, false, false, 0, 0, 0,
+                0, 0, true, ActionAvailability.rejected("kingdom_unavailable"), List.of(),
+                0, 0, 0, 0, false, false, 0, 0, 0,
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(),
                 List.of(), List.of(), List.of(), List.of());
@@ -116,6 +124,8 @@ public record CommandCenterDashboardState(
             ProgressionState progression,
             int treasuryCredits,
             boolean upkeepPaid,
+            ActionAvailability navigationAvailability,
+            List<VehicleFabricationSummary> vehicleFabrication,
             List<KingdomRecord> foreignKingdoms,
             List<KingdomInvite> pendingInvites,
             List<DiplomacyProposal> pendingDiplomacy,
@@ -174,14 +184,8 @@ public record CommandCenterDashboardState(
                 .distinct()
                 .sorted()
                 .toList();
-        List<BuildSummary> builds = settlement.buildProjects().stream()
-                .sorted(Comparator.comparing(BuildProject::state).thenComparing(BuildProject::id))
-                .map(BuildSummary::from)
-                .toList();
-        List<WorkOrderSummary> workOrders = settlement.workOrders().stream()
-                .sorted(Comparator.comparing(WorkOrder::state).thenComparing(WorkOrder::id))
-                .map(WorkOrderSummary::from)
-                .toList();
+        List<BuildSummary> builds = buildSummaries(settlement.buildProjects());
+        List<WorkOrderSummary> workOrders = workOrderSummaries(settlement.workOrders());
         List<WorkerSummary> liveWorkers = Objects.requireNonNull(workers, "workers").stream()
                 .sorted(Comparator.comparing(WorkerSummary::profession)
                         .thenComparing(WorkerSummary::displayName)
@@ -235,6 +239,7 @@ public record CommandCenterDashboardState(
         return new CommandCenterDashboardState(
                 gameTime, true, actorId, kingdom.id(), kingdom.factionId(), role,
                 Math.max(0, treasuryCredits), progression.pendingCreditRewards(), upkeepPaid,
+                navigationAvailability, vehicleFabrication,
                 settlement.recruitIds().size(), settlement.housingCapacity(), kingdom.settlements().size(),
                 kingdom.claims().size(), !settlement.commanderIds().isEmpty(), campaignVictory,
                 progression.total(ProgressionEventType.VEHICLE_ACQUIRED),
@@ -283,6 +288,93 @@ public record CommandCenterDashboardState(
 
     private static String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static List<BuildSummary> buildSummaries(List<BuildProject> projects) {
+        java.util.ArrayList<BuildProject> selected = new java.util.ArrayList<>();
+        projects.stream()
+                .filter(project -> !project.state().terminal())
+                .sorted(Comparator.comparing(BuildProject::state).thenComparing(BuildProject::id))
+                .limit(MAX_DASHBOARD_ENTRIES)
+                .forEach(selected::add);
+        for (int index = projects.size() - 1;
+                index >= 0 && selected.size() < MAX_DASHBOARD_ENTRIES;
+                index--) {
+            BuildProject project = projects.get(index);
+            if (project.state().terminal()) {
+                selected.add(project);
+            }
+        }
+        return selected.stream().map(BuildSummary::from).toList();
+    }
+
+    private static List<WorkOrderSummary> workOrderSummaries(List<WorkOrder> orders) {
+        java.util.ArrayList<WorkOrder> selected = new java.util.ArrayList<>();
+        orders.stream()
+                .filter(order -> !order.state().terminal())
+                .sorted(Comparator.comparing(WorkOrder::state).thenComparing(WorkOrder::id))
+                .limit(MAX_DASHBOARD_ENTRIES)
+                .forEach(selected::add);
+        for (int index = orders.size() - 1;
+                index >= 0 && selected.size() < MAX_DASHBOARD_ENTRIES;
+                index--) {
+            WorkOrder order = orders.get(index);
+            if (order.state().terminal()) {
+                selected.add(order);
+            }
+        }
+        return selected.stream().map(WorkOrderSummary::from).toList();
+    }
+
+    private static <T> List<T> boundedCopy(List<T> source, String label, int limit) {
+        List<T> copy = List.copyOf(Objects.requireNonNull(source, label));
+        return copy.size() <= limit ? copy : List.copyOf(copy.subList(0, limit));
+    }
+
+    public record ActionAvailability(boolean available, String reason) {
+        public ActionAvailability {
+            reason = normalize(reason);
+            if (reason.isEmpty() || available != reason.equals("accepted")) {
+                throw new IllegalArgumentException("action availability and reason must agree");
+            }
+        }
+
+        public static ActionAvailability accepted() {
+            return new ActionAvailability(true, "accepted");
+        }
+
+        public static ActionAvailability rejected(String reason) {
+            return new ActionAvailability(false, reason);
+        }
+    }
+
+    public record VehicleFabricationSummary(
+            String vehicleId,
+            ActionAvailability availability,
+            int requiredCredits,
+            List<StockRequirementSummary> materials
+    ) {
+        public VehicleFabricationSummary {
+            vehicleId = normalize(vehicleId);
+            availability = Objects.requireNonNull(availability, "availability");
+            materials = boundedCopy(materials, "fabricationMaterials", 16);
+            if (vehicleId.isEmpty() || requiredCredits < 0) {
+                throw new IllegalArgumentException("invalid vehicle fabrication summary");
+            }
+        }
+    }
+
+    public record StockRequirementSummary(String itemId, int required, int available) {
+        public StockRequirementSummary {
+            itemId = normalize(itemId);
+            if (itemId.isEmpty() || required < 1 || available < 0) {
+                throw new IllegalArgumentException("invalid stock requirement summary");
+            }
+        }
+
+        public boolean satisfied() {
+            return available >= required;
+        }
     }
 
     public record SquadSummary(
@@ -558,6 +650,8 @@ public record CommandCenterDashboardState(
             displayName = Objects.requireNonNullElse(displayName, "").trim();
             if (displayName.isEmpty() || displayName.length() > 64
                     || distanceBlocks < 0) {
+                throw new IllegalArgumentException("invalid nearby player dashboard summary");
+            }
         }
     }
 

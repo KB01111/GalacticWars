@@ -15,6 +15,7 @@ public final class CommandCenterIntegrationTest {
         hallAssetsAreComplete();
         hallOpensPlanetNavigationAfterPledge();
         hallSynchronizesTruthfulTargetedOperations();
+        hallSupplyActionsUseFactionEfficiencyAtomically();
         System.out.println("CommandCenterIntegrationTest passed");
     }
 
@@ -49,13 +50,15 @@ public final class CommandCenterIntegrationTest {
         String network = read("src/main/java/galacticwars/clonewars/network/GalacticNetwork.java");
         String payload = read("src/main/java/galacticwars/clonewars/network/MenuActionPayload.java");
         String screen = read("src/main/java/galacticwars/clonewars/client/gui/CommandCenterOperationsScreen.java");
+        String fabrication = read("src/main/java/galacticwars/clonewars/vehicle/VehicleFabricationService.java");
+        String navigation = read("src/main/java/galacticwars/clonewars/world/PlanetTravelService.java");
         String plan = read("docs/gameplay-completion-plan.md");
         assertContains(provider, "CommandCenterDashboardCodec.write", "initial dashboard snapshot");
         assertContains(menu, "CommandCenterDashboardState.capture", "server dashboard authority");
         assertContains(menu, "CommandTargetResolver.resolve", "explicit operation target resolution");
         assertContains(menu, "ATTACK_SQUAD_TARGET", "explicit squad attack action");
         assertContains(menu, "nearbyCombatTargets", "server-revalidated nearby hostile targets");
-        assertContains(network, "command_center_state", "Framework dashboard refresh message");
+        assertContains(network, "CommandCenterStatePayload.TYPE", "Architectury dashboard refresh payload");
         assertContains(payload, "primaryTargetId", "primary operation target payload");
         assertContains(payload, "secondaryTargetId", "secondary operation target payload");
         assertContains(screen, "construction", "construction dashboard surface");
@@ -71,8 +74,31 @@ public final class CommandCenterIntegrationTest {
         assertContains(screen, "objectiveInstruction", "actionable campaign objective guidance");
         assertContains(screen, "new MenuActionPayload(", "targeted operation dispatch");
         assertContains(screen, "KingdomPermissionPolicy.allows", "role-aware client controls");
+        assertContains(screen, "VehicleFabricationSummary::availability",
+                "server-authored fabrication button availability");
+        assertContains(screen, "Tooltip.create", "localized disabled action feedback");
+        assertContains(fabrication, "hall.canUse(player, KingdomPermission.USE_STORAGE)",
+                "server-enforced fabrication permission");
+        assertContains(fabrication, "hall.upkeepPaid()",
+                "server-enforced fabrication upkeep");
+        assertContains(fabrication, "MaterialRequirement",
+                "exact fabrication stock preflight");
+        assertContains(navigation, "List<NavigationDestination> navigationOptions",
+                "per-destination server navigation availability");
         assertContains(plan, "fresh survival player", "player-facing completion criterion");
         assertContains(plan, "Green catalogs", "runtime proof boundary");
+    }
+
+    private static void hallSupplyActionsUseFactionEfficiencyAtomically() throws IOException {
+        String menu = read("src/main/java/galacticwars/clonewars/menu/CommandCenterOperationsMenu.java");
+        String policy = read("src/main/java/galacticwars/clonewars/army/ArmySupplyPolicy.java");
+        assertContains(menu, "FactionBalanceService.resolve(kingdom.factionId()).supplyEfficiencyPercent()",
+                "authoritative kingdom supply efficiency");
+        assertContains(menu, "ArmySupplyPolicy.unitsPerEnergyCell", "data-driven Energy Cell yield");
+        assertBefore(menu, "data.changeArmySupply(", "consumeSupplyCell(hall, supplyCellSlot)",
+                "SavedData acceptance before Energy Cell consumption");
+        assertContains(policy, "BASE_UNITS_PER_ENERGY_CELL = 16", "base Energy Cell yield");
+        assertContains(policy, "applyPercentFloor", "floor-rounded faction supply yield");
     }
 
     private static void hallIsRegisteredAsPhysicalOwnedStorage() throws IOException {
@@ -103,6 +129,7 @@ public final class CommandCenterIntegrationTest {
     private static void hallFoundsAuthoritativeKingdomState() throws IOException {
         String block = read("src/main/java/galacticwars/clonewars/settlement/CommandCenterBlock.java");
         String events = read("src/main/java/galacticwars/clonewars/settlement/CommandCenterEvents.java");
+        String runtime = read("src/main/kotlin/galacticwars/clonewars/runtime/GalacticRuntimeEvents.kt");
         String lifecycle = read("src/main/java/galacticwars/clonewars/settlement/CommandCenterLifecycleService.java");
         assertContains(block, "KingdomSavedData.get(serverLevel)", "overworld saved data access");
         assertContains(block, "activateHall", "kingdom founding and relocation");
@@ -115,8 +142,10 @@ public final class CommandCenterIntegrationTest {
         assertContains(block, "onExplosionHit", "explosion-resistant owner removal path");
         assertContains(block, "playerWillDestroy", "pre-removal lifecycle transaction");
         assertContains(block, "dropHallContents", "exactly-once inventory drops");
-        assertContains(events, "BreakBlockEvent", "owner-authorized block breaking");
-        assertContains(events, "event.setCanceled(true)", "non-owner break rejection");
+        assertContains(events, "allowBlockBreak", "loader-neutral owner-authorized block breaking");
+        assertContains(events, "return false", "non-owner break rejection");
+        assertContains(runtime, "BlockEvent.BREAK.register", "Architectury block-break bridge");
+        assertContains(runtime, "EventResult.interruptFalse()", "cross-loader break cancellation");
         assertContains(lifecycle, "cancelActiveCampaigns", "campaign cancellation before removal");
         assertContains(lifecycle, "deactivateHall", "authoritative Hall deactivation");
     }
@@ -148,6 +177,14 @@ public final class CommandCenterIntegrationTest {
     private static void assertNotContains(String value, String unexpected, String label) {
         if (value.contains(unexpected)) {
             throw new AssertionError(label + " unexpectedly contained <" + unexpected + ">");
+        }
+    }
+
+    private static void assertBefore(String value, String first, String second, String label) {
+        int firstIndex = value.indexOf(first);
+        int secondIndex = value.indexOf(second);
+        if (firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex) {
+            throw new AssertionError(label + " expected <" + first + "> before <" + second + ">");
         }
     }
 }

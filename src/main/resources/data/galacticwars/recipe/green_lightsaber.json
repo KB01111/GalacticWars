@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "galacticwars:lightsabers",
+  "pattern": [
+    " D ",
+    "AEA",
+    " I "
+  ],
+  "key": {
+    "D": "minecraft:green_dye",
+    "A": "minecraft:amethyst_shard",
+    "E": "galacticwars:energy_cell",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "id": "galacticwars:green_lightsaber",
+    "count": 1
+  }
+}

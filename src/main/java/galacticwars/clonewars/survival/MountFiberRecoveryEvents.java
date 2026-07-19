@@ -1,50 +1,46 @@
 package galacticwars.clonewars.survival;
 
-import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.registry.ModItems;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import java.util.Optional;
 
-@EventBusSubscriber(modid = GalacticWars.MODID)
+/** Loader-neutral brush interaction backed by a platform attachment. */
 public final class MountFiberRecoveryEvents {
-    private static final String LAST_BRUSHED_DAY = GalacticWars.MODID + ":last_brushed_day";
-
     private MountFiberRecoveryEvents() {
     }
 
-    @SubscribeEvent
-    public static void onHorseBrushed(PlayerInteractEvent.EntityInteract event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)
-                || !(event.getTarget() instanceof AbstractHorse horse)
+    public static Optional<InteractionResult> onHorseBrushed(
+            net.minecraft.world.entity.player.Player interactingPlayer,
+            Entity target,
+            InteractionHand hand
+    ) {
+        if (!(interactingPlayer instanceof ServerPlayer player)
+                || !(target instanceof AbstractHorse horse)
                 || horse.isBaby()) {
-            return;
+            return Optional.empty();
         }
-        ItemStack brush = player.getItemInHand(event.getHand());
+        ItemStack brush = player.getItemInHand(hand);
         if (!brush.is(Items.BRUSH)) {
-            return;
+            return Optional.empty();
         }
         long day = horse.level().getGameTime() / 24000L;
-        if (horse.getPersistentData().getLongOr(LAST_BRUSHED_DAY, Long.MIN_VALUE) == day) {
+        if (!MountFiberAttachmentRuntime.tryMarkBrushed(horse, day)) {
             player.sendSystemMessage(Component.translatable(
                     "message.galacticwars.fiber.already_brushed"));
-            event.setCancellationResult(InteractionResult.FAIL);
-            event.setCanceled(true);
-            return;
+            return Optional.of(InteractionResult.FAIL);
         }
-        horse.getPersistentData().putLong(LAST_BRUSHED_DAY, day);
         ItemStack hair = new ItemStack(ModItems.MANDALORIAN_FIBER.get());
         if (!player.addItem(hair)) {
             player.drop(hair, false);
         }
-        brush.hurtAndBreak(1, player, event.getHand());
-        event.setCancellationResult(InteractionResult.SUCCESS);
-        event.setCanceled(true);
+        brush.hurtAndBreak(1, player, hand);
+        return Optional.of(InteractionResult.SUCCESS);
     }
 }

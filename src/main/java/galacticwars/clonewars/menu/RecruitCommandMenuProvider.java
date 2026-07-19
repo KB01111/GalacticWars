@@ -1,15 +1,16 @@
 package galacticwars.clonewars.menu;
 
+import dev.architectury.registry.menu.ExtendedMenuProvider;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
-public class RecruitCommandMenuProvider implements MenuProvider {
+public class RecruitCommandMenuProvider implements ExtendedMenuProvider {
     private final GalacticRecruitEntity recruit;
+    private boolean preparedArmyCommandAccess;
 
     public RecruitCommandMenuProvider(GalacticRecruitEntity recruit) {
         this.recruit = recruit;
@@ -22,13 +23,15 @@ public class RecruitCommandMenuProvider implements MenuProvider {
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new RecruitCommandMenu(containerId, playerInventory, this.recruit.getId());
+        RecruitCommandMenu menu = new RecruitCommandMenu(
+                containerId, playerInventory, this.recruit.getId());
+        preparedArmyCommandAccess = menu.armyCommandAccess();
+        return menu;
     }
 
     @Override
-    public void writeClientSideData(AbstractContainerMenu menu, RegistryFriendlyByteBuf buffer) {
+    public void saveExtraData(FriendlyByteBuf buffer) {
         buffer.writeVarInt(this.recruit.getId());
-        buffer.writeBoolean(menu instanceof RecruitCommandMenu recruitMenu
-                && recruitMenu.armyCommandAccess());
+        buffer.writeBoolean(preparedArmyCommandAccess);
     }
 }

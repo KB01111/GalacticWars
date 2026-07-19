@@ -1,0 +1,43 @@
+{
+  "parent": "galacticwars:onboarding/faction_pledged",
+  "criteria": {
+    "campaign_state": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "announce_to_chat": false,
+    "description": {
+      "translate": "advancement.galacticwars.onboarding.first_recruit.description"
+    },
+    "frame": "goal",
+    "icon": {
+      "id": "galacticwars:blue_lightsaber"
+    },
+    "show_toast": true,
+    "title": {
+      "translate": "advancement.galacticwars.onboarding.first_recruit.title"
+    }
+  },
+  "requirements": [
+    [
+      "campaign_state"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "galacticwars:claim_transponder",
+      "galacticwars:blue_lightsaber",
+      "galacticwars:green_lightsaber",
+      "galacticwars:red_lightsaber",
+      "galacticwars:purple_lightsaber",
+      "galacticwars:yellow_lightsaber",
+      "galacticwars:white_lightsaber",
+      "galacticwars:power_drill",
+      "galacticwars:plasma_cutter",
+      "galacticwars:sonic_excavator",
+      "galacticwars:hydrospanner"
+    ]
+  },
+  "sends_telemetry_event": false
+}

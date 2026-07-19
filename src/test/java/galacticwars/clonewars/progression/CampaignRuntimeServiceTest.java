@@ -15,7 +15,7 @@ public final class CampaignRuntimeServiceTest {
                                 "republic_chapter_1",
                                 List.of("faction_pledged", "command_center", "clone_trooper"),
                                 40, Set.of("workforce"))), Map.of(), Map.of()),
-                List.of("galacticwars:republic"), Map.of());
+                List.of("galacticwars:republic"), Map.of("republic", List.of("clone_trooper")));
         UUID player = UUID.randomUUID();
         ProgressionState state = ProgressionState.create(player);
         state = record(state, player, ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");

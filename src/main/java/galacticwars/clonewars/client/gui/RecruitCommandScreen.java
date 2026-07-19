@@ -25,7 +25,12 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
     private static final int COMPACT_STATUS_ROW = 3;
     private static final int STATUS_COLOR = 0xE0E0E0;
     private static final int STATUS_MUTED_COLOR = 0x9CA3AF;
+    private static final int FEEDBACK_COLOR = 0xFFD27A;
     private final RecruitCommandMenu menu;
+    private Component localFeedback = Component.translatable("screen.galacticwars.recruit.guidance");
+    private int refreshDelayTicks;
+    private boolean lastTame;
+    private boolean lastOwnedByPlayer;
 
     public RecruitCommandScreen(RecruitCommandMenu menu, Inventory inventory, Component title) {
         super(title);
@@ -44,6 +49,8 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
                 && recruit.isOwnedBy(this.minecraft.player);
         boolean tame = entity instanceof GalacticRecruitEntity recruit && recruit.isTame();
         boolean armyCommandAccess = this.menu.armyCommandAccess();
+        this.lastTame = tame;
+        this.lastOwnedByPlayer = ownedByPlayer;
 
         int x = (this.width - BUTTON_WIDTH) / 2;
         int visibleRows = ownedByPlayer ? CONTROL_ROW_COUNT : armyCommandAccess ? OFFICER_CONTROL_ROW_COUNT : 1;
@@ -158,8 +165,28 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
     }
 
     @Override
+    public void tick() {
+        super.tick();
+        if (this.refreshDelayTicks <= 0 || --this.refreshDelayTicks > 0
+                || this.minecraft == null || this.minecraft.level == null) {
+            return;
+        }
+        Entity entity = this.minecraft.level.getEntity(this.menu.recruitEntityId());
+        boolean tame = entity instanceof GalacticRecruitEntity recruit && recruit.isTame();
+        boolean ownedByPlayer = entity instanceof GalacticRecruitEntity recruit
+                && this.minecraft.player != null
+                && recruit.isOwnedBy(this.minecraft.player);
+        if (tame != this.lastTame || ownedByPlayer != this.lastOwnedByPlayer) {
+            this.rebuildWidgets();
+        }
+    }
+
+    @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        graphics.text(this.font, this.localFeedback,
+                (this.width - this.font.width(this.localFeedback)) / 2,
+                this.height - 14, FEEDBACK_COLOR);
         if (this.minecraft != null && this.minecraft.level != null) {
             Entity entity = this.minecraft.level.getEntity(this.menu.recruitEntityId());
             if (entity instanceof GalacticRecruitEntity recruit) {
@@ -185,8 +212,10 @@ public class RecruitCommandScreen extends Screen implements MenuAccess<RecruitCo
         this.addRenderableWidget(Button.builder(Component.translatable(translationKey), button -> {
                     if (this.minecraft != null && this.minecraft.gameMode != null) {
                         this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, buttonId);
+                        this.localFeedback = Component.translatable(
+                                "screen.galacticwars.recruit.request_sent");
+                        this.refreshDelayTicks = 10;
                     }
-                    this.onClose();
                 })
                 .bounds(x, y, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());

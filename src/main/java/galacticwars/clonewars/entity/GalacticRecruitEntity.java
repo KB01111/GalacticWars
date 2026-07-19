@@ -1,5 +1,6 @@
 package galacticwars.clonewars.entity;
 
+import dev.architectury.registry.menu.MenuRegistry;
 import com.geckolib.animatable.GeoEntity;
 import com.geckolib.animatable.instance.AnimatableInstanceCache;
 import com.geckolib.animatable.manager.AnimatableManager;
@@ -31,6 +32,7 @@ import galacticwars.clonewars.entity.ai.RecruitBrain;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
 import galacticwars.clonewars.faction.FactionAlignment;
 import galacticwars.clonewars.faction.FactionAlignmentSavedData;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.faction.FactionDefinition;
 import galacticwars.clonewars.faction.FactionId;
 import galacticwars.clonewars.faction.FactionRelation;
@@ -95,8 +97,12 @@ import galacticwars.clonewars.workforce.WorkerTaskDecision;
 import galacticwars.clonewars.workforce.WorkerTaskPlanner;
 import galacticwars.clonewars.workforce.WorkerStatus;
 import galacticwars.clonewars.workforce.WorkerWorksite;
-import galacticwars.clonewars.world.FactionOutpostSavedData;
 import galacticwars.clonewars.world.CivilianArchetypeDefinition;
+import galacticwars.clonewars.world.FactionOutpostMarkerService;
+import galacticwars.clonewars.world.FactionOutpostRecord;
+import galacticwars.clonewars.world.FactionOutpostSavedData;
+import galacticwars.clonewars.world.OverworldFactionSpawnProfile;
+import galacticwars.clonewars.world.PlanetFactionSpawnPolicy;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -116,6 +122,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -159,6 +166,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 public class GalacticRecruitEntity extends TamableAnimal
         implements GeoEntity, SmartBrainOwner<GalacticRecruitEntity> {
@@ -226,6 +234,10 @@ public class GalacticRecruitEntity extends TamableAnimal
     private long lastCommanderCampaignGameTime;
     private boolean deathResourcesReleased;
     private boolean spawnEggInitialized;
+    private boolean naturalPlanetNpcInitialized;
+    private boolean pendingNaturalSpawnRemoval;
+    private boolean pendingNaturalSpawnInitialization;
+    private boolean factionOutpostSiteGenerationResolved;
     private String unitId = "";
     private NpcServiceBranch serviceBranch = NpcServiceBranch.MILITARY;
     private long appliedGameplayDataGeneration = -1L;
@@ -313,8 +325,11 @@ public class GalacticRecruitEntity extends TamableAnimal
         output.store("ClassProgress", ClassProgressCodecs.CODEC, this.classProgressState);
         output.putLong("ArmySnapshotGeneration", this.armySnapshotGeneration);
         output.putLong("NextNaturalProductionGameTime", this.nextNaturalProductionGameTime);
+        output.putBoolean("NaturalPlanetNpc", this.naturalPlanetNpcInitialized);
+        output.putBoolean("PendingNaturalSpawnRemoval", this.pendingNaturalSpawnRemoval);
+        output.putBoolean("PendingNaturalSpawnInitialization", this.pendingNaturalSpawnInitialization);
         this.getWorkerProfession().ifPresent(profession -> output.putString("WorkerProfession", profession.id()));
-        output.putInt("RecruitDataVersion", 6);
+        output.putInt("RecruitDataVersion", 10);
         output.storeNullable("KingdomId", UUIDUtil.CODEC, this.kingdomId);
         output.storeNullable("SettlementId", UUIDUtil.CODEC, this.settlementId);
         output.storeNullable("FactionOutpostId", UUIDUtil.CODEC, this.factionOutpostId);
@@ -383,6 +398,11 @@ public class GalacticRecruitEntity extends TamableAnimal
         this.armySnapshotGeneration = Math.max(0L, input.getLongOr("ArmySnapshotGeneration", 0L));
         this.nextNaturalProductionGameTime = Math.max(
                 0L, input.getLongOr("NextNaturalProductionGameTime", 0L));
+        this.naturalPlanetNpcInitialized = input.getBooleanOr("NaturalPlanetNpc", false);
+        this.pendingNaturalSpawnRemoval = input.getBooleanOr(
+                "PendingNaturalSpawnRemoval", false);
+        this.pendingNaturalSpawnInitialization = input.getBooleanOr(
+                "PendingNaturalSpawnInitialization", false);
         WorkerProfession.byId(input.getStringOr("WorkerProfession", ""))
                 .ifPresentOrElse(this::setWorkerProfession, () -> this.entityData.set(DATA_WORKER_PROFESSION, -1));
         int dataVersion = input.getIntOr("RecruitDataVersion", 0);
@@ -470,7 +490,30 @@ public class GalacticRecruitEntity extends TamableAnimal
 
     @Override
     public void tick() {
+        if (!this.level().isClientSide() && this.pendingNaturalSpawnRemoval) {
+            this.discard();
+            return;
+        }
+        if (!this.level().isClientSide()
+                && this.pendingNaturalSpawnInitialization
+                && this.level() instanceof ServerLevel serverLevel) {
+            // Chunk generation serializes mobs after finalizeSpawn, and loaders may cancel a
+            // natural spawn before it is added. Initializing only on the first live server tick
+            // preserves a valid type id and prevents orphaned authoritative faction state.
+            if (!this.initializeNaturalWorldSpawn(serverLevel)) {
+                this.discard();
+                return;
+            }
+            this.pendingNaturalSpawnInitialization = false;
+        }
         super.tick();
+        if (!this.level().isClientSide()
+                && !this.factionOutpostSiteGenerationResolved
+                && this.factionOutpostId != null
+                && this.tickCount % 20 == 1
+                && this.level() instanceof ServerLevel serverLevel) {
+            this.tryGenerateFactionOutpostSite(serverLevel);
+        }
         if (!this.level().isClientSide()
                 && this.appliedGameplayDataGeneration != GameplayDataManager.generation()) {
             this.applyUnitDefinition();
@@ -502,8 +545,94 @@ public class GalacticRecruitEntity extends TamableAnimal
         SpawnGroupData finalized = super.finalizeSpawn(level, difficulty, reason, spawnGroupData);
         if (reason == EntitySpawnReason.SPAWN_ITEM_USE || reason == EntitySpawnReason.DISPENSER) {
             this.initializeFromSpawnEgg();
+        } else if (reason == EntitySpawnReason.CHUNK_GENERATION
+                || reason == EntitySpawnReason.NATURAL) {
+            // The loader may still cancel the add after finalizeSpawn. Wait until the entity's
+            // first live server tick before creating authoritative outpost or planet state.
+            this.pendingNaturalSpawnInitialization = true;
         }
         return finalized;
+    }
+
+    private boolean initializeNaturalWorldSpawn(ServerLevel level) {
+        String entityTypeId = BuiltInRegistries.ENTITY_TYPE.getKey(this.getType()).toString();
+        if (level.dimension().equals(Level.OVERWORLD)) {
+            if (this.factionOutpostId != null) {
+                return true;
+            }
+            if (this.isTame() || this.kingdomId != null || this.settlementId != null) {
+                return false;
+            }
+            OverworldFactionSpawnProfile profile = GameplayDataManager.snapshot()
+                    .overworldSpawnProfileForEntity(entityTypeId).orElse(null);
+            if (profile == null) {
+                return false;
+            }
+            NpcServiceBranch branch = profile.branchFor(entityTypeId);
+            FactionOutpostSavedData data = FactionOutpostSavedData.get(level);
+            FactionOutpostRecord outpost = data.assignNaturalNpc(
+                    this.getUUID(),
+                    profile,
+                    branch,
+                    level.dimension().identifier().toString(),
+                    this.blockPosition(),
+                    level.getGameTime()).orElse(null);
+            if (outpost == null) {
+                return false;
+            }
+            this.initializeNaturalFactionNpc(
+                    outpost.id(),
+                    branch,
+                    FactionOutpostMarkerService.shelterCenter(outpost),
+                    outpost.radius());
+            return true;
+        }
+
+        PlanetFactionSpawnPolicy.Evaluation evaluation = PlanetFactionSpawnPolicy.evaluate(
+                GameplayDataManager.snapshot(), level.dimension().identifier().toString(), entityTypeId);
+        if (!evaluation.knownPlanetDimension() || !evaluation.allowed()) {
+            return false;
+        }
+        return this.initializeNaturalPlanetNpc(level, evaluation);
+    }
+
+    private void tryGenerateFactionOutpostSite(ServerLevel level) {
+        UUID outpostId = this.factionOutpostId;
+        if (outpostId == null) {
+            this.factionOutpostSiteGenerationResolved = true;
+            return;
+        }
+        FactionOutpostSavedData data = FactionOutpostSavedData.get(level);
+        FactionOutpostRecord outpost = data.outpost(outpostId).orElse(null);
+        if (outpost == null
+                || !outpost.dimensionId().equals(level.dimension().identifier().toString())) {
+            this.factionOutpostSiteGenerationResolved = true;
+            return;
+        }
+        if (data.siteGenerated(outpostId)) {
+            this.synchronizeFactionOutpostHome(outpost);
+            this.factionOutpostSiteGenerationResolved = true;
+            return;
+        }
+        var attempt = data.claimSiteGenerationAttempt(outpostId, level.getGameTime()).orElse(null);
+        if (attempt == null) {
+            return;
+        }
+        BlockPos generatedCenter = FactionOutpostMarkerService.generateFirstViableLoadedSite(
+                level, outpost, attempt).orElse(null);
+        if (generatedCenter == null) {
+            return;
+        }
+        FactionOutpostRecord completed = data.completeSiteGeneration(
+                outpostId, generatedCenter, level.getGameTime()).orElse(null);
+        if (completed != null) {
+            this.synchronizeFactionOutpostHome(completed);
+            this.factionOutpostSiteGenerationResolved = true;
+        }
+    }
+
+    private void synchronizeFactionOutpostHome(FactionOutpostRecord outpost) {
+        this.setHomeTo(FactionOutpostMarkerService.shelterCenter(outpost), outpost.radius());
     }
 
     /** Finalizes data-driven stats and prevents a spawn-egg recruit from despawning. */
@@ -523,7 +652,7 @@ public class GalacticRecruitEntity extends TamableAnimal
         float before = this.getHealth();
         super.actuallyHurt(level, damageSource, damageAmount);
         if (this.getHealth() < before) {
-            this.morale = clampVital(this.morale - 10);
+            this.morale = clampVital(this.morale - this.factionMoraleLoss(10));
         }
     }
 
@@ -535,7 +664,7 @@ public class GalacticRecruitEntity extends TamableAnimal
                         GalacticRecruitEntity.class,
                         this.getBoundingBox().inflate(32.0D),
                         recruit -> recruit != this && this.armyGroupId.equals(recruit.armyGroupId))) {
-                    recruit.morale = clampVital(recruit.morale - 20);
+                    recruit.morale = clampVital(recruit.morale - recruit.factionMoraleLoss(20));
                 }
             }
             this.deathResourcesReleased = true;
@@ -553,12 +682,19 @@ public class GalacticRecruitEntity extends TamableAnimal
                     kingdom.flatMap(record -> this.findCommandCenter(serverLevel, record))
                             .ifPresent(hall -> hall.settlePendingCampaignRefunds(serverLevel));
                 }
-            } else if (this.factionOutpostId != null) {
-                FactionOutpostSavedData.get(serverLevel).removeNpc(
-                        this.getUUID(), serverLevel.getGameTime());
             }
         }
         super.die(damageSource);
+    }
+
+    @Override
+    public void onRemoval(Entity.RemovalReason reason) {
+        if (reason.shouldDestroy() && this.factionOutpostId != null
+                && this.level() instanceof ServerLevel serverLevel) {
+            FactionOutpostSavedData.get(serverLevel).removeNpc(this.getUUID(), serverLevel.getGameTime());
+            this.factionOutpostId = null;
+        }
+        super.onRemoval(reason);
     }
 
     @Override
@@ -579,10 +715,10 @@ public class GalacticRecruitEntity extends TamableAnimal
         }
         if (player instanceof ServerPlayer serverPlayer) {
             if (this.isMerchant() && !player.isShiftKeyDown()) {
-                serverPlayer.openMenu(new MerchantTradeMenuProvider(this));
+                MenuRegistry.openExtendedMenu(serverPlayer, new MerchantTradeMenuProvider(this));
                 return InteractionResult.SUCCESS_SERVER;
             }
-            serverPlayer.openMenu(new RecruitCommandMenuProvider(this));
+            MenuRegistry.openExtendedMenu(serverPlayer, new RecruitCommandMenuProvider(this));
             return InteractionResult.SUCCESS_SERVER;
         }
         return InteractionResult.SUCCESS;
@@ -634,6 +770,7 @@ public class GalacticRecruitEntity extends TamableAnimal
             throw new IllegalStateException("owned recruit cannot join a natural faction outpost");
         }
         this.factionOutpostId = Objects.requireNonNull(outpostId, "outpostId");
+        this.factionOutpostSiteGenerationResolved = false;
         this.serviceBranch = Objects.requireNonNull(branch, "branch");
         this.setRecruitDuty(branch == NpcServiceBranch.MILITARY ? RecruitDuty.SOLDIER : RecruitDuty.WORKER);
         this.setRecruitCommand(RecruitmentAction.HOLD_POSITION);
@@ -650,6 +787,75 @@ public class GalacticRecruitEntity extends TamableAnimal
     ) {
         initializeNaturalFactionNpc(outpostId, branch);
         this.setHomeTo(Objects.requireNonNull(outpostCenter, "outpostCenter"), outpostRadius);
+    }
+
+    public boolean isNaturalPlanetNpcInitialized() {
+        return this.naturalPlanetNpcInitialized;
+    }
+
+    public boolean isPendingNaturalSpawnInitialization() {
+        return this.pendingNaturalSpawnInitialization;
+    }
+
+    public boolean isPendingNaturalSpawnRemoval() {
+        return this.pendingNaturalSpawnRemoval;
+    }
+
+    /** Applies the authoritative unit or civilian archetype to a naturally despawning planet NPC. */
+    public void initializeNaturalPlanetNpc() {
+        if (this.level().isClientSide() || this.naturalPlanetNpcInitialized) {
+            return;
+        }
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            throw new IllegalStateException("natural planet NPC initialization requires a server level");
+        }
+        String entityTypeId = BuiltInRegistries.ENTITY_TYPE.getKey(this.getType()).toString();
+        PlanetFactionSpawnPolicy.Evaluation evaluation = PlanetFactionSpawnPolicy.evaluate(
+                GameplayDataManager.snapshot(), this.level().dimension().identifier().toString(), entityTypeId);
+        if (!evaluation.allowed() || !this.initializeNaturalPlanetNpc(serverLevel, evaluation)) {
+            throw new IllegalStateException("entity type " + entityTypeId
+                    + " could not join a natural faction outpost in "
+                    + this.level().dimension().identifier());
+        }
+    }
+
+    private boolean initializeNaturalPlanetNpc(
+            ServerLevel level,
+            PlanetFactionSpawnPolicy.Evaluation evaluation
+    ) {
+        if (this.naturalPlanetNpcInitialized) {
+            return this.factionOutpostId != null && this.hasHome();
+        }
+        if (this.isTame() || this.kingdomId != null || this.settlementId != null
+                || this.factionOutpostId != null || evaluation.serviceBranch() == null) {
+            return false;
+        }
+        OverworldFactionSpawnProfile profile = GameplayDataManager.snapshot()
+                .overworldSpawnProfiles().get(evaluation.factionId());
+        if (profile == null || !profile.factionId().equals(evaluation.factionId())) {
+            return false;
+        }
+        NpcServiceBranch branch = evaluation.serviceBranch();
+        FactionOutpostRecord outpost = FactionOutpostSavedData.get(level).assignNaturalNpc(
+                this.getUUID(),
+                profile,
+                branch,
+                level.dimension().identifier().toString(),
+                this.blockPosition(),
+                level.getGameTime()).orElse(null);
+        if (outpost == null) {
+            return false;
+        }
+        this.applyUnitDefinition();
+        this.initializeNaturalFactionNpc(
+                outpost.id(),
+                branch,
+                FactionOutpostMarkerService.shelterCenter(outpost),
+                outpost.radius());
+        this.getNavigation().stop();
+        this.setTarget(null);
+        this.naturalPlanetNpcInitialized = true;
+        return true;
     }
 
     public @Nullable UUID getArmyGroupId() {
@@ -780,7 +986,8 @@ public class GalacticRecruitEntity extends TamableAnimal
             return false;
         }
         container.setChanged();
-        this.nextNaturalProductionGameTime = serverLevel.getGameTime() + 1200L;
+        this.nextNaturalProductionGameTime = serverLevel.getGameTime()
+                + this.factionProductionCooldownTicks(1200);
         return true;
     }
 
@@ -852,6 +1059,23 @@ public class GalacticRecruitEntity extends TamableAnimal
             double targetDistance,
             boolean targetsPlayer
     ) {
+        return activateClassAbility(
+                abilityId,
+                gameTime,
+                targetPresent,
+                targetDistance,
+                targetsPlayer,
+                () -> true);
+    }
+
+    public ClassAbilityRuntimeService.ActivationDecision activateClassAbility(
+            String abilityId,
+            long gameTime,
+            boolean targetPresent,
+            double targetDistance,
+            boolean targetsPlayer,
+            BooleanSupplier effect
+    ) {
         UnitClassDefinition unitClass = this.unitClassDefinition().orElse(null);
         var ability = GameplayDataManager.snapshot().ability(abilityId).orElse(null);
         if (unitClass == null || ability == null) {
@@ -867,9 +1091,14 @@ public class GalacticRecruitEntity extends TamableAnimal
                 targetDistance,
                 targetsPlayer,
                 Config.ALLOW_CLASS_PVP.getAsBoolean());
-        if (decision.accepted()) {
-            this.classProgressState = decision.state();
+        if (!decision.accepted()) {
+            return decision;
         }
+        if (!Objects.requireNonNull(effect, "effect").getAsBoolean()) {
+            return ClassAbilityRuntimeService.ActivationDecision.rejected(
+                    "effect_failed", this.classProgressState);
+        }
+        this.classProgressState = decision.state();
         return decision;
     }
 
@@ -1359,10 +1588,15 @@ public class GalacticRecruitEntity extends TamableAnimal
             LivingEntity executionTarget = selfAbility ? null : target;
             boolean targetPresent = executionTarget != null && executionTarget.isAlive();
             double distance = targetPresent ? this.distanceTo(target) : 0.0D;
-            var decision = this.activateClassAbility(ability.id().toString(), serverLevel.getGameTime(),
-                    targetPresent, distance, executionTarget instanceof Player);
-            if (decision.accepted()
-                    && ClassAbilityEffectRegistry.execute(serverLevel, this, ability, executionTarget)) {
+            var decision = this.activateClassAbility(
+                    ability.id().toString(),
+                    serverLevel.getGameTime(),
+                    targetPresent,
+                    distance,
+                    executionTarget instanceof Player,
+                    () -> ClassAbilityEffectRegistry.execute(
+                            serverLevel, this, ability, executionTarget));
+            if (decision.accepted()) {
                 break;
             }
         }
@@ -2122,7 +2356,7 @@ public class GalacticRecruitEntity extends TamableAnimal
                 this.blockWorker("work_order_persistence_failed");
                 return;
             }
-            this.workerCooldownTicks = 20;
+            this.workerCooldownTicks = this.factionProductionCooldownTicks(20);
             this.transitionWorker(WorkerPhase.COOLDOWN, "work_complete", null);
         } else if (this.storageTarget != null
                 && this.isRegisteredStorageTarget(this.storageTarget)
@@ -2144,7 +2378,7 @@ public class GalacticRecruitEntity extends TamableAnimal
             this.blockWorker("work_order_persistence_failed");
             return;
         }
-        this.workerCooldownTicks = 40;
+        this.workerCooldownTicks = this.factionProductionCooldownTicks(40);
         this.transitionWorker(WorkerPhase.COOLDOWN, "deposit_complete", null);
     }
 
@@ -2479,7 +2713,7 @@ public class GalacticRecruitEntity extends TamableAnimal
                         KingdomBaseBlueprint.path(blueprint.id()), 1));
         KingdomSavedData.get(serverLevel).reserveWorksite(
                 this.getOwnerReference().getUUID(), this.getUUID(), WorkerProfession.BUILDER);
-        this.workerCooldownTicks = 100;
+        this.workerCooldownTicks = this.factionProductionCooldownTicks(100);
         this.setBaseTarget(null);
         this.setWorkTarget(null);
         this.setRecruitCommand(RecruitmentAction.FOLLOW_OWNER);
@@ -2541,7 +2775,7 @@ public class GalacticRecruitEntity extends TamableAnimal
             return;
         }
         this.starterBaseCompletedBlocks++;
-        this.workerCooldownTicks = 20;
+        this.workerCooldownTicks = this.factionProductionCooldownTicks(20);
         this.transitionWorker(WorkerPhase.COOLDOWN, "placement_complete", null);
     }
 
@@ -2937,10 +3171,6 @@ public class GalacticRecruitEntity extends TamableAnimal
                     faction.minimumHiringAlignment()));
             return false;
         }
-        if (kingdom.get().settlement().recruitIds().size() >= faction.maxOwnedRecruits()) {
-            sendFeedback(player, Component.translatable("message.galacticwars.recruit.faction_limit"));
-            return false;
-        }
         int hireCost = this.currentHireCost();
         Optional<CommandCenterBlockEntity> hall = this.findCommandCenter(serverLevel, kingdom.get());
         RecruitmentEligibility eligibility = RecruitmentService.evaluateDirectHire(
@@ -2956,6 +3186,7 @@ public class GalacticRecruitEntity extends TamableAnimal
             String translationKey = switch (eligibility.reasonCode()) {
                 case "insufficient_funds" -> "message.galacticwars.recruit.need_credits";
                 case "housing_full" -> "message.galacticwars.recruit.housing_full";
+                case "recruit_limit_reached" -> "message.galacticwars.recruit.faction_limit";
                 case "hostile_faction" -> "message.galacticwars.recruit.hostile_faction";
                 default -> "message.galacticwars.recruit.upkeep_unpaid";
             };
@@ -2967,7 +3198,13 @@ public class GalacticRecruitEntity extends TamableAnimal
         if (!kingdomData.registerRecruit(
                 player.getUUID(), this.getUUID(),
                 civilianContract ? NpcServiceBranch.CIVILIAN : NpcServiceBranch.MILITARY)) {
-            sendFeedback(player, Component.translatable("message.galacticwars.recruit.housing_full"));
+            KingdomRecord currentKingdom = kingdomData.kingdomForOwner(player.getUUID())
+                    .orElse(kingdom.orElseThrow());
+            String rejectionKey = currentKingdom.settlement().recruitIds().size()
+                    >= FactionBalanceService.effectiveRecruitLimit(currentKingdom.factionId())
+                    ? "message.galacticwars.recruit.faction_limit"
+                    : "message.galacticwars.recruit.housing_full";
+            sendFeedback(player, Component.translatable(rejectionKey));
             return false;
         }
         if (!RecruitmentPaymentService.withdrawCredits(player, hireCost)) {
@@ -2981,6 +3218,8 @@ public class GalacticRecruitEntity extends TamableAnimal
         if (this.factionOutpostId != null) {
             FactionOutpostSavedData.get(serverLevel).removeNpc(this.getUUID(), serverLevel.getGameTime());
             this.factionOutpostId = null;
+            this.naturalPlanetNpcInitialized = false;
+            this.clearHome();
         }
         KingdomRecord registeredKingdom = kingdomData.kingdomForOwner(player.getUUID()).orElseThrow();
         this.kingdomId = registeredKingdom.id();
@@ -3484,6 +3723,11 @@ public class GalacticRecruitEntity extends TamableAnimal
     ) {
         KingdomSavedData data = KingdomSavedData.get(level);
         KingdomRecord current = data.kingdomForOwner(kingdom.ownerId()).orElse(kingdom);
+        if (current.settlement().recruitIds().size()
+                >= FactionBalanceService.effectiveRecruitLimit(current.factionId())) {
+            this.cancelCommanderCampaign(level, current, hall, campaign, "recruit_limit_reached");
+            return;
+        }
         if (!current.settlement().hasHousingSpace()) {
             this.cancelCommanderCampaign(level, current, hall, campaign, "housing_full");
             return;
@@ -3718,7 +3962,8 @@ public class GalacticRecruitEntity extends TamableAnimal
         });
         float healthRatio = this.getMaxHealth() <= 0.0F ? 1.0F : this.getHealth() / this.getMaxHealth();
         this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(unit.maxHealth());
-        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(unit.movementSpeed());
+        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(
+                this.factionMovementSpeed(unit.movementSpeed()));
         this.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(unit.attackDamage());
         this.getAttribute(Attributes.FOLLOW_RANGE).setBaseValue(unit.followRange());
         this.getAttribute(Attributes.ARMOR).setBaseValue(unit.armor());
@@ -3738,7 +3983,8 @@ public class GalacticRecruitEntity extends TamableAnimal
         this.unitId = civilian.id();
         float healthRatio = this.getMaxHealth() <= 0.0F ? 1.0F : this.getHealth() / this.getMaxHealth();
         this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(civilian.maxHealth());
-        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(civilian.movementSpeed());
+        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(
+                this.factionMovementSpeed(civilian.movementSpeed()));
         this.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(1.0D);
         this.getAttribute(Attributes.FOLLOW_RANGE).setBaseValue(20.0D);
         this.getAttribute(Attributes.ARMOR).setBaseValue(0.0D);
@@ -3863,7 +4109,7 @@ public class GalacticRecruitEntity extends TamableAnimal
         }
         if (this.tickCount % 200 == 0 && upkeepPaid && this.getTarget() == null && this.hurtTime == 0
                 && this.nearCommanderOrHall(level)) {
-            this.morale = clampVital(this.morale + 1);
+            this.morale = clampVital(this.morale + this.factionMoraleRecovery());
         }
     }
 
@@ -3897,6 +4143,48 @@ public class GalacticRecruitEntity extends TamableAnimal
 
     private static int clampVital(int value) {
         return Math.max(0, Math.min(100, value));
+    }
+
+    private FactionBalanceService.ResolvedBalance factionBalance() {
+        return FactionBalanceService.resolve(this.recruitFactionId());
+    }
+
+    private int factionProductionCooldownTicks(int baseTicks) {
+        if (baseTicks <= 0) {
+            throw new IllegalArgumentException("baseTicks must be positive");
+        }
+        int productionPercent = Math.max(1, this.factionBalance().productionPercent());
+        long numerator = (long) baseTicks * 100L;
+        return (int) Math.max(1L, Math.min(
+                Integer.MAX_VALUE, (numerator + productionPercent - 1L) / productionPercent));
+    }
+
+    private double factionMovementSpeed(double baseSpeed) {
+        int mobilityPercent = Math.max(1, this.factionBalance().mobilityPercent());
+        return Math.max(0.01D, Math.min(4.0D, baseSpeed * mobilityPercent / 100.0D));
+    }
+
+    private int factionMoraleStabilityPercent() {
+        FactionBalanceService.ResolvedBalance balance = this.factionBalance();
+        int moraleWithStrategy = Math.max(1, balance.moralePercent() + balance.moraleBonus());
+        int withLoyalty = FactionBalanceService.applyPercentFloor(
+                moraleWithStrategy, balance.loyaltyPercent());
+        return Math.max(1, Math.min(FactionBalanceService.MAX_PERCENT, withLoyalty));
+    }
+
+    private int factionMoraleLoss(int baseLoss) {
+        if (baseLoss <= 0) {
+            return 0;
+        }
+        int stabilityPercent = this.factionMoraleStabilityPercent();
+        long numerator = (long) baseLoss * 100L;
+        return (int) Math.max(1L, Math.min(
+                Integer.MAX_VALUE, (numerator + stabilityPercent - 1L) / stabilityPercent));
+    }
+
+    private int factionMoraleRecovery() {
+        return Math.max(1, FactionBalanceService.applyPercentCeil(
+                1, this.factionMoraleStabilityPercent()));
     }
 
     private void tameForContract(ServerPlayer player) {

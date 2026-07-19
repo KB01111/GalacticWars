@@ -3,6 +3,7 @@ package galacticwars.clonewars.client.gui;
 import galacticwars.clonewars.menu.CommandCenterNavigationMenu;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.network.chat.Component;
@@ -13,6 +14,7 @@ public final class CommandCenterNavigationScreen extends Screen implements MenuA
     private static final int BUTTON_HEIGHT = 20;
     private static final int GAP = 6;
     private final CommandCenterNavigationMenu menu;
+    private Component status = Component.translatable("screen.galacticwars.navigation.ready");
 
     public CommandCenterNavigationScreen(
             CommandCenterNavigationMenu menu,
@@ -27,24 +29,31 @@ public final class CommandCenterNavigationScreen extends Screen implements MenuA
     protected void init() {
         super.init();
         int x = (this.width - BUTTON_WIDTH) / 2;
-        int firstY = Math.max(42, (this.height - menu.planetIds().size()
+        int firstY = Math.max(42, (this.height - menu.destinations().size()
                 * (BUTTON_HEIGHT + GAP)) / 2);
-        for (int index = 0; index < menu.planetIds().size(); index++) {
-            String planetId = menu.planetIds().get(index);
+        for (int index = 0; index < menu.destinations().size(); index++) {
+            var destination = menu.destinations().get(index);
+            String destinationId = destination.destinationId();
             int buttonId = index;
-            this.addRenderableWidget(Button.builder(
-                            Component.translatable("planet.galacticwars." + planetId),
-                            button -> this.selectPlanet(buttonId))
+            Button destinationButton = Button.builder(
+                            CommandCenterNavigationMenu.destinationName(destinationId),
+                            button -> this.selectDestination(buttonId))
                     .bounds(x, firstY + index * (BUTTON_HEIGHT + GAP), BUTTON_WIDTH, BUTTON_HEIGHT)
-                    .build());
+                    .build();
+            destinationButton.active = destination.available();
+            if (!destination.available()) {
+                destinationButton.setTooltip(Tooltip.create(Component.translatable(
+                        "message.galacticwars.travel." + destination.reason())));
+            }
+            this.addRenderableWidget(destinationButton);
         }
     }
 
-    private void selectPlanet(int buttonId) {
+    private void selectDestination(int buttonId) {
         if (this.minecraft != null && this.minecraft.gameMode != null) {
             this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, buttonId);
+            this.status = Component.translatable("screen.galacticwars.navigation.request_sent");
         }
-        this.onClose();
     }
 
     @Override
@@ -58,6 +67,9 @@ public final class CommandCenterNavigationScreen extends Screen implements MenuA
         graphics.text(this.font, this.title, (this.width - this.font.width(this.title)) / 2, 16, 0xE5F6FF);
         Component hint = Component.translatable("screen.galacticwars.navigation.hint");
         graphics.text(this.font, hint, (this.width - this.font.width(hint)) / 2, 29, 0x9CA3AF);
+        graphics.text(this.font, this.status,
+                (this.width - this.font.width(this.status)) / 2,
+                this.height - 16, 0xFFE6C77A);
     }
 
     @Override

@@ -1,5 +1,64 @@
 # Galactic Wars Asset Provenance
 
+## 2026-07-19 field-command and vehicle-deployment completion
+
+Ten placeholder visual paths were replaced with original project-owned artwork generated in the
+built-in image-generation mode. No input or reference images were used. The control beacon previously
+rendered with the Duracrete texture; the three field-command tools and five deployment kits previously
+rendered with the Energy Cell texture; and the Hyperspace Navigator previously inherited only the
+vanilla compass frame. Each runtime model now resolves to a dedicated `galacticwars` texture. The
+Navigator retains the `minecraft:item/compass_16` parent for model compatibility but overrides
+`layer0` with its own artwork.
+
+The exact control-beacon prompt was:
+
+```text
+Use case: stylized-concept
+Asset type: tileable Minecraft block texture source
+Primary request: an original tactical control-beacon casing panel for a science-fantasy battlefield base
+Subject: edge-to-edge dark gunmetal and charcoal composite panel, recessed cross bracing, a centered cyan signal lens, two tiny amber status lights, subtle edge wear
+Style/medium: crisp Minecraft-readable pixel art with hard square pixel clusters and a restrained 16x16-ready palette
+Composition/framing: perfectly flat orthographic square material, edge-to-edge, no object silhouette, no perspective
+Lighting/mood: neutral even material lighting
+Color palette: charcoal, gunmetal, muted cyan, sparse amber
+Constraints: seamless tileable opposite edges; fully opaque; no text; no logos; no faction insignia; no watermark; original design only; no recognizable franchise prop or official artwork
+Avoid: gradients, blur, antialiasing, realistic photography, a scene, borders, transparent pixels
+```
+
+The nine item prompts used the following exact shared suffix:
+
+```text
+Style/medium: crisp Minecraft-readable pixel-art inventory icon with hard square pixel clusters and a restrained 16x16-ready palette
+Composition/framing: one centered object in a three-quarter view, clear silhouette, generous empty padding
+Scene/backdrop: perfectly flat solid #ff00ff chroma-key background for local removal; one uniform color with no shadows, gradients, texture, reflections, floor plane, or lighting variation
+Constraints: no cast shadow; no contact shadow; no text; no logos; no faction insignia; no watermark; original design only; do not use #ff00ff anywhere in the object
+Avoid: antialiasing, blur, realistic photography, a scene, extra objects, recognizable franchise prop replicas
+```
+
+Each item prompt began with `Use case: stylized-concept`, followed by the exact asset type and
+asset-specific lines below, then the shared suffix above.
+
+| Final asset | Built-in result | Asset type | Primary request | Subject | Color palette |
+| --- | --- | --- | --- | --- | --- |
+| `textures/item/blueprint_projector.png` | `exec-d9002340-887e-424f-888b-987ef4daef98.png` | Minecraft game item icon | an original handheld blueprint projector for planning battlefield base construction | compact gunmetal projector with a cyan holographic grid lens, folding amber alignment vanes, dark grip, and a tiny green ready light | gunmetal, cyan, amber, sparse green |
+| `textures/item/claim_transponder.png` | `exec-3240e84b-9bb5-4c56-b205-7f80e8744774.png` | Minecraft game item icon | an original claim transponder used to register settlement territory in a science-fantasy battlefield | rugged palm-sized charcoal transponder with a short antenna, cyan signal ring, amber authorization chip, and reinforced silver corners | charcoal, silver, cyan, amber |
+| `textures/item/command_marker.png` | `exec-3136a0f3-b40b-4225-89d4-12041ca6e004.png` | Minecraft game item icon | an original tactical command marker used to designate an in-world squad target | compact deployable beacon baton with a dark ribbed handle, pointed silver base, bright amber command lens, and two cyan indicator bands | dark gunmetal, silver, amber, cyan |
+| `textures/item/hyperspace_navigator.png` | `exec-58627dd1-8043-497a-92b1-c2d0afc0bbe2.png` | Minecraft game item icon | an original hyperspace navigation instrument for selecting distant planets | compact circular astrogation device with a dark octagonal casing, luminous cyan star-map ring, small amber destination pointer, and silver grip tabs | charcoal, silver, cyan, amber |
+| `textures/item/barc_speeder_deployment_kit.png` | `exec-58efe502-d89e-4662-8899-295f4462e368.png` | Minecraft vehicle deployment-kit item icon | an original compact field crate that deploys a fast one-rider hover speeder | slim white-and-blue armored equipment case with a cyan horizontal speed glyph made only from abstract light bars, a clipped carry handle, and an amber release latch | off-white armor, navy blue, cyan, gunmetal, amber |
+| `textures/item/at_rt_deployment_kit.png` | `exec-16d45705-68b0-4690-80f3-1b1a37a3a14c.png` | Minecraft vehicle deployment-kit item icon | an original compact field crate that deploys a light two-legged scout walker | upright white-and-blue reinforced case with an abstract cyan two-leg schematic made from simple bars, twin side clamps, a command-blue top stripe, and an amber release latch | off-white armor, command blue, cyan, gunmetal, amber |
+| `textures/item/stap_deployment_kit.png` | `exec-41b94916-dce9-49c3-b13e-d7801a74d5ae.png` | Minecraft vehicle deployment-kit item icon | an original compact field pod that deploys a narrow one-rider droid hover platform | slim bronze-and-charcoal vertical deployment canister with a cyan lift indicator made from simple bars, folded side stabilizers, and a red-orange release latch | weathered bronze, charcoal, cyan, red-orange |
+| `textures/item/aat_deployment_kit.png` | `exec-445086cc-1820-48a0-a91c-68703c0a0266.png` | Minecraft vehicle deployment-kit item icon | an original heavy field crate that deploys a low armored hover tank | broad bronze-and-charcoal reinforced case with an abstract cyan domed-tank schematic made from simple blocks, heavy corner locks, and a red-orange release latch | weathered bronze, charcoal, cyan, red-orange |
+| `textures/item/laat_gunship_deployment_kit.png` | `exec-755c9d00-cb01-461d-ae31-4ad082c9a8ef.png` | Minecraft vehicle deployment-kit item icon | an original heavy field crate that deploys a winged troop transport gunship | wide off-white-and-crimson reinforced case with an abstract cyan winged-transport schematic made from simple bars, twin carry grips, heavy silver clamps, and an amber release latch | off-white armor, muted crimson, cyan, silver, amber |
+
+The control-beacon result is `exec-bc6c8a12-06f9-49f2-aa46-4586ba83d58b.png`. It was reduced to
+16x16 with nearest-neighbor sampling and opposite edge texels were equalized for seamless tiling. The
+nine item sources were chroma-cleaned, cropped to visible bounds, and nearest-neighbor fitted into a
+transparent 16x16 canvas with one pixel of minimum padding. Pillow was unavailable in the active Python
+runtime, so the installed chroma helper could not run; an in-memory `System.Drawing` pass applied the
+same project convention with a deterministic magenta-hue threshold. A stricter second pass removed the
+remaining fringe pixels. Final validation confirmed exact dimensions, opaque/transparent contracts,
+non-empty subjects, zero magenta-family visible pixels, distinct hashes, and resolving model references.
+
 ## 2026-07-13 equipped-armor and recruitment-capsule rebuild
 
 The equipped armor and recruit spawn items were rebuilt with

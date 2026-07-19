@@ -34,7 +34,7 @@ public final class ConquestSavedData extends SavedData {
     ).apply(instance, ConquestSavedData::new));
     public static final SavedDataType<ConquestSavedData> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "conquest_control"),
-            ConquestSavedData::new, CODEC);
+            ConquestSavedData::new, CODEC, null);
 
     private final Map<String, ConquestControlState> byRegion = new LinkedHashMap<>();
 

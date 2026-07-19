@@ -1,1 +1,6 @@
-{"parent":"minecraft:block/cube_all","textures":{"all":"galacticwars:block/duracrete"}}
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "galacticwars:block/control_beacon"
+  }
+}

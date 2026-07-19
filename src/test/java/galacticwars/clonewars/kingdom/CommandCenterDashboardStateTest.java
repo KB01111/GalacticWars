@@ -9,6 +9,9 @@ import galacticwars.clonewars.progression.CampaignRuntimeService;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionState;
+import galacticwars.clonewars.menu.CommandCenterDashboardCodec;
+import io.netty.buffer.Unpooled;
+import net.minecraft.network.FriendlyByteBuf;
 
 import java.util.List;
 import java.util.Map;
@@ -62,6 +65,14 @@ public final class CommandCenterDashboardStateTest {
                 List.of(new CommandCenterDashboardState.NearbyPlayerSummary(
                         UUID.randomUUID(), "Nearby Player", 6)),
                 progression, 47, true,
+                CommandCenterDashboardState.ActionAvailability.accepted(),
+                List.of(new CommandCenterDashboardState.VehicleFabricationSummary(
+                        "barc_speeder",
+                        CommandCenterDashboardState.ActionAvailability.rejected(
+                                "missing_materials"),
+                        32,
+                        List.of(new CommandCenterDashboardState.StockRequirementSummary(
+                                "galacticwars:duracrete", 16, 4)))),
                 List.of(kingdom), List.of(), List.of(), 100L);
 
         require(dashboard.kingdomAvailable(), "kingdom should be available");
@@ -69,6 +80,12 @@ public final class CommandCenterDashboardStateTest {
         require(dashboard.actorId().equals(ownerId), "actor id should be preserved for safe UI filtering");
         require(dashboard.actorRole().equals("owner"), "owner role should be visible");
         require(dashboard.treasuryCredits() == 47, "treasury should be visible");
+        require(dashboard.navigationAvailability().available(),
+                "navigation preflight should be visible");
+        require(dashboard.vehicleFabrication().size() == 1
+                        && dashboard.vehicleFabrication().getFirst().requiredCredits() == 32
+                        && !dashboard.vehicleFabrication().getFirst().materials().getFirst().satisfied(),
+                "fabrication cost and material shortfall should be visible");
         require(dashboard.recruitCount() == 3 && dashboard.housingCapacity() == 4,
                 "settlement capacity should be visible");
         require(dashboard.squads().size() == 1
@@ -97,6 +114,16 @@ public final class CommandCenterDashboardStateTest {
                         + " from " + galacticwars.clonewars.progression.LaunchContentCatalog.quests());
         require(dashboard.activeQuest().isPresent(), "campaign should expose the active chapter");
         require(dashboard.nextObjective().isPresent(), "campaign should expose the next objective");
+
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            CommandCenterDashboardCodec.write(buffer, dashboard);
+            CommandCenterDashboardState decoded = CommandCenterDashboardCodec.read(buffer);
+            require(decoded.equals(dashboard) && !buffer.isReadable(),
+                    "availability details should round trip through the bounded dashboard codec");
+        } finally {
+            buffer.release();
+        }
 
         boolean immutable = false;
         try {

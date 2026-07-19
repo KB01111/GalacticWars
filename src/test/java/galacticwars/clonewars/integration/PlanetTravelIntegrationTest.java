@@ -18,21 +18,34 @@ public final class PlanetTravelIntegrationTest {
         String navigator = read("src/main/java/galacticwars/clonewars/world/HyperspaceNavigatorItem.java");
         String items = read("src/main/java/galacticwars/clonewars/registry/ModItems.java");
 
-        assertContains(block, "new CommandCenterNavigationMenuProvider()", "post-pledge navigation entrypoint");
+        assertContains(block, "new CommandCenterNavigationMenuProvider(serverPlayer)",
+                "server-authored post-pledge navigation entrypoint");
         assertContains(menu, "this.stillValid(player)", "server menu distance and ownership validation");
-        assertContains(menu, "size > MAX_PLANET_IDS", "navigation payload read cap");
-        assertContains(menuProvider, "planets.size() > CommandCenterNavigationMenu.MAX_PLANET_IDS",
+        assertContains(menu, "size > MAX_DESTINATION_IDS", "navigation payload read cap");
+        assertContains(menu, "PlanetTravelService.navigationOptions(serverPlayer)",
+                "server-authored home and planet availability");
+        assertContains(menuProvider,
+                "destinations.size() > CommandCenterNavigationMenu.MAX_DESTINATION_IDS",
                 "navigation payload write cap");
         assertContains(menuProvider, "LaunchContentDefinitions.MAX_SERIALIZED_PLANET_ID_BYTES",
                 "navigation planet id wire limit");
+        assertContains(menuProvider, "CommandCenterNavigationMenu.MAX_REASON_BYTES",
+                "navigation reason wire limit");
         assertContains(service, "state.unlocks().contains(\"planet_travel\")", "Forward Base unlock validation");
-        assertContains(service, "hall != null && hall.upkeepPaid()", "upkeep validation");
+        assertContains(service, "commandCenter != null && commandCenter.hall().upkeepPaid()",
+                "upkeep validation");
         assertContains(service, "player.teleportTo", "server dimension transfer");
         assertContains(service, "squadTravel.reserve()", "pre-teleport squad reservation");
         assertContains(service, "squadTravel.rollback", "failed-teleport squad rollback");
         assertContains(armyTravel, "candidate.ownerId().equals(owner.getUUID())",
                 "traveler-owned squad selection");
         assertContains(service, "setRespawnPosition", "planet arrival respawn configuration");
+        assertContains(service, "HOME_DESTINATION_ID.equals(destinationId)",
+                "home destination routing and progression guard");
+        assertContains(service, "destinations.add(HOME_DESTINATION_ID)",
+                "home destination precedes loaded planets");
+        assertContains(service, "PlanetArrivalService.findHomeArrival",
+                "safe Command Center return arrival");
         assertContains(service, "resolveCommandCenter", "cross-dimension Command Center authority");
         assertContains(service, "hallLevel.getChunkAt(hallPos)", "remote Command Center chunk resolution");
         assertBefore(service, "player.teleportTo", "ProgressionEventType.PLANET_VISITED",

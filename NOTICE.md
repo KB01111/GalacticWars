@@ -1,6 +1,6 @@
 # Galactic Wars: Clone Wars Notices
 
-This project is developed as an unofficial GPL-3.0-only NeoForge 26.2 fan mod.
+This project is developed as an unofficial GPL-3.0-only Architectury fan mod for Minecraft 26.2 on Fabric and NeoForge.
 
 ## LOTR-Derived Material
 
@@ -16,7 +16,7 @@ path, destination, transformation, and derived status for each imported item.
 
 Authorization does not make an old implementation automatically suitable for this project.
 Forge 1.20.1 registry, packet, global-manager, and threading code must be adapted behind
-Galactic Wars interfaces for NeoForge 26.2 rather than copied wholesale. Medieval or villager
+Galactic Wars common interfaces and loader-specific Fabric/NeoForge adapters rather than copied wholesale. Medieval or villager
 art may be used as an authorized source only when it is deliberately transformed to match the
 Galactic Wars visual language and recorded in the asset manifest.
 
@@ -30,10 +30,12 @@ Legacy texture inputs from the prior conversion must not be distributed unless t
 
 ## Third-Party Runtime Libraries
 
+Architectury API provides the shared registry, event, networking, and client-registration boundaries. Fabric API and Fabric Language Kotlin provide the Fabric runtime; Kotlin for Forge provides the NeoForge Kotlin runtime. These libraries remain external dependencies.
+
+Kotlin coroutines are used for bounded, structured datapack preparation. The runtime is supplied by the selected loader's Kotlin support and is not shaded into the Galactic Wars JAR.
+
 GeckoLib is used as an MIT-licensed runtime dependency for animated Galactic Wars entities and models. Keep GeckoLib code and assets as an external dependency; do not vendor its source into this repository.
 
 YetAnotherConfigLib (YACL) is used as an LGPL-3.0-or-later client dependency for the in-game configuration screen. It remains an external dependency and is not bundled into the Galactic Wars JAR.
 
 SmartBrainLib 2.0.0 is used as an MPL-2.0-licensed external runtime dependency for recruit AI scheduling and sensing. Source: https://github.com/Tslat/SmartBrainLib. It is not bundled into the Galactic Wars JAR.
-
-MrCrayfish's Framework 0.13.26 is used as an LGPL-2.1-licensed external runtime dependency for gameplay networking. Source: https://github.com/MrCrayfish/Framework. It is not bundled into the Galactic Wars JAR.

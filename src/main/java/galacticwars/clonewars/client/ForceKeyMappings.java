@@ -1,16 +1,21 @@
 package galacticwars.clonewars.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.architectury.event.events.client.ClientTickEvent;
+import dev.architectury.registry.client.keymappings.KeyMappingRegistry;
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.network.ForceActivatePayload;
 import galacticwars.clonewars.network.GalacticNetwork;
 import galacticwars.clonewars.network.VehicleInputPayload;
-import java.util.UUID;
+import galacticwars.clonewars.vehicle.GalacticVehicleEntity;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ForceKeyMappings {
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
@@ -24,34 +29,58 @@ public final class ForceKeyMappings {
                     GLFW.GLFW_KEY_C, CATEGORY)
     };
     private static final KeyMapping VEHICLE_FIRE = new KeyMapping(
-            "key.galacticwars.vehicle_fire", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, CATEGORY);
+            "key.galacticwars.vehicle_fire", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_R, CATEGORY);
+    private static final KeyMapping VEHICLE_DESCEND = new KeyMapping(
+            "key.galacticwars.vehicle_descend", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT_CONTROL, CATEGORY);
+    private static final List<KeyMapping> MAPPINGS = List.of(
+            KEYS[0], KEYS[1], KEYS[2], VEHICLE_FIRE, VEHICLE_DESCEND);
+    private static final AtomicBoolean MAPPINGS_REGISTERED = new AtomicBoolean();
+    private static final AtomicBoolean TICK_HANDLER_REGISTERED = new AtomicBoolean();
 
     private ForceKeyMappings() {
     }
 
-    public static void register(RegisterKeyMappingsEvent event) {
-        event.registerCategory(CATEGORY);
-        for (KeyMapping key : KEYS) event.register(key);
-        event.register(VEHICLE_FIRE);
+    public static void register() {
+        if (MAPPINGS_REGISTERED.compareAndSet(false, true)) {
+            MAPPINGS.forEach(KeyMappingRegistry::register);
+        }
+        registerTickHandler();
     }
 
-    public static void tick(ClientTickEvent.Post event) {
+    public static List<KeyMapping> mappings() {
+        return MAPPINGS;
+    }
+
+    public static void registerTickHandler() {
+        if (TICK_HANDLER_REGISTERED.compareAndSet(false, true)) {
+            ClientTickEvent.CLIENT_POST.register(ForceKeyMappings::tick);
+        }
+    }
+
+    private static void tick(Minecraft minecraft) {
+        boolean acceptsGameplayInput = minecraft.player != null
+                && minecraft.gui.screen() == null
+                && minecraft.gui.overlay() == null;
         for (int slot = 0; slot < KEYS.length; slot++) {
             while (KEYS[slot].consumeClick()) {
-                GalacticNetwork.CHANNEL.sendToServer(new ForceActivatePayload(UUID.randomUUID(), slot));
+                if (acceptsGameplayInput) {
+                    GalacticNetwork.CHANNEL.sendToServer(
+                            new ForceActivatePayload(UUID.randomUUID(), slot));
+                }
             }
         }
-        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
-        if (minecraft.player != null
-                && minecraft.player.getVehicle() instanceof galacticwars.clonewars.vehicle.GalacticVehicleEntity vehicle) {
+        boolean fire = VEHICLE_FIRE.consumeClick();
+        if (acceptsGameplayInput
+                && minecraft.player.getVehicle() instanceof GalacticVehicleEntity vehicle) {
             float forward = (minecraft.options.keyUp.isDown() ? 1.0F : 0.0F)
                     - (minecraft.options.keyDown.isDown() ? 1.0F : 0.0F);
             float strafe = (minecraft.options.keyLeft.isDown() ? 1.0F : 0.0F)
                     - (minecraft.options.keyRight.isDown() ? 1.0F : 0.0F);
-            boolean fire = VEHICLE_FIRE.consumeClick();
             GalacticNetwork.CHANNEL.sendToServer(new VehicleInputPayload(
                     UUID.randomUUID(), vehicle.getId(), forward, strafe,
-                    minecraft.options.keyJump.isDown(), minecraft.options.keyShift.isDown(), fire));
+                    minecraft.options.keyJump.isDown(), VEHICLE_DESCEND.isDown(), fire));
         }
     }
 }

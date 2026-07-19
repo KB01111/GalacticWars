@@ -1,86 +1,66 @@
 package galacticwars.clonewars;
 
-import org.slf4j.Logger;
-
 import com.mojang.logging.LogUtils;
-
+import dev.architectury.registry.level.entity.EntityAttributeRegistry;
+import dev.architectury.registry.level.entity.SpawnPlacementsRegistry;
+import galacticwars.clonewars.conquest.ConquestRuntimeEvents;
+import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
-import galacticwars.clonewars.combat.BlasterCombatEvents;
-import galacticwars.clonewars.gametest.ModGameTests;
-import galacticwars.clonewars.registry.ModBlocks;
+import galacticwars.clonewars.network.GalacticNetwork;
 import galacticwars.clonewars.registry.ModBlockEntityTypes;
+import galacticwars.clonewars.registry.ModBlocks;
 import galacticwars.clonewars.registry.ModCreativeTabs;
 import galacticwars.clonewars.registry.ModDataComponents;
 import galacticwars.clonewars.registry.ModEntityTypes;
 import galacticwars.clonewars.registry.ModItems;
 import galacticwars.clonewars.registry.ModMenuTypes;
+import galacticwars.clonewars.runtime.GalacticRuntimeEvents;
 import galacticwars.clonewars.world.FactionNaturalSpawnRules;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.SpawnPlacementTypes;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
-import net.neoforged.neoforge.event.entity.RegisterSpawnPlacementsEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import org.slf4j.Logger;
 
-@Mod(GalacticWars.MODID)
-public class GalacticWars {
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/** Shared loader-neutral bootstrap invoked by the Fabric and NeoForge entrypoints. */
+public final class GalacticWars {
     public static final String MODID = "galacticwars";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public GalacticWars(IEventBus modEventBus, ModContainer modContainer) {
-        modEventBus.addListener(this::commonSetup);
-        modEventBus.addListener(this::registerEntityAttributes);
-        modEventBus.addListener(this::registerSpawnPlacements);
-        modEventBus.addListener(ModGameTests::registerTestFunctions);
-        modEventBus.addListener(ModGameTests::registerGameTests);
-        ModBlocks.register(modEventBus);
-        ModBlockEntityTypes.register(modEventBus);
-        ModEntityTypes.register(modEventBus);
-        ModDataComponents.register(modEventBus);
-        ModItems.register(modEventBus);
-        ModMenuTypes.register(modEventBus);
-        ModCreativeTabs.register(modEventBus);
+    private static final AtomicBoolean INITIALIZED = new AtomicBoolean();
 
-        NeoForge.EVENT_BUS.addListener(BlasterCombatEvents::onProjectileImpact);
-
-        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    private GalacticWars() {
     }
 
-    private void commonSetup(FMLCommonSetupEvent event) {
-        if (Config.LOG_STARTUP.getAsBoolean()) {
-            LOGGER.info("Galactic Wars: Clone Wars foundation loaded.");
+    public static void init() {
+        if (!INITIALIZED.compareAndSet(false, true)) {
+            return;
         }
-    }
 
-    private void registerEntityAttributes(EntityAttributeCreationEvent event) {
-        ModEntityTypes.recruits().forEach(holder -> registerRecruitAttributes(event, holder.get()));
-    }
+        ModBlocks.register();
+        ModBlockEntityTypes.register();
+        ModEntityTypes.register();
+        ModDataComponents.register();
+        ModItems.register();
+        ModMenuTypes.register();
+        ModCreativeTabs.register();
+        GalacticNetwork.init();
+        GameplayDataManager.register();
+        ConquestRuntimeEvents.register();
+        GalacticRuntimeEvents.register();
 
-    private void registerSpawnPlacements(RegisterSpawnPlacementsEvent event) {
-        ModEntityTypes.recruits().forEach(holder -> registerRecruitSpawnPlacement(event, holder.get()));
-    }
-
-    private static void registerRecruitAttributes(
-            EntityAttributeCreationEvent event,
-            EntityType<? extends GalacticRecruitEntity> entityType
-    ) {
-        event.put(entityType, GalacticRecruitEntity.createAttributes().build());
-    }
-
-    private static void registerRecruitSpawnPlacement(
-            RegisterSpawnPlacementsEvent event,
-            EntityType<GalacticRecruitEntity> entityType
-    ) {
-        event.register(
+        ModEntityTypes.recruits().forEach(entityType -> EntityAttributeRegistry.register(
+                entityType,
+                GalacticRecruitEntity::createAttributes));
+        ModEntityTypes.recruits().forEach(entityType -> SpawnPlacementsRegistry.register(
                 entityType,
                 SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                FactionNaturalSpawnRules::check,
-                RegisterSpawnPlacementsEvent.Operation.REPLACE);
+                FactionNaturalSpawnRules::check));
+
+        Config.load();
+        if (Config.LOG_STARTUP.getAsBoolean()) {
+            LOGGER.info("Galactic Wars: Clone Wars common foundation loaded.");
+        }
     }
 }

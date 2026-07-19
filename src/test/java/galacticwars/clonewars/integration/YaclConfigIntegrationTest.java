@@ -10,34 +10,44 @@ public final class YaclConfigIntegrationTest {
 
     public static void main(String[] args) throws IOException {
         String gradleProperties = read("gradle.properties");
-        String buildGradle = read("build.gradle");
-        String metadata = read("src/main/templates/META-INF/neoforge.mods.toml");
-        String client = read("src/main/java/galacticwars/clonewars/GalacticWarsClient.java");
+        String rootBuild = read("build.gradle.kts");
+        String fabricBuild = read("fabric/build.gradle.kts");
+        String neoForgeBuild = read("neoforge/build.gradle.kts");
+        String fabricMetadata = read("fabric/src/main/resources/fabric.mod.json");
+        String neoForgeMetadata = read("neoforge/src/main/resources/META-INF/neoforge.mods.toml");
+        String fabricClient = read("fabric/src/main/kotlin/galacticwars/clonewars/fabric/GalacticWarsFabricClient.kt");
+        String neoForgeClient = read("neoforge/src/main/kotlin/galacticwars/clonewars/neoforge/GalacticWarsNeoForgeClient.kt");
         String screen = read("src/main/java/galacticwars/clonewars/client/gui/GalacticWarsConfigScreen.java");
         String language = read("src/main/resources/assets/galacticwars/lang/en_us.json");
         String notice = read("NOTICE.md");
 
-        assertContains(gradleProperties, "yacl_version=3.9.5+26.2-neoforge", "YACL version");
-        assertContains(buildGradle, "https://maven.isxander.dev/releases", "YACL Maven repository");
-        assertContains(buildGradle,
-                "compileOnly(\"dev.isxander:yet-another-config-lib:${yacl_version}\")",
-                "compile-only YACL dependency");
-        assertContains(buildGradle,
-                "localRuntime(\"dev.isxander:yet-another-config-lib:${yacl_version}\")",
-                "development YACL runtime");
-        assertContains(buildGradle, "transitive = false", "embedded YACL dependency handling");
-        assertContains(metadata, "modId=\"yet_another_config_lib_v3\"", "YACL mod dependency");
-        assertContains(metadata, "versionRange=\"[${yacl_version},)\"", "YACL version range");
-        assertContains(metadata, "side=\"CLIENT\"", "client-only dependency side");
-        assertContains(client, "GalacticWarsConfigScreen.create(parent)", "YACL screen factory");
+        assertContains(gradleProperties, "yaclVersion=3.9.5+26.2", "YACL version");
+        assertContains(rootBuild, "https://maven.isxander.dev/releases", "YACL Maven repository");
+        assertContains(fabricBuild,
+                "implementation(\"dev.isxander:yet-another-config-lib:$yaclVersion-fabric\")",
+                "Fabric YACL runtime");
+        assertContains(neoForgeBuild,
+                "implementation(\"dev.isxander:yet-another-config-lib:$yaclVersion-neoforge\")",
+                "NeoForge YACL runtime");
+        assertContains(fabricMetadata,
+                "\"yet_another_config_lib_v3\": \">=${yacl_version}\"",
+                "Fabric required YACL dependency");
+        assertNotContains(fabricMetadata, "\"recommends\"", "optional Fabric YACL metadata");
+        assertContains(neoForgeMetadata, "modId=\"yet_another_config_lib_v3\"",
+                "NeoForge YACL dependency");
+        assertContains(neoForgeMetadata, "versionRange=\"[${yacl_version},)\"", "YACL version range");
+        assertContains(neoForgeMetadata, "side=\"CLIENT\"", "client-only dependency side");
+        assertNotContains(neoForgeMetadata, "type=\"optional\"", "optional NeoForge YACL metadata");
+        assertContains(fabricClient, "GalacticWarsConfigScreen.create(parent)", "Fabric YACL screen factory");
+        assertContains(neoForgeClient, "GalacticWarsConfigScreen.create(parent)", "NeoForge YACL screen factory");
         assertContains(screen, "YetAnotherConfigLib.createBuilder()", "YACL builder");
-        assertContains(screen, ".save(Config::save)", "NeoForge config persistence");
+        assertContains(screen, ".save(Config::save)", "loader-neutral config persistence");
 
         for (String option : new String[]{
                 "log_startup",
-                "enable_content_seed",
                 "allow_blaster_friendly_fire",
                 "allow_blaster_pvp",
+                "allow_class_pvp",
                 "allow_force_pvp"
         }) {
             assertContains(screen, "\"" + option + "\"", option + " binding");
@@ -45,7 +55,8 @@ public final class YaclConfigIntegrationTest {
         }
 
         assertContains(notice, "YetAnotherConfigLib", "YACL license notice");
-        assertNotContains(buildGradle, "jarJar(\"dev.isxander:yet-another-config-lib", "bundled YACL");
+        assertNotContains(fabricBuild + neoForgeBuild,
+                "jarJar(\"dev.isxander:yet-another-config-lib", "bundled YACL");
 
         System.out.println("YaclConfigIntegrationTest passed");
     }

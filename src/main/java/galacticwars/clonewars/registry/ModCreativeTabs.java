@@ -1,22 +1,20 @@
 package galacticwars.clonewars.registry;
 
 import galacticwars.clonewars.GalacticWars;
+import dev.architectury.registry.CreativeTabRegistry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import dev.architectury.registry.registries.DeferredRegister;
+import dev.architectury.registry.registries.RegistrySupplier;
 
 public final class ModCreativeTabs {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
-            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, GalacticWars.MODID);
+            DeferredRegister.create(GalacticWars.MODID, Registries.CREATIVE_MODE_TAB);
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> GALACTIC =
-            CREATIVE_MODE_TABS.register("galactic", () -> CreativeModeTab.builder()
+    public static final RegistrySupplier<CreativeModeTab> GALACTIC =
+            CREATIVE_MODE_TABS.register("galactic", () -> CreativeTabRegistry.create(builder -> builder
                     .title(Component.translatable("itemGroup.galacticwars.galactic"))
-                    .withTabsBefore(CreativeModeTabs.COMBAT)
                     .icon(() -> ModItems.BESKAR_INGOT.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.DURACRETE.get());
@@ -27,6 +25,10 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.NIGHTSISTER_WEAVE_SAPLING.get());
                         output.accept(ModItems.COMMAND_CENTER.get());
                         output.accept(ModItems.CONTROL_BEACON.get());
+                        output.accept(ModItems.TATOOINE_SAND.get());
+                        output.accept(ModItems.GEONOSIS_ROCK.get());
+                        output.accept(ModItems.KAMINO_PANEL.get());
+                        output.accept(ModItems.CORUSCANT_PANEL.get());
                         output.accept(ModItems.BESKAR_INGOT.get());
                         output.accept(ModItems.RAW_BESKAR.get());
                         output.accept(ModItems.CREDIT_CHIP.get());
@@ -88,13 +90,12 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.MANDALORIAN_CLANSPERSON_SPAWN_EGG.get());
                         output.accept(ModItems.HUTT_CIVILIAN_SPAWN_EGG.get());
                         output.accept(ModItems.NIGHTSISTER_CIVILIAN_SPAWN_EGG.get());
-                    })
-                    .build());
+                    })));
 
     private ModCreativeTabs() {
     }
 
-    public static void register(IEventBus modEventBus) {
-        CREATIVE_MODE_TABS.register(modEventBus);
+    public static void register() {
+        CREATIVE_MODE_TABS.register();
     }
 }

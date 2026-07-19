@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.architectury.registry.ReloadListenerRegistry;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.ability.AbilityActivation;
@@ -30,6 +32,7 @@ import galacticwars.clonewars.army.ArmyUnitRole;
 import galacticwars.clonewars.classes.ProgressionRequirement;
 import galacticwars.clonewars.classes.UnitClassDefinition;
 import galacticwars.clonewars.classes.UnitClassId;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.faction.FactionCatalog;
 import galacticwars.clonewars.faction.FactionDefinition;
 import galacticwars.clonewars.faction.FactionId;
@@ -45,21 +48,18 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
-import net.neoforged.neoforge.resource.ListenerKey;
 
-@EventBusSubscriber(modid = GalacticWars.MODID)
 public final class GameplayDataManager extends SimplePreparableReloadListener<GameplayDataManager.LoadResult> {
     private static final Gson GSON = new Gson();
     private static final GameplayDataManager INSTANCE = new GameplayDataManager();
-    private static final ListenerKey<GameplayDataManager> LISTENER_KEY = ListenerKey.create(
-            Identifier.fromNamespaceAndPath(GalacticWars.MODID, "gameplay_data"));
+    private static final Identifier LISTENER_ID =
+            Identifier.fromNamespaceAndPath(GalacticWars.MODID, "gameplay_data");
+    private static final AtomicBoolean REGISTERED = new AtomicBoolean();
     private static volatile GameplayDataSnapshot snapshot = defaults();
     private static volatile long generation;
 
@@ -74,29 +74,26 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return generation;
     }
 
-    @SubscribeEvent
-    public static void addReloadListener(AddServerReloadListenersEvent event) {
-        event.addRetainedListener(LISTENER_KEY, INSTANCE);
+    public static void register() {
+        if (REGISTERED.compareAndSet(false, true)) {
+            ReloadListenerRegistry.register(PackType.SERVER_DATA, INSTANCE, LISTENER_ID);
+        }
     }
 
     @Override
     protected LoadResult prepare(ResourceManager manager, ProfilerFiller profiler) {
         try {
-            Map<FactionId, FactionDefinition> factions = loadFactions(manager);
-            List<ArmyUnitDefinition> units = loadUnits(manager, factions);
-            Map<AbilityId, AbilityDefinition> abilities = loadAbilities(manager);
-            Map<UnitClassId, UnitClassDefinition> unitClasses = loadUnitClasses(
-                    manager, factions, units, abilities);
-            Map<FactionId, FactionRuntimePolicy> factionPolicies = loadFactionPolicies(manager, factions);
-            Map<String, KingdomBaseBlueprint> blueprints = loadBlueprints(manager);
-            Map<String, CivilianArchetypeDefinition> civilianArchetypes = loadCivilianArchetypes(
-                    manager, factions);
-            Map<String, OverworldFactionSpawnProfile> overworldSpawnProfiles = loadOverworldSpawnProfiles(
-                    manager, factions, units, civilianArchetypes);
-            LaunchContentDefinitions launchContent = LaunchContentValidator.load(
-                    manager,
-                    factions.keySet().stream().map(FactionId::path)
-                            .collect(java.util.stream.Collectors.toSet()));
+            PreparedGameplayData prepared = GameplayDataReloadPipeline.load(manager);
+            Map<FactionId, FactionDefinition> factions = prepared.getFactions();
+            List<ArmyUnitDefinition> units = prepared.getUnits();
+            Map<AbilityId, AbilityDefinition> abilities = prepared.getAbilities();
+            Map<UnitClassId, UnitClassDefinition> unitClasses = prepared.getUnitClasses();
+            Map<FactionId, FactionRuntimePolicy> factionPolicies = prepared.getFactionPolicies();
+            Map<String, KingdomBaseBlueprint> blueprints = prepared.getBlueprints();
+            Map<String, CivilianArchetypeDefinition> civilianArchetypes = prepared.getCivilianArchetypes();
+            Map<String, OverworldFactionSpawnProfile> overworldSpawnProfiles =
+                    prepared.getOverworldSpawnProfiles();
+            LaunchContentDefinitions launchContent = prepared.getLaunchContent();
             validateRelations(factions);
             LinkedHashMap<String, ArmyUnitId> byEntityType = new LinkedHashMap<>();
             for (ArmyUnitDefinition unit : units) {
@@ -201,7 +198,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         }
     }
 
-    private static Map<FactionId, FactionDefinition> loadFactions(ResourceManager manager) throws IOException {
+    static Map<FactionId, FactionDefinition> loadFactions(ResourceManager manager) throws IOException {
         LinkedHashMap<FactionId, FactionDefinition> definitions = new LinkedHashMap<>();
         for (ResourceJson resource : resources(manager, "galacticwars/factions")) {
             JsonObject json = resource.json();
@@ -242,7 +239,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return definitions;
     }
 
-    private static List<ArmyUnitDefinition> loadUnits(
+    static List<ArmyUnitDefinition> loadUnits(
             ResourceManager manager,
             Map<FactionId, FactionDefinition> factions
     ) throws IOException {
@@ -289,7 +286,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return List.copyOf(definitions);
     }
 
-    private static Map<AbilityId, AbilityDefinition> loadAbilities(ResourceManager manager) throws IOException {
+    static Map<AbilityId, AbilityDefinition> loadAbilities(ResourceManager manager) throws IOException {
         LinkedHashMap<AbilityId, AbilityDefinition> definitions = new LinkedHashMap<>();
         for (ResourceJson resource : resources(manager, "galacticwars/abilities")) {
             requireSchema(resource, 1);
@@ -324,7 +321,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return Map.copyOf(definitions);
     }
 
-    private static Map<UnitClassId, UnitClassDefinition> loadUnitClasses(
+    static Map<UnitClassId, UnitClassDefinition> loadUnitClasses(
             ResourceManager manager,
             Map<FactionId, FactionDefinition> factions,
             List<ArmyUnitDefinition> units,
@@ -391,7 +388,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return Map.copyOf(definitions);
     }
 
-    private static Map<FactionId, FactionRuntimePolicy> loadFactionPolicies(
+    static Map<FactionId, FactionRuntimePolicy> loadFactionPolicies(
             ResourceManager manager,
             Map<FactionId, FactionDefinition> factions
     ) throws IOException {
@@ -407,6 +404,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
                         factionId,
                         Set.copyOf(strings(json, "traits")),
                         integerMap(json, "modifiers", resource.id()));
+                FactionBalanceService.resolve(factions.get(factionId), policy);
                 if (policies.putIfAbsent(factionId, policy) != null) {
                     throw new IllegalArgumentException("Duplicate faction policy for " + factionId);
                 }
@@ -420,7 +418,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return Map.copyOf(policies);
     }
 
-    private static Map<String, KingdomBaseBlueprint> loadBlueprints(ResourceManager manager) throws IOException {
+    static Map<String, KingdomBaseBlueprint> loadBlueprints(ResourceManager manager) throws IOException {
         LinkedHashMap<String, KingdomBaseBlueprint> blueprints = new LinkedHashMap<>();
         for (ResourceJson resource : resources(manager, "galacticwars/blueprints")) {
             KingdomBaseBlueprint blueprint = parseBlueprint(resource.id(), resource.json());
@@ -434,7 +432,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return blueprints;
     }
 
-    private static Map<String, OverworldFactionSpawnProfile> loadOverworldSpawnProfiles(
+    static Map<String, OverworldFactionSpawnProfile> loadOverworldSpawnProfiles(
             ResourceManager manager,
             Map<FactionId, FactionDefinition> factions,
             List<ArmyUnitDefinition> units,
@@ -488,7 +486,7 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
         return Map.copyOf(profiles);
     }
 
-    private static Map<String, CivilianArchetypeDefinition> loadCivilianArchetypes(
+    static Map<String, CivilianArchetypeDefinition> loadCivilianArchetypes(
             ResourceManager manager,
             Map<FactionId, FactionDefinition> factions
     ) throws IOException {
@@ -590,8 +588,10 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
     private static List<ResourceJson> resources(ResourceManager manager, String path) throws IOException {
         FileToIdConverter converter = FileToIdConverter.json(path);
         ArrayList<ResourceJson> result = new ArrayList<>();
-        for (Map.Entry<Identifier, Resource> entry : converter.listMatchingResourcesFromNamespace(
-                manager, GalacticWars.MODID).entrySet()) {
+        for (Map.Entry<Identifier, Resource> entry : converter.listMatchingResources(manager).entrySet()) {
+            if (!entry.getKey().getNamespace().equals(GalacticWars.MODID)) {
+                continue;
+            }
             try (BufferedReader reader = entry.getValue().openAsReader()) {
                 result.add(new ResourceJson(converter.fileToId(entry.getKey()), JsonParser.parseReader(reader).getAsJsonObject()));
             } catch (RuntimeException exception) {

@@ -15,4 +15,8 @@ public enum BuildProjectState {
     public static BuildProjectState byId(String id) {
         return valueOf(id.trim().toUpperCase(Locale.ROOT));
     }
+
+    public boolean terminal() {
+        return this == COMPLETED || this == CANCELLED;
+    }
 }

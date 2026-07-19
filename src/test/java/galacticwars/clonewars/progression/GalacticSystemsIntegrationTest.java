@@ -11,14 +11,15 @@ public final class GalacticSystemsIntegrationTest {
     private static final LaunchContentDefinitions CONTENT = content();
 
     public static void main(String[] args) {
-        LaunchContentRuntime.install(CONTENT, List.of("galacticwars:republic"), Map.of());
+        LaunchContentRuntime.install(CONTENT, List.of("galacticwars:republic"),
+                Map.of("republic", List.of("clone_trooper")));
         UUID player = UUID.randomUUID();
         ProgressionState state = ProgressionState.create(player);
         state = event(state, ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic", 1);
         state = event(state, ProgressionEventType.BUILDING_COMPLETED, "command_center", 1);
         state = event(state, ProgressionEventType.BUILDING_COMPLETED, "forward_base", 1);
         state = event(state, ProgressionEventType.RECRUIT_HIRED, "galacticwars:clone_trooper", 1);
-        state = event(state, ProgressionEventType.DELIVERY_COMPLETED, "starter_delivery", 1);
+        state = event(state, ProgressionEventType.DELIVERY_COMPLETED, "courier/" + UUID.randomUUID(), 1);
         state = event(state, ProgressionEventType.PLANET_VISITED, "kamino", 1);
         assertTrue(!state.unlocks().contains("vehicle_crafting"),
                 "vehicle acquisition test starts without Supply Depot crafting access");

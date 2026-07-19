@@ -1,1 +1,6 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"galacticwars:item/energy_cell"}}
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "galacticwars:item/barc_speeder_deployment_kit"
+  }
+}

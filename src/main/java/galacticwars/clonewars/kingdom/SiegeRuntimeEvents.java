@@ -1,6 +1,5 @@
 package galacticwars.clonewars.kingdom;
 
-import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import java.util.List;
 import java.util.Set;
@@ -10,21 +9,18 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-@EventBusSubscriber(modid = GalacticWars.MODID)
+/** Loader-neutral siege simulation. */
 public final class SiegeRuntimeEvents {
     private SiegeRuntimeEvents() {
     }
 
-    @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
-        if (event.getServer().getTickCount() % 20 != 0) return;
-        KingdomSavedData data = KingdomSavedData.get(event.getServer().overworld());
+    public static void onServerTick(MinecraftServer server) {
+        if (server.getTickCount() % 20 != 0) return;
+        KingdomSavedData data = KingdomSavedData.get(server.overworld());
         for (KingdomSiege siege : data.sieges()) {
             if (siege.state() != SiegeState.ACTIVE) continue;
             KingdomClaim claim = data.kingdom(siege.defenderKingdomId()).stream()
@@ -33,7 +29,7 @@ public final class SiegeRuntimeEvents {
             if (claim == null) continue;
             ServerLevel level;
             try {
-                level = event.getServer().getLevel(ResourceKey.create(Registries.DIMENSION,
+                level = server.getLevel(ResourceKey.create(Registries.DIMENSION,
                         Identifier.parse(claim.dimensionId())));
             } catch (RuntimeException exception) {
                 continue;

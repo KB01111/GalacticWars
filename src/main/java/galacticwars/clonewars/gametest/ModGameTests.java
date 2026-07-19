@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import galacticwars.clonewars.Config;
 import galacticwars.clonewars.GalacticWars;
@@ -21,13 +22,19 @@ import galacticwars.clonewars.combat.FactionRangedWeaponService;
 import galacticwars.clonewars.combat.BlasterHeatPolicy;
 import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.combat.LightsaberDeflectionService;
+import galacticwars.clonewars.classes.ClassProgressSavedData;
+import galacticwars.clonewars.classes.ClassAbilityEffectRegistry;
+import galacticwars.clonewars.classes.PlayerClassRuntime;
 import galacticwars.clonewars.economy.CreditTransactionService;
 import galacticwars.clonewars.economy.PhysicalTradeService;
 import galacticwars.clonewars.data.GameplayDataManager;
+import galacticwars.clonewars.data.LaunchContentDefinitions;
+import galacticwars.clonewars.data.LaunchContentRuntime;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.vehicle.GalacticVehicleEntity;
 import galacticwars.clonewars.conquest.ConquestCaptureService;
 import galacticwars.clonewars.conquest.ConquestControlState;
+import galacticwars.clonewars.conquest.ConquestRuntimeEvents;
 import galacticwars.clonewars.conquest.ConquestSavedData;
 import galacticwars.clonewars.entity.RecruitSpawnEggItem;
 import galacticwars.clonewars.entity.RecruitLifecycleService;
@@ -67,6 +74,9 @@ import galacticwars.clonewars.menu.CommandCenterNavigationMenu;
 import galacticwars.clonewars.menu.FactionSelectionMenu;
 import galacticwars.clonewars.menu.MerchantTradeMenu;
 import galacticwars.clonewars.menu.MerchantTradeMenuProvider;
+import galacticwars.clonewars.network.ClassActivatePayload;
+import galacticwars.clonewars.network.ClassHudPayload;
+import galacticwars.clonewars.network.ClassSelectPayload;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionDecision;
@@ -74,6 +84,7 @@ import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.progression.ProgressionState;
 import galacticwars.clonewars.progression.ForceSavedData;
+import galacticwars.clonewars.progression.ForceAbilityRuntimeService;
 import galacticwars.clonewars.recruitment.RecruitmentAction;
 import galacticwars.clonewars.recruitment.RecruitDuty;
 import galacticwars.clonewars.recruitment.RecruitmentPaymentService;
@@ -90,10 +101,12 @@ import galacticwars.clonewars.settlement.KingdomBaseBlueprint;
 import galacticwars.clonewars.workforce.WorkerPhase;
 import galacticwars.clonewars.workforce.WorkerProfession;
 import galacticwars.clonewars.world.PlanetTravelService;
+import galacticwars.clonewars.world.PlanetTravelGameTests;
 import galacticwars.clonewars.world.PlanetArrivalService;
+import galacticwars.clonewars.world.PlanetFactionSpawnPolicy;
 import galacticwars.clonewars.world.FactionOutpostRecord;
+import galacticwars.clonewars.world.FactionOutpostMarkerService;
 import galacticwars.clonewars.world.FactionOutpostSavedData;
-import galacticwars.clonewars.world.FactionNaturalSpawnEvents;
 import galacticwars.clonewars.world.FactionNaturalSpawnRules;
 import galacticwars.clonewars.world.OverworldFactionSpawnProfile;
 import net.minecraft.core.BlockPos;
@@ -109,6 +122,7 @@ import net.minecraft.gametest.framework.FunctionGameTestInstance;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.TestData;
 import net.minecraft.gametest.framework.TestEnvironmentDefinition;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -116,10 +130,13 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.Container;
+import net.minecraft.world.entity.EntitySpawnRequest;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
@@ -141,13 +158,12 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.DispenserBlockEntity;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
-import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
-import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import net.tslat.smartbrainlib.util.BrainUtil;
@@ -156,6 +172,8 @@ public final class ModGameTests {
     private static final Identifier ENVIRONMENT = id("gameplay");
     private static final Identifier EMPTY_STRUCTURE = Identifier.withDefaultNamespace("empty");
     private static final int SMART_BRAIN_TEST_SETUP_INTERVAL = 300;
+    private static final int SMART_BRAIN_CHUNK_READY_TIMEOUT = 300;
+    private static final AtomicInteger SMART_BRAIN_AREA_SEQUENCE = new AtomicInteger();
     private static final Map<Identifier, Consumer<GameTestHelper>> TESTS = createTests();
 
     private ModGameTests() {
@@ -207,6 +225,15 @@ public final class ModGameTests {
         isolatedEnvironments.put(id("force_embodied_runtime"), event.registerEnvironment(
                         id("force_embodied_runtime_environment"),
                         new TestEnvironmentDefinition.AllOf(List.of())));
+        isolatedEnvironments.put(id("planet_faction_outpost_runtime"), event.registerEnvironment(
+                        id("planet_faction_outpost_runtime_environment"),
+                        new TestEnvironmentDefinition.AllOf(List.of())));
+        isolatedEnvironments.put(id("planet_round_trip_home"), event.registerEnvironment(
+                        id("planet_round_trip_home_environment"),
+                        new TestEnvironmentDefinition.AllOf(List.of())));
+        isolatedEnvironments.put(id("recruit_spawn_eggs"), event.registerEnvironment(
+                        id("recruit_spawn_eggs_environment"),
+                        new TestEnvironmentDefinition.AllOf(List.of())));
         List<Identifier> smartBrainRuntimeTests = List.of(
                 id("ungrouped_recruit_ranged_brain"),
                 id("ungrouped_recruit_melee_brain"),
@@ -214,6 +241,7 @@ public final class ModGameTests {
                 id("smart_brain_move_command"),
                 id("smart_brain_move_stall_recovery"),
                 id("natural_civilian_brain_runtime"),
+                id("planet_faction_outpost_runtime"),
                 id("grouped_brain_authority"),
                 id("local_recruit_protect_owner"),
                 id("command_marker_runtime"));
@@ -225,17 +253,25 @@ public final class ModGameTests {
                     id("grouped_brain_authority")).contains(testId)
                     ? 260
                     : testId.equals(id("smart_brain_follow_and_sit"))
-                            ? 360
+                            ? 720
                             : testId.equals(id("command_marker_runtime"))
                                     ? 180
                                     : testId.equals(id("vehicle_embodied_runtime"))
                                             ? 260
                                     : testId.equals(id("chapter_three_campaign_runtime"))
                                             ? 260
+                                    : testId.equals(id("planet_faction_outpost_runtime"))
+                                            ? 220
+                                    : testId.equals(id("planet_round_trip_home"))
+                                            ? 360
+                                    : testId.equals(id("natural_civilian_brain_runtime"))
+                                            ? 600
                                     : Set.of(
-                                            id("faction_selection_transaction"),
-                                            id("natural_civilian_brain_runtime")).contains(testId)
-                                            ? 160
+                                            id("local_recruit_protect_owner"),
+                                            id("ungrouped_recruit_ranged_brain"),
+                                            id("ungrouped_recruit_melee_brain"),
+                                            id("faction_selection_transaction")).contains(testId)
+                                            ? 360
                                             : 100;
             int runtimeTestIndex = smartBrainRuntimeTests.indexOf(testId);
             TestData<Holder<TestEnvironmentDefinition<?>>> data = new TestData<>(
@@ -272,10 +308,18 @@ public final class ModGameTests {
         tests.put(id("kingdom_governance_persistence"), ModGameTests::kingdomGovernancePersistence);
         tests.put(id("kingdom_multiplayer_runtime"), ModGameTests::kingdomMultiplayerRuntime);
         tests.put(id("overworld_faction_outpost_runtime"), ModGameTests::overworldFactionOutpostRuntime);
+        tests.put(id("chunk_generation_rejection_serialization"),
+                ModGameTests::chunkGenerationRejectionSerialization);
+        tests.put(id("chunk_generation_initialization_serialization"),
+                ModGameTests::chunkGenerationInitializationSerialization);
+        tests.put(id("natural_rejection_serialization"),
+                ModGameTests::naturalRejectionSerialization);
+        tests.put(id("planet_faction_outpost_runtime"), ModGameTests::planetFactionOutpostRuntime);
         tests.put(id("physical_trade_transaction"), ModGameTests::physicalTradeTransaction);
         tests.put(id("faction_selection_transaction"), ModGameTests::factionSelectionTransaction);
         tests.put(id("progression_runtime_adapter"), ModGameTests::progressionRuntimeAdapter);
         tests.put(id("class_ability_runtime_data"), ModGameTests::classAbilityRuntimeData);
+        tests.put(id("player_class_embodied_runtime"), ModGameTests::playerClassEmbodiedRuntime);
         tests.put(id("vehicle_runtime_contract"), ModGameTests::vehicleRuntimeContract);
         tests.put(id("vehicle_embodied_runtime"), ModGameTests::vehicleEmbodiedRuntime);
         tests.put(id("force_embodied_runtime"), ModGameTests::forceEmbodiedRuntime);
@@ -306,8 +350,183 @@ public final class ModGameTests {
         tests.put(id("external_library_runtime"), ModGameTests::externalLibraryRuntime);
         tests.put(id("planet_travel_failure_atomicity"), ModGameTests::planetTravelFailureAtomicity);
         tests.put(id("planet_arrival_runtime"), ModGameTests::planetArrivalRuntime);
+        tests.put(id("planet_round_trip_home"), PlanetTravelGameTests::roundTripHome);
         tests.put(id("army_planet_transfer_transaction"), ModGameTests::armyPlanetTransferTransaction);
         return Map.copyOf(tests);
+    }
+
+    private static void chunkGenerationRejectionSerialization(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos position = helper.absolutePos(new BlockPos(1, 1, 1));
+        GalacticRecruitEntity rejected = ModEntityTypes.JEDI_KNIGHT.get().create(
+                level, EntitySpawnReason.NATURAL);
+        if (rejected == null) {
+            helper.fail("Could not create the rejected chunk-generation recruit fixture");
+            return;
+        }
+        rejected.setPos(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D);
+        rejected.finalizeSpawn(
+                level,
+                level.getCurrentDifficultyAt(position),
+                EntitySpawnReason.CHUNK_GENERATION,
+                null);
+        if (rejected.isRemoved() || !rejected.isPendingNaturalSpawnInitialization()) {
+            helper.fail("Rejected chunk-generation recruit was initialized before serialization");
+            return;
+        }
+
+        TagValueOutput output = TagValueOutput.createWithContext(
+                ProblemReporter.DISCARDING, level.registryAccess());
+        if (!rejected.save(output)) {
+            helper.fail("Rejected chunk-generation recruit did not remain serializable");
+            return;
+        }
+        CompoundTag serialized = output.buildResult();
+        String typeId = serialized.getString("id").orElse("");
+        if (!typeId.equals("galacticwars:jedi_knight")) {
+            helper.fail("Rejected chunk-generation recruit serialized without its type id: "
+                    + serialized);
+            return;
+        }
+
+        Entity loaded = EntityType.loadEntityRecursive(
+                serialized,
+                level,
+                new EntitySpawnRequest(EntitySpawnReason.LOAD, false),
+                entity -> entity);
+        if (!(loaded instanceof GalacticRecruitEntity pending)
+                || !pending.isPendingNaturalSpawnInitialization()) {
+            helper.fail("Deferred natural-spawn initialization did not survive entity persistence");
+            return;
+        }
+        if (!level.addFreshEntity(pending)) {
+            helper.fail("Could not add the persisted rejected recruit for first-tick cleanup");
+            return;
+        }
+        pending.tick();
+        if (!pending.isRemoved()) {
+            helper.fail("Persisted rejected recruit survived its first server tick");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void chunkGenerationInitializationSerialization(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos position = helper.absolutePos(new BlockPos(3, 1, 1));
+        FactionOutpostSavedData outposts = FactionOutpostSavedData.get(level);
+        GalacticRecruitEntity generated = ModEntityTypes.CLONE_TROOPER.get().create(
+                level, EntitySpawnReason.NATURAL);
+        if (generated == null) {
+            helper.fail("Could not create the accepted chunk-generation recruit fixture");
+            return;
+        }
+        generated.setPos(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D);
+        UUID recruitId = generated.getUUID();
+        generated.finalizeSpawn(
+                level,
+                level.getCurrentDifficultyAt(position),
+                EntitySpawnReason.CHUNK_GENERATION,
+                null);
+        if (generated.isRemoved()
+                || !generated.isPendingNaturalSpawnInitialization()
+                || outposts.outpostForNpc(recruitId).isPresent()) {
+            helper.fail("Accepted chunk-generation recruit mutated faction state during worldgen");
+            return;
+        }
+
+        TagValueOutput output = TagValueOutput.createWithContext(
+                ProblemReporter.DISCARDING, level.registryAccess());
+        if (!generated.save(output)) {
+            helper.fail("Accepted chunk-generation recruit did not remain serializable");
+            return;
+        }
+        CompoundTag serialized = output.buildResult();
+        if (!serialized.getString("id").orElse("").equals("galacticwars:clone_trooper")) {
+            helper.fail("Accepted chunk-generation recruit serialized without its type id: "
+                    + serialized);
+            return;
+        }
+
+        Entity loaded = EntityType.loadEntityRecursive(
+                serialized,
+                level,
+                new EntitySpawnRequest(EntitySpawnReason.LOAD, false),
+                entity -> entity);
+        if (!(loaded instanceof GalacticRecruitEntity pending)
+                || !pending.isPendingNaturalSpawnInitialization()
+                || outposts.outpostForNpc(recruitId).isPresent()) {
+            helper.fail("Accepted recruit initialized before its first live server tick");
+            return;
+        }
+        if (!level.addFreshEntity(pending)) {
+            helper.fail("Could not add the persisted accepted recruit for live initialization");
+            return;
+        }
+        pending.tick();
+        FactionOutpostRecord assigned = outposts.outpostForNpc(recruitId).orElse(null);
+        if (pending.isRemoved()
+                || pending.isPendingNaturalSpawnInitialization()
+                || assigned == null
+                || pending.getFactionOutpostId() == null
+                || !pending.getFactionOutpostId().equals(assigned.id())) {
+            helper.fail("Accepted recruit was not assigned on its first live server tick");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void naturalRejectionSerialization(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos position = helper.absolutePos(new BlockPos(1, 1, 3));
+        GalacticRecruitEntity rejected = ModEntityTypes.JEDI_KNIGHT.get().create(
+                level, EntitySpawnReason.NATURAL);
+        if (rejected == null) {
+            helper.fail("Could not create the rejected live natural-spawn fixture");
+            return;
+        }
+        rejected.setPos(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D);
+        rejected.finalizeSpawn(
+                level,
+                level.getCurrentDifficultyAt(position),
+                EntitySpawnReason.NATURAL,
+                null);
+        if (rejected.isRemoved() || !rejected.isPendingNaturalSpawnInitialization()) {
+            helper.fail("Live natural spawn initialized before vanilla completed its add path");
+            return;
+        }
+
+        TagValueOutput output = TagValueOutput.createWithContext(
+                ProblemReporter.DISCARDING, level.registryAccess());
+        if (!rejected.save(output)) {
+            helper.fail("Rejected live natural spawn did not remain serializable");
+            return;
+        }
+        CompoundTag serialized = output.buildResult();
+        if (!serialized.getString("id").orElse("").equals("galacticwars:jedi_knight")) {
+            helper.fail("Rejected live natural spawn serialized without its type id: " + serialized);
+            return;
+        }
+        Entity loaded = EntityType.loadEntityRecursive(
+                serialized,
+                level,
+                new EntitySpawnRequest(EntitySpawnReason.LOAD, false),
+                entity -> entity);
+        if (!(loaded instanceof GalacticRecruitEntity pending)
+                || !pending.isPendingNaturalSpawnInitialization()) {
+            helper.fail("Deferred live natural-spawn initialization did not survive persistence");
+            return;
+        }
+        if (!level.addFreshEntity(pending)) {
+            helper.fail("Could not add the persisted rejected live natural spawn");
+            return;
+        }
+        pending.tick();
+        if (!pending.isRemoved()) {
+            helper.fail("Rejected live natural spawn survived its first server tick");
+            return;
+        }
+        helper.succeed();
     }
 
     private static void classAbilityRuntimeData(GameTestHelper helper) {
@@ -339,10 +558,24 @@ public final class ModGameTests {
         var replay = recruit.activateClassAbility(
                 "galacticwars:suppressive_fire", helper.getLevel().getGameTime(),
                 true, 8.0D, false);
+        GalacticRecruitEntity failedEffectRecruit = helper.spawn(
+                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(3, 1, 2));
+        failedEffectRecruit.initializeFromSpawnEgg();
+        var failedEffect = failedEffectRecruit.activateClassAbility(
+                "galacticwars:suppressive_fire",
+                helper.getLevel().getGameTime(),
+                true,
+                8.0D,
+                false,
+                () -> false);
         if (!accepted.accepted()
                 || accepted.state().resource() != 85
                 || replay.accepted()
-                || !replay.reason().equals("ability_cooldown")) {
+                || !replay.reason().equals("ability_cooldown")
+                || failedEffect.accepted()
+                || !failedEffect.reason().equals("effect_failed")
+                || failedEffectRecruit.classProgressState().resource() != 100
+                || !failedEffectRecruit.classProgressState().cooldownEnds().isEmpty()) {
             helper.fail("Recruit class activation was not server-authoritative and cooldown-safe");
             return;
         }
@@ -372,12 +605,33 @@ public final class ModGameTests {
 
     private static void conquestControlAuthority(GameTestHelper helper) {
         String region = "gametest_" + UUID.randomUUID();
+        BlockPos beacon = helper.absolutePos(new BlockPos(4, 2, 4));
         ConquestControlState state = new ConquestControlState(region,
-                helper.getLevel().dimension().identifier().toString(), 4, 2, 4,
+                helper.getLevel().dimension().identifier().toString(),
+                beacon.getX(), beacon.getY(), beacon.getZ(),
                 "galacticwars:republic", UUID.randomUUID().toString(), "", 120, 3L);
         ConquestSavedData data = ConquestSavedData.get(helper.getLevel());
         data.put(state);
-        if (!data.state(region).filter(state::equals).isPresent()) {
+        helper.getLevel().setBlockAndUpdate(beacon, Blocks.AIR.defaultBlockState());
+        var definition = new LaunchContentDefinitions.ConquestRegionDefinition(
+                region, "tatooine", 48, 120, 10,
+                beacon.getX(), beacon.getZ(), 12, "hutt_cartel");
+        var missingBeacon = ConquestCaptureService.tick(
+                helper.getLevel(),
+                definition,
+                beacon);
+        boolean restored = ConquestRuntimeEvents.ensureBeaconPresent(helper.getLevel(), beacon);
+        BlockPos occupiedLandmark = beacon.offset(1, 0, 0);
+        helper.getLevel().setBlockAndUpdate(occupiedLandmark, Blocks.OBSIDIAN.defaultBlockState());
+        boolean overwroteOccupiedLandmark = ConquestRuntimeEvents.ensureBeaconPresent(
+                helper.getLevel(), occupiedLandmark);
+        if (!data.state(region).filter(state::equals).isPresent()
+                || missingBeacon.accepted()
+                || !missingBeacon.reason().equals("beacon_missing")
+                || !restored
+                || !helper.getLevel().getBlockState(beacon).is(ModBlocks.CONTROL_BEACON.get())
+                || overwroteOccupiedLandmark
+                || !helper.getLevel().getBlockState(occupiedLandmark).is(Blocks.OBSIDIAN)) {
             helper.fail("Conquest control was not retained by authoritative saved data");
             return;
         }
@@ -409,7 +663,18 @@ public final class ModGameTests {
         BlockPos hallPos = isolatedCapital(helper, 6);
         CommandCenterBlockEntity hall = placeCommandCenter(helper, hallPos);
         ServerPlayer owner = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
-        owner.setPos(hall.getBlockPos().getX() + 0.5D, hall.getBlockPos().getY(), hall.getBlockPos().getZ() + 0.5D);
+        if (!owner.teleportTo(
+                helper.getLevel(),
+                hall.getBlockPos().getX() + 0.5D,
+                hall.getBlockPos().getY(),
+                hall.getBlockPos().getZ() + 0.5D,
+                Set.of(),
+                0.0F,
+                0.0F,
+                true)) {
+            helper.fail("Faction selection setup could not load the isolated Command Center chunk");
+            return;
+        }
         if (!hall.claim(owner)) {
             helper.fail("Faction selection setup could not claim the Command Center");
             return;
@@ -542,8 +807,8 @@ public final class ModGameTests {
 
         CommandCenterNavigationMenu navigation = new CommandCenterNavigationMenu(
                 0, owner.getInventory());
-        if (!navigation.planetIds().equals(GameplayDataManager.snapshot().launchContent().planetIds())) {
-            helper.fail("Navigation menu did not capture the authoritative planet snapshot");
+        if (!navigation.destinationIds().equals(PlanetTravelService.navigationDestinations())) {
+            helper.fail("Navigation menu did not capture the authoritative destination snapshot");
             return;
         }
 
@@ -808,7 +1073,7 @@ public final class ModGameTests {
         helper.onEachTick(() -> {
             if (phase[0] == 0) {
                 if (helper.getLevel().getEntity(recruit.getUUID()) != recruit) {
-                    if (helper.getTick() - indexWaitStartedTick >= 120L) {
+                    if (helper.getTick() - indexWaitStartedTick >= SMART_BRAIN_CHUNK_READY_TIMEOUT) {
                         phase[0] = 4;
                         helper.fail("SmartBrain companion never entered the server entity index");
                     }
@@ -1042,8 +1307,8 @@ public final class ModGameTests {
         GalacticRecruitEntity recruit = helper.spawn(
                 ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(2, 1, 2));
         if (!net.neoforged.fml.ModList.get().isLoaded("smartbrainlib")
-                || !net.neoforged.fml.ModList.get().isLoaded("framework")) {
-            helper.fail("Required SmartBrainLib or Framework runtime was not discovered");
+                || !net.neoforged.fml.ModList.get().isLoaded("architectury")) {
+            helper.fail("Required SmartBrainLib or Architectury runtime was not discovered");
             return;
         }
         if (!(recruit.getBrain() instanceof net.tslat.smartbrainlib.api.internal.SmartBrain<?>)) {
@@ -1061,7 +1326,7 @@ public final class ModGameTests {
         }
         Identifier expectedChannel = Identifier.fromNamespaceAndPath("galacticwars", "main");
         if (!galacticwars.clonewars.network.GalacticNetwork.CHANNEL.id().equals(expectedChannel)) {
-            helper.fail("Framework channel was not built with the galacticwars:main identifier");
+            helper.fail("Architectury channel facade did not expose the galacticwars:main identifier");
             return;
         }
         if (!codecRoundTrips(
@@ -1084,7 +1349,7 @@ public final class ModGameTests {
                                 7,
                                 populatedDashboard(helper.getLevel().getGameTime())),
                         galacticwars.clonewars.network.CommandCenterStatePayload.STREAM_CODEC)) {
-            helper.fail("A Framework message codec did not round-trip cleanly");
+            helper.fail("An Architectury custom-payload codec did not round-trip cleanly");
             return;
         }
         helper.succeed();
@@ -1113,7 +1378,16 @@ public final class ModGameTests {
         UUID foreignKingdomId = UUID.randomUUID();
         return new CommandCenterDashboardState(
                 Math.max(0L, gameTime), true, actorId, kingdomId, "galacticwars:republic", "owner",
-                120, 40, true, 3, 8, 1, 1, true, true, 2, 3, 1,
+                120, 40, true,
+                CommandCenterDashboardState.ActionAvailability.accepted(),
+                List.of(new CommandCenterDashboardState.VehicleFabricationSummary(
+                        "barc_speeder",
+                        CommandCenterDashboardState.ActionAvailability.rejected(
+                                "missing_materials"),
+                        32,
+                        List.of(new CommandCenterDashboardState.StockRequirementSummary(
+                                "galacticwars:duracrete", 16, 4)))),
+                3, 8, 1, 1, true, true, 2, 3, 1,
                 List.of(candidateId),
                 List.of(new CommandCenterDashboardState.ClaimSummary(
                         UUID.randomUUID(), "minecraft:overworld", 2, 3, 9, true)),
@@ -1164,9 +1438,8 @@ public final class ModGameTests {
                 helper.getLevel(), owner,
                 new ItemStack(ModItems.ENERGY_CELL.get()),
                 new ItemStack(ModItems.DC15_BLASTER.get()));
-        ProjectileImpactEvent impact = new ProjectileImpactEvent(bolt, new EntityHitResult(recruit));
-        BlasterCombatEvents.onProjectileImpact(impact);
-        if (!impact.isCanceled() || !bolt.isRemoved()) {
+        boolean ownerHitBlocked = BlasterCombatEvents.handleProjectileImpact(bolt, recruit);
+        if (!ownerHitBlocked || !bolt.isRemoved()) {
             helper.fail("Owned recruit was not protected from its owner's blaster bolt");
             return;
         }
@@ -1178,9 +1451,8 @@ public final class ModGameTests {
                 helper.getLevel(), squadmate,
                 new ItemStack(ModItems.ENERGY_CELL.get()),
                 new ItemStack(ModItems.DC15_BLASTER.get()));
-        ProjectileImpactEvent recruitImpact = new ProjectileImpactEvent(recruitBolt, new EntityHitResult(recruit));
-        BlasterCombatEvents.onProjectileImpact(recruitImpact);
-        if (!recruitImpact.isCanceled() || !recruitBolt.isRemoved()) {
+        boolean recruitHitBlocked = BlasterCombatEvents.handleProjectileImpact(recruitBolt, recruit);
+        if (!recruitHitBlocked || !recruitBolt.isRemoved()) {
             helper.fail("Same-owner squadmate was not protected from a recruit blaster bolt");
             return;
         }
@@ -1188,17 +1460,14 @@ public final class ModGameTests {
                 helper.getLevel(), squadmate,
                 new ItemStack(Items.ARROW),
                 new ItemStack(ModItems.NIGHTSISTER_BOW.get()));
-        ProjectileImpactEvent bowImpact = new ProjectileImpactEvent(bowArrow, new EntityHitResult(recruit));
-        BlasterCombatEvents.onProjectileImpact(bowImpact);
-        if (!bowImpact.isCanceled() || !bowArrow.isRemoved()) {
+        boolean bowHitBlocked = BlasterCombatEvents.handleProjectileImpact(bowArrow, recruit);
+        if (!bowHitBlocked || !bowArrow.isRemoved()) {
             helper.fail("Same-owner squadmate was not protected from a Nightsister bow projectile");
             return;
         }
         Arrow vanillaArrow = new Arrow(EntityTypes.ARROW, helper.getLevel());
-        ProjectileImpactEvent vanillaImpact = new ProjectileImpactEvent(
-                vanillaArrow, new EntityHitResult(recruit));
-        BlasterCombatEvents.onProjectileImpact(vanillaImpact);
-        if (vanillaImpact.isCanceled() || vanillaArrow.isRemoved()) {
+        boolean vanillaHitBlocked = BlasterCombatEvents.handleProjectileImpact(vanillaArrow, recruit);
+        if (vanillaHitBlocked || vanillaArrow.isRemoved()) {
             helper.fail("Untagged vanilla arrow was incorrectly handled as a faction projectile");
             return;
         }
@@ -1216,11 +1485,9 @@ public final class ModGameTests {
                 helper.getLevel(), separatistGuard,
                 new ItemStack(ModItems.ENERGY_CELL.get()),
                 new ItemStack(ModItems.DC15_BLASTER.get()));
-        ProjectileImpactEvent hostileImpact = new ProjectileImpactEvent(
-                hostileBolt, new EntityHitResult(republicTarget));
-        BlasterCombatEvents.onProjectileImpact(hostileImpact);
+        boolean hostileImpactBlocked = BlasterCombatEvents.handleProjectileImpact(hostileBolt, republicTarget);
         boolean hostileHitBlocked = !Config.ALLOW_BLASTER_PVP.getAsBoolean();
-        if (hostileImpact.isCanceled() != hostileHitBlocked || hostileBolt.isRemoved() != hostileHitBlocked) {
+        if (hostileImpactBlocked != hostileHitBlocked || hostileBolt.isRemoved() != hostileHitBlocked) {
             helper.fail("Hostile faction recruit projectile did not honor the PvP setting");
             return;
         }
@@ -1230,10 +1497,8 @@ public final class ModGameTests {
                 helper.getLevel(), separatistGuard,
                 new ItemStack(ModItems.ENERGY_CELL.get()),
                 new ItemStack(ModItems.DC15_BLASTER.get()));
-        ProjectileImpactEvent neutralImpact = new ProjectileImpactEvent(
-                neutralBolt, new EntityHitResult(neutralTarget));
-        BlasterCombatEvents.onProjectileImpact(neutralImpact);
-        if (!neutralImpact.isCanceled() || !neutralBolt.isRemoved()) {
+        boolean neutralHitBlocked = BlasterCombatEvents.handleProjectileImpact(neutralBolt, neutralTarget);
+        if (!neutralHitBlocked || !neutralBolt.isRemoved()) {
             helper.fail("Faction recruit projectile damaged a neutral player");
             return;
         }
@@ -1446,12 +1711,24 @@ public final class ModGameTests {
             helper.fail("Command Center custom state was not exposed through its client update packet");
         }
         hall.setItem(0, new ItemStack(galacticwars.clonewars.registry.ModItems.CREDIT_CHIP.get(), 32));
-        if (!hall.reserveCredits(10) || hall.treasuryCredits() != 22 || hall.refundCredits(5) != 5
-                || hall.treasuryCredits() != 27) {
+        if (!hall.chargeDailyUpkeep(claimGameTime + 72000L, 1)
+                || hall.treasuryCredits() != 26) {
+            helper.fail("Command Center did not collect three elapsed days of faction upkeep");
+        }
+        if (!hall.reserveCredits(10) || hall.treasuryCredits() != 16 || hall.refundCredits(5) != 5
+                || hall.treasuryCredits() != 21) {
             helper.fail("Command Center treasury did not conserve reserved and refunded credits");
         }
-        if (!hall.reserveCredits(27) || hall.getItem(0) != ItemStack.EMPTY) {
+        if (!hall.reserveCredits(21) || hall.getItem(0) != ItemStack.EMPTY) {
             helper.fail("Command Center treasury did not normalize a depleted slot to ItemStack.EMPTY");
+        }
+        if (hall.chargeDailyUpkeep(claimGameTime + 96000L, 1)) {
+            helper.fail("Empty Command Center treasury incorrectly paid accumulated upkeep");
+        }
+        hall.setItem(0, new ItemStack(galacticwars.clonewars.registry.ModItems.CREDIT_CHIP.get(), 2));
+        if (!hall.chargeDailyUpkeep(claimGameTime + 96000L, 1)
+                || hall.treasuryCredits() != 0) {
+            helper.fail("Command Center did not settle pending upkeep immediately after resupply");
         }
         KingdomSavedData data = KingdomSavedData.get(helper.getLevel());
         KingdomRecord kingdom = data.foundKingdom(
@@ -1708,7 +1985,10 @@ public final class ModGameTests {
         ProgressionSavedData progression = ProgressionSavedData.get(helper.getLevel());
         ForceSavedData force = ForceSavedData.get(helper.getLevel());
         ServerPlayer light = makeConnectedMockPlayer(helper, GameType.CREATIVE);
-        BlockPos lightOrigin = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos lightOrigin = helper.absolutePos(new BlockPos(2, 1, 2))
+                .offset(500_000, 0, 0)
+                .atY(200);
+        helper.getLevel().getChunkAt(lightOrigin);
         light.setPos(lightOrigin.getX() + 0.5D, lightOrigin.getY(), lightOrigin.getZ() + 0.5D);
         light.setYRot(0.0F);
         light.setYHeadRot(0.0F);
@@ -1716,21 +1996,33 @@ public final class ModGameTests {
         completeForceCampaign(progression, light, "galacticwars:republic",
                 "clone_trooper", "kamino");
 
-        GalacticRecruitEntity ally = helper.spawn(
-                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(2, 1, 5));
+        GalacticRecruitEntity ally = spawnRecruitAt(
+                helper, ModEntityTypes.CLONE_TROOPER.get(), lightOrigin.offset(0, 0, 3));
         ally.setNoAi(true);
         ally.initializeFromSpawnEgg();
         ally.tame(light);
-        var pushed = helper.spawn(EntityTypes.ZOMBIE, new BlockPos(2, 1, 8));
+        var pushed = spawnEntityAt(
+                helper, EntityTypes.ZOMBIE, lightOrigin.offset(0, 0, 6));
         pushed.setNoAi(true);
+        helper.runAfterDelay(1, () -> {
         ally.setDeltaMovement(Vec3.ZERO);
         pushed.setDeltaMovement(Vec3.ZERO);
         UUID lightPushId = UUID.randomUUID();
+        var lightPreflight = ForceAbilityRuntimeService.activate(
+                progression.state(light.getUUID()), force.state(light.getUUID()), lightPushId,
+                "light_push", helper.getLevel().getGameTime(), false,
+                Config.ALLOW_FORCE_PVP.getAsBoolean());
         boolean lightPush = ForceWorldEffectService.activate(light, lightPushId, 0);
         int lightAfterPush = force.state(light.getUUID()).energy();
         boolean lightReplay = ForceWorldEffectService.activate(light, lightPushId, 0);
         boolean lightCooldown = !ForceWorldEffectService.activate(
                 light, UUID.randomUUID(), 0);
+        Vec3 lightLook = light.getLookAngle().normalize();
+        double targetDot = pushed.getEyePosition().subtract(light.getEyePosition())
+                .normalize().dot(lightLook);
+        List<net.minecraft.world.entity.LivingEntity> nearbyLiving = helper.getLevel()
+                .getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+                        light.getBoundingBox().inflate(16.0D));
         if (!lightPush || !lightReplay || !lightCooldown || lightAfterPush != 80
                 || force.state(light.getUUID()).energy() != 80
                 || ally.getDeltaMovement().lengthSqr() > 0.0001D
@@ -1739,13 +2031,22 @@ public final class ModGameTests {
                     + "accepted=" + lightPush + ", replay=" + lightReplay
                     + ", cooldown=" + lightCooldown + ", energy="
                     + force.state(light.getUUID()).energy() + ", ally="
-                    + ally.getDeltaMovement() + ", target=" + pushed.getDeltaMovement());
+                    + ally.getDeltaMovement() + ", target=" + pushed.getDeltaMovement()
+                    + ", preflight=" + lightPreflight.reason()
+                    + ", lineOfSight=" + light.hasLineOfSight(pushed)
+                    + ", player=" + light.position() + ", targetPos=" + pushed.position()
+                    + ", alive=" + pushed.isAlive() + ", distance=" + light.distanceTo(pushed)
+                    + ", look=" + lightLook + ", dot=" + targetDot
+                    + ", nearbyLiving=" + nearbyLiving.stream()
+                    .map(entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString())
+                    .toList());
             return;
         }
         ally.discard();
         pushed.discard();
 
-        var pulled = helper.spawn(EntityTypes.ZOMBIE, new BlockPos(2, 1, 7));
+        var pulled = spawnEntityAt(
+                helper, EntityTypes.ZOMBIE, lightOrigin.offset(0, 0, 5));
         pulled.setNoAi(true);
         pulled.setDeltaMovement(Vec3.ZERO);
         UUID lightPullId = UUID.randomUUID();
@@ -1769,7 +2070,7 @@ public final class ModGameTests {
         light.setPos(lightOrigin.getX() + 100.5D, lightOrigin.getY(), lightOrigin.getZ() + 0.5D);
 
         ServerPlayer dark = makeConnectedMockPlayer(helper, GameType.CREATIVE);
-        BlockPos darkOrigin = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos darkOrigin = lightOrigin;
         dark.setPos(darkOrigin.getX() + 0.5D, darkOrigin.getY(), darkOrigin.getZ() + 0.5D);
         dark.setYRot(0.0F);
         dark.setYHeadRot(0.0F);
@@ -1777,7 +2078,8 @@ public final class ModGameTests {
         completeForceCampaign(progression, dark, "galacticwars:nightsister",
                 "nightsister_acolyte", "coruscant");
 
-        var darkPushed = helper.spawn(EntityTypes.ZOMBIE, new BlockPos(2, 1, 8));
+        var darkPushed = spawnEntityAt(
+                helper, EntityTypes.ZOMBIE, darkOrigin.offset(0, 0, 6));
         darkPushed.setNoAi(true);
         darkPushed.setDeltaMovement(Vec3.ZERO);
         UUID darkPushId = UUID.randomUUID();
@@ -1799,7 +2101,8 @@ public final class ModGameTests {
             return;
         }
         dark.setDeltaMovement(Vec3.ZERO);
-        var choked = helper.spawn(EntityTypes.ZOMBIE, new BlockPos(2, 1, 6));
+        var choked = spawnEntityAt(
+                helper, EntityTypes.ZOMBIE, darkOrigin.offset(0, 0, 4));
         choked.setNoAi(true);
         UUID darkChokeId = UUID.randomUUID();
         if (!ForceWorldEffectService.activate(dark, darkChokeId, 2)
@@ -1823,6 +2126,7 @@ public final class ModGameTests {
             return;
         }
         helper.succeed();
+        });
     }
 
     private static void allFactionCampaignPaths(GameTestHelper helper) {
@@ -1839,7 +2143,7 @@ public final class ModGameTests {
                 new CampaignPath("galacticwars:republic", "clone_trooper", "kamino", "", "", true),
                 new CampaignPath("galacticwars:separatist", "b1_battle_droid", "geonosis", "", "", true),
                 new CampaignPath("galacticwars:mandalorian", "mandalorian_warrior", "tatooine",
-                        "mandalorian_armorer", "bounty_hunter", false),
+                        "mandalorian_armorer", "mandalorian_marksman", false),
                 new CampaignPath("galacticwars:hutt_cartel", "hutt_enforcer", "tatooine",
                         "hutt_broker", "smuggler", false),
                 new CampaignPath("galacticwars:nightsister", "nightsister_acolyte", "coruscant",
@@ -1855,7 +2159,7 @@ public final class ModGameTests {
                     progression, player, ProgressionEventType.RECRUIT_HIRED, path.firstRecruit());
             for (int delivery = 1; delivery <= 3; delivery++) {
                 applyCampaignSetupEvent(progression, player, ProgressionEventType.DELIVERY_COMPLETED,
-                        "campaign_matrix_delivery_" + delivery);
+                        campaignDeliverySubject());
             }
             applyCampaignSetupEvent(
                     progression, player, ProgressionEventType.BUILDING_COMPLETED, "forward_base");
@@ -1868,12 +2172,23 @@ public final class ModGameTests {
             applyCampaignSetupEvent(
                     progression, player, ProgressionEventType.PLANET_VISITED, path.planet());
             applyCampaignSetupEvent(
-                    progression, player, ProgressionEventType.VEHICLE_ACQUIRED, "campaign_matrix_vehicle");
+                    progression, player, ProgressionEventType.VEHICLE_ACQUIRED,
+                    path.faction().equals("galacticwars:separatist") ? "stap" : "barc_speeder");
             applyCampaignSetupEvent(
-                    progression, player, ProgressionEventType.REGION_CAPTURED, "campaign_matrix_region");
+                    progression, player, ProgressionEventType.REGION_CAPTURED,
+                    switch (path.planet()) {
+                        case "geonosis" -> "geonosis_foundry";
+                        case "kamino" -> "kamino_platform";
+                        case "coruscant" -> "coruscant_district";
+                        default -> "tatooine_spaceport";
+                    });
             if (path.chapterThreeTrade()) {
                 applyCampaignSetupEvent(progression, player, ProgressionEventType.TRADE_COMPLETED,
-                        "campaign_matrix_trade");
+                        switch (path.faction()) {
+                            case "galacticwars:separatist" -> "separatist_foundry";
+                            case "galacticwars:nightsister" -> "nightsister_matron";
+                            default -> "republic_quartermaster";
+                        });
             }
             if (!path.chapterThreeRecruit().isEmpty()) {
                 applyCampaignSetupEvent(progression, player, ProgressionEventType.RECRUIT_HIRED,
@@ -1908,17 +2223,19 @@ public final class ModGameTests {
         applyCampaignSetupEvent(
                 progression, player, ProgressionEventType.RECRUIT_HIRED, firstRecruit);
         applyCampaignSetupEvent(
-                progression, player, ProgressionEventType.DELIVERY_COMPLETED, "force_test_delivery");
+                progression, player, ProgressionEventType.DELIVERY_COMPLETED, campaignDeliverySubject());
         applyCampaignSetupEvent(
                 progression, player, ProgressionEventType.BUILDING_COMPLETED, "forward_base");
         applyCampaignSetupEvent(
                 progression, player, ProgressionEventType.PLANET_VISITED, chapterTwoPlanet);
         applyCampaignSetupEvent(
-                progression, player, ProgressionEventType.VEHICLE_ACQUIRED, "force_test_vehicle");
+                progression, player, ProgressionEventType.VEHICLE_ACQUIRED, "barc_speeder");
         applyCampaignSetupEvent(
-                progression, player, ProgressionEventType.TRADE_COMPLETED, "force_test_trade");
+                progression, player, ProgressionEventType.TRADE_COMPLETED,
+                faction.equals("galacticwars:nightsister") ? "nightsister_matron" : "republic_quartermaster");
         applyCampaignSetupEvent(
-                progression, player, ProgressionEventType.REGION_CAPTURED, "force_test_region");
+                progression, player, ProgressionEventType.REGION_CAPTURED,
+                chapterTwoPlanet.equals("coruscant") ? "coruscant_district" : "kamino_platform");
         ProgressionState state = progression.state(player.getUUID());
         String factionPath = faction.substring(faction.indexOf(':') + 1);
         if (!state.hasSubject(ProgressionEventType.QUEST_ADVANCED, factionPath + "_chapter_3")) {
@@ -2543,7 +2860,7 @@ public final class ModGameTests {
         applyCampaignSetupEvent(
                 progression, owner, ProgressionEventType.RECRUIT_HIRED, "clone_trooper");
         applyCampaignSetupEvent(
-                progression, owner, ProgressionEventType.DELIVERY_COMPLETED, "chapter_three_supply_run");
+                progression, owner, ProgressionEventType.DELIVERY_COMPLETED, campaignDeliverySubject());
         applyCampaignSetupEvent(
                 progression, owner, ProgressionEventType.BUILDING_COMPLETED, "forward_base");
         applyCampaignSetupEvent(
@@ -2631,6 +2948,10 @@ public final class ModGameTests {
             throw new IllegalStateException(
                     "Campaign setup rejected " + type + "/" + subject + ": " + decision.reason());
         }
+    }
+
+    private static String campaignDeliverySubject() {
+        return "courier/" + UUID.randomUUID();
     }
 
     private static int findPlayerItemSlot(ServerPlayer player, net.minecraft.world.item.Item item) {
@@ -3006,45 +3327,86 @@ public final class ModGameTests {
             helper.fail("Datapack Overworld faction spawn profiles were not loaded atomically");
             return;
         }
-        BlockPos center = helper.absolutePos(new BlockPos(1, 1, 1)).offset(0, 0, 30_000);
+        BlockPos requestedCenter = helper.absolutePos(new BlockPos(1, 1, 1))
+                .offset(0, 0, 2_000_000);
+        BlockPos center = new BlockPos(
+                (requestedCenter.getX() & ~15) + 8,
+                requestedCenter.getY(),
+                (requestedCenter.getZ() & ~15) + 8);
+        ChunkPos siteChunk = new ChunkPos(center.getX() >> 4, center.getZ() >> 4);
+        helper.getLevel().setChunkForced(siteChunk.x(), siteChunk.z(), true);
+        helper.getLevel().getChunk(siteChunk.x(), siteChunk.z());
+        ServerPlayer observer = makeConnectedMockPlayer(helper, GameType.SPECTATOR);
+        if (!observer.teleportTo(
+                helper.getLevel(),
+                center.getX() + 0.5D,
+                center.getY() + 1.0D,
+                center.getZ() + 0.5D,
+                Set.of(),
+                0.0F,
+                0.0F,
+                true)) {
+            helper.getLevel().setChunkForced(siteChunk.x(), siteChunk.z(), false);
+            helper.fail("Could not place an observer in the isolated Overworld faction chunk");
+            return;
+        }
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 helper.getLevel().setBlock(center.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
                 helper.getLevel().setBlock(center.offset(dx, 0, dz), Blocks.AIR.defaultBlockState(), 3);
                 helper.getLevel().setBlock(center.offset(dx, 1, dz), Blocks.AIR.defaultBlockState(), 3);
+                helper.getLevel().setBlock(center.offset(dx, 2, dz), Blocks.AIR.defaultBlockState(), 3);
             }
         }
         if (!FactionNaturalSpawnRules.check(
                 ModEntityTypes.HUTT_ENFORCER.get(), helper.getLevel(),
                 net.minecraft.world.entity.EntitySpawnReason.NATURAL, center,
                 helper.getLevel().getRandom())) {
+            helper.getLevel().setChunkForced(siteChunk.x(), siteChunk.z(), false);
             helper.fail("Valid Overworld faction ground was rejected by natural spawn placement");
             return;
         }
-        GalacticRecruitEntity guard = helper.spawn(ModEntityTypes.HUTT_ENFORCER.get(), new BlockPos(1, 1, 1));
-        GalacticRecruitEntity civilian = helper.spawn(ModEntityTypes.HUTT_CIVILIAN.get(), new BlockPos(2, 1, 1));
-        guard.setPos(center.getX() + 0.5, center.getY(), center.getZ() + 0.5);
-        civilian.setPos(center.getX() + 1.5, center.getY(), center.getZ() + 0.5);
-        FinalizeSpawnEvent guardSpawn = new FinalizeSpawnEvent(
-                guard, helper.getLevel(), guard.getX(), guard.getY(), guard.getZ(),
-                helper.getLevel().getCurrentDifficultyAt(center),
-                net.minecraft.world.entity.EntitySpawnReason.NATURAL, null, null);
-        FinalizeSpawnEvent civilianSpawn = new FinalizeSpawnEvent(
-                civilian, helper.getLevel(), civilian.getX(), civilian.getY(), civilian.getZ(),
-                helper.getLevel().getCurrentDifficultyAt(center),
-                net.minecraft.world.entity.EntitySpawnReason.NATURAL, null, null);
-        FactionNaturalSpawnEvents.onFinalizeSpawn(guardSpawn);
-        FactionNaturalSpawnEvents.onFinalizeSpawn(civilianSpawn);
+        GalacticRecruitEntity guard = spawnNaturalRecruitAt(
+                helper, ModEntityTypes.HUTT_ENFORCER.get(), center);
+        GalacticRecruitEntity civilian = spawnNaturalRecruitAt(
+                helper,
+                ModEntityTypes.HUTT_CIVILIAN.get(),
+                center.offset(1, 0, 0),
+                new UUID(0L, 2L));
+        civilian.setWorkerProfession(WorkerProfession.COOK);
+        helper.runAfterDelay(24, () -> verifyOverworldFactionOutpostRuntime(
+                helper, center, siteChunk, guard, civilian));
+    }
+
+    private static void verifyOverworldFactionOutpostRuntime(
+            GameTestHelper helper,
+            BlockPos center,
+            ChunkPos siteChunk,
+            GalacticRecruitEntity guard,
+            GalacticRecruitEntity civilian
+    ) {
         FactionOutpostSavedData data = FactionOutpostSavedData.get(helper.getLevel());
         FactionOutpostRecord outpost = data.outpostForNpc(guard.getUUID()).orElse(null);
         FactionOutpostRecord shared = data.outpostForNpc(civilian.getUUID()).orElse(null);
-        if (guardSpawn.isSpawnCancelled() || civilianSpawn.isSpawnCancelled()
+        if (guard.isRemoved() || civilian.isRemoved()
                 || outpost == null || shared == null || !outpost.id().equals(shared.id())
                 || !data.siteGenerated(shared.id())) {
-            helper.fail("Natural faction NPCs did not share a persisted visible Overworld outpost");
+            String diagnostics = "Natural faction NPCs did not share a persisted visible Overworld outpost: guardRemoved="
+                    + guard.isRemoved() + ", civilianRemoved=" + civilian.isRemoved()
+                    + ", guardOutpost=" + outpost + ", civilianOutpost=" + shared
+                    + ", site=" + (shared != null && data.siteGenerated(shared.id()))
+                    + ", siteAreaLoaded=" + (shared != null
+                    && FactionOutpostMarkerService.siteAreaLoaded(helper.getLevel(), shared))
+                    + ", guardTicks=" + guard.tickCount
+                    + ", siteResolved=" + getRecruitField(
+                    guard, "factionOutpostSiteGenerationResolved")
+                    + ", ground=" + helper.getLevel().getBlockState(center.offset(0, -1, 0))
+                    + ", volume=" + helper.getLevel().getBlockState(center.offset(0, 2, 0));
+            helper.getLevel().setChunkForced(siteChunk.x(), siteChunk.z(), false);
+            helper.fail(diagnostics);
             return;
         }
-        civilian.setWorkerProfession(WorkerProfession.COOK);
+        helper.getLevel().setChunkForced(siteChunk.x(), siteChunk.z(), false);
         boolean producedSupplies = civilian.tryProduceNaturalSettlementSupplies();
         civilian.tick();
         int storedBread = helper.getLevel().getBlockEntity(center.offset(1, 0, 0))
@@ -3055,8 +3417,17 @@ public final class ModGameTests {
                 || civilian.getServiceBranch() != NpcServiceBranch.CIVILIAN
                 || !civilian.getRecruitFactionId().equals("galacticwars:hutt_cartel")
                 || Math.round(civilian.getMaxHealth()) != 18
-                || !producedSupplies || storedBread != 1) {
-            helper.fail("Generated Hutt shelter, civilian archetype, or physical production was incomplete");
+                || storedBread != 1) {
+            helper.fail("Generated Hutt shelter, civilian archetype, or physical production was incomplete: "
+                    + "barrel=" + helper.getLevel().getBlockState(center.offset(1, 0, 0))
+                    + ", roof=" + helper.getLevel().getBlockState(center.offset(0, 2, 0))
+                    + ", hasHome=" + civilian.hasHome()
+                    + ", branch=" + civilian.getServiceBranch()
+                    + ", faction=" + civilian.getRecruitFactionId()
+                    + ", maxHealth=" + civilian.getMaxHealth()
+                    + ", directProduction=" + producedSupplies
+                    + ", bread=" + storedBread
+                    + ", profession=" + civilian.getWorkerProfession());
             return;
         }
 
@@ -3088,6 +3459,283 @@ public final class ModGameTests {
         helper.succeed();
     }
 
+    private static void playerClassEmbodiedRuntime(GameTestHelper helper) {
+        BlockPos hallPos = isolatedCapital(helper, 97);
+        CommandCenterBlockEntity hall = placeCommandCenter(helper, hallPos);
+        ServerPlayer player = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
+        player.setPos(hallPos.getX() + 0.5D, hallPos.getY(), hallPos.getZ() + 0.5D);
+        if (!hall.claim(player)) {
+            helper.fail("Player class fixture could not claim its physical Command Center");
+            return;
+        }
+        FactionSelectionMenu factionMenu = new FactionSelectionMenu(
+                70, player.getInventory(), hallPos);
+        int republic = factionMenu.factionIds().indexOf("galacticwars:republic");
+        if (republic < 0 || !factionMenu.clickMenuButton(player, republic)) {
+            helper.fail("Player class fixture could not commit its authoritative faction");
+            return;
+        }
+        CommandCenterOperationsMenu operations = (CommandCenterOperationsMenu)
+                new CommandCenterOperationsMenuProvider(hallPos)
+                        .createMenu(71, player.getInventory(), player);
+        player.containerMenu = operations;
+
+        UUID selectionId = UUID.randomUUID();
+        boolean selected = PlayerClassRuntime.select(
+                player, selectionId, "galacticwars:clone_trooper");
+        boolean replayAcceptedWithoutChange = PlayerClassRuntime.select(
+                player, selectionId, "galacticwars:clone_trooper");
+        boolean wrongFactionRejected = !PlayerClassRuntime.select(
+                player, UUID.randomUUID(), "galacticwars:b1_line_droid");
+        var assigned = ClassProgressSavedData.get(helper.getLevel()).state(player.getUUID());
+        if (!selected || !replayAcceptedWithoutChange || !wrongFactionRejected
+                || !assigned.classId().equals("galacticwars:clone_trooper")
+                || assigned.rank() != 1 || assigned.resource() != 100) {
+            helper.fail("Command Center class selection was not faction-bound and replay-safe: "
+                    + assigned);
+            return;
+        }
+
+        player.setYRot(0.0F);
+        player.setYHeadRot(0.0F);
+        player.setXRot(0.0F);
+        var target = EntityTypes.ZOMBIE.create(helper.getLevel(), EntitySpawnReason.EVENT);
+        if (target == null) {
+            helper.fail("Player class fixture could not create its hostile target");
+            return;
+        }
+        target.setPos(player.getX(), player.getY(), player.getZ() + 6.0D);
+        target.setNoAi(true);
+        if (!helper.getLevel().addFreshEntity(target)) {
+            helper.fail("Player class fixture could not register its hostile target");
+            return;
+        }
+        BlockPos occluder = BlockPos.containing(
+                player.getX(), player.getEyeY(), player.getZ() + 3.0D);
+        helper.getLevel().setBlock(occluder, Blocks.IRON_BLOCK.defaultBlockState(), 3);
+        boolean occludedTargetRejected = !PlayerClassRuntime.activate(
+                player, UUID.randomUUID(), 0);
+        var occludedState = ClassProgressSavedData.get(helper.getLevel()).state(player.getUUID());
+        helper.getLevel().removeBlock(occluder, false);
+        if (!occludedTargetRejected || !occludedState.equals(assigned)) {
+            helper.fail("Player class targeting crossed solid blocks or charged a rejected activation: "
+                    + occludedState);
+            return;
+        }
+        UUID activationId = UUID.randomUUID();
+        boolean activated = PlayerClassRuntime.activate(player, activationId, 0);
+        var activatedState = ClassProgressSavedData.get(helper.getLevel()).state(player.getUUID());
+        boolean duplicateAcceptedWithoutChange = PlayerClassRuntime.activate(player, activationId, 0);
+        var duplicateState = ClassProgressSavedData.get(helper.getLevel()).state(player.getUUID());
+        boolean cooldownRejected = !PlayerClassRuntime.activate(
+                player, UUID.randomUUID(), 0);
+        ClassHudPayload hud = PlayerClassRuntime.hudPayload(player);
+        boolean fallbackWeaponApplied = helper.getLevel().getEntitiesOfClass(
+                        BlasterBoltEntity.class, player.getBoundingBox().inflate(16.0D))
+                .stream()
+                .anyMatch(bolt -> bolt.getOwner() == player
+                        && bolt.getWeaponItem().is(ModItems.DC15_BLASTER.get()));
+        if (!activated || !duplicateAcceptedWithoutChange || !cooldownRejected
+                || activatedState.resource() != 85
+                || activatedState.experience() != 15L
+                || !duplicateState.equals(activatedState)
+                || !fallbackWeaponApplied
+                || hud.cooldown1() <= 0
+                || !hud.ability1Id().equals("galacticwars:suppressive_fire")
+                || !hud.ability2Id().isEmpty()) {
+            helper.fail("Player class ability did not execute with persistent resource, XP, cooldown and replay authority: "
+                    + activatedState + ", hud=" + hud);
+            return;
+        }
+
+        player.setItemInHand(
+                InteractionHand.MAIN_HAND, new ItemStack(ModItems.WESTAR_BLASTER.get()));
+        var suppressiveFire = GameplayDataManager.snapshot()
+                .ability("galacticwars:suppressive_fire").orElseThrow();
+        boolean heldWeaponShot = ClassAbilityEffectRegistry.execute(
+                helper.getLevel(), player, suppressiveFire, target);
+        boolean heldWeaponPreserved = helper.getLevel().getEntitiesOfClass(
+                        BlasterBoltEntity.class, player.getBoundingBox().inflate(16.0D))
+                .stream()
+                .anyMatch(bolt -> bolt.getOwner() == player
+                        && bolt.getWeaponItem().is(ModItems.WESTAR_BLASTER.get()));
+        if (!heldWeaponShot || !heldWeaponPreserved) {
+            helper.fail("Player class projectile did not preserve a valid held faction weapon");
+            return;
+        }
+
+        Tag encoded = ClassProgressSavedData.CODEC.encodeStart(
+                NbtOps.INSTANCE, ClassProgressSavedData.get(helper.getLevel())).getOrThrow();
+        ClassProgressSavedData restored = ClassProgressSavedData.CODEC.parse(
+                NbtOps.INSTANCE, encoded).getOrThrow();
+        if (!restored.state(player.getUUID()).equals(activatedState)
+                || !codecRoundTrips(
+                        new ClassSelectPayload(UUID.randomUUID(), "galacticwars:clone_trooper"),
+                        ClassSelectPayload.STREAM_CODEC)
+                || !codecRoundTrips(
+                        new ClassActivatePayload(UUID.randomUUID(), 0),
+                        ClassActivatePayload.STREAM_CODEC)
+                || !codecRoundTrips(hud, ClassHudPayload.STREAM_CODEC)) {
+            helper.fail("Player class persistence or bounded packet codecs did not round-trip");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void planetFactionOutpostRuntime(GameTestHelper helper) {
+        ServerLevel planet = helper.getLevel();
+        String geonosisDimensionId = "galacticwars:geonosis";
+        String guardEntityTypeId = BuiltInRegistries.ENTITY_TYPE
+                .getKey(ModEntityTypes.B1_BATTLE_DROID.get()).toString();
+        String civilianEntityTypeId = BuiltInRegistries.ENTITY_TYPE
+                .getKey(ModEntityTypes.SEPARATIST_TECHNICIAN.get()).toString();
+        PlanetFactionSpawnPolicy.Evaluation guardEvaluation = PlanetFactionSpawnPolicy.evaluate(
+                GameplayDataManager.snapshot(), geonosisDimensionId, guardEntityTypeId);
+        PlanetFactionSpawnPolicy.Evaluation civilianEvaluation = PlanetFactionSpawnPolicy.evaluate(
+                GameplayDataManager.snapshot(), geonosisDimensionId, civilianEntityTypeId);
+        if (!guardEvaluation.allowed()
+                || guardEvaluation.serviceBranch() != NpcServiceBranch.MILITARY
+                || !civilianEvaluation.allowed()
+                || civilianEvaluation.serviceBranch() != NpcServiceBranch.CIVILIAN
+                || !guardEvaluation.factionId().equals(civilianEvaluation.factionId())) {
+            helper.fail("Geonosis policy did not authorize its Separatist military and civilian lifecycle");
+            return;
+        }
+        FactionOutpostSavedData outposts = FactionOutpostSavedData.get(planet);
+        String dimensionId = planet.dimension().identifier().toString();
+        int coordinate = 48_008;
+        while (true) {
+            int candidate = coordinate;
+            boolean isolated = outposts.outposts().stream()
+                    .filter(outpost -> outpost.dimensionId().equals(dimensionId))
+                    .allMatch(outpost -> outpost.distanceSquared(candidate, candidate) >= 1_048_576L);
+            if (isolated) {
+                break;
+            }
+            coordinate += 1_024;
+        }
+        int chunkX = coordinate >> 4;
+        int chunkZ = coordinate >> 4;
+        planet.setChunkForced(chunkX, chunkZ, true);
+        planet.getChunk(chunkX, chunkZ);
+        int surfaceY = planet.getHeight(
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                coordinate,
+                coordinate);
+        BlockPos center = new BlockPos(coordinate, surfaceY, coordinate);
+        for (int dx = -7; dx <= 7; dx++) {
+            for (int dz = -7; dz <= 7; dz++) {
+                planet.setBlock(center.offset(dx, -1, dz),
+                        ModBlocks.GEONOSIS_ROCK.get().defaultBlockState(), 3);
+                for (int dy = 0; dy <= 3; dy++) {
+                    planet.setBlock(center.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        GalacticRecruitEntity guard = spawnPlanetPolicyRecruitAt(
+                planet, ModEntityTypes.B1_BATTLE_DROID.get(), center, guardEvaluation);
+        guard.setInvulnerable(true);
+        guard.setPos(center.getX() + 0.5D, center.getY(), center.getZ() - 2.5D);
+        GalacticRecruitEntity civilian = spawnPlanetPolicyRecruitAt(
+                planet,
+                ModEntityTypes.SEPARATIST_TECHNICIAN.get(),
+                center.offset(3, 0, 0),
+                civilianEvaluation);
+        civilian.setInvulnerable(true);
+        civilian.setPos(center.getX() + 3.5D, center.getY(), center.getZ() + 0.5D);
+        var hostile = EntityTypes.ZOMBIE.create(planet, EntitySpawnReason.EVENT);
+        if (hostile == null) {
+            guard.discard();
+            civilian.discard();
+            planet.setChunkForced(chunkX, chunkZ, false);
+            helper.fail("Could not create a hostile target for the planet faction lifecycle test");
+            return;
+        }
+        hostile.setPos(center.getX() + 0.5D, center.getY(), center.getZ() - 5.5D);
+        hostile.setNoAi(true);
+        hostile.setInvulnerable(true);
+        if (!planet.addFreshEntity(hostile)) {
+            guard.discard();
+            civilian.discard();
+            planet.setChunkForced(chunkX, chunkZ, false);
+            helper.fail("Could not register the planet faction hostile target");
+            return;
+        }
+
+        FactionOutpostRecord guardOutpost = outposts.outpostForNpc(guard.getUUID()).orElse(null);
+        FactionOutpostRecord civilianOutpost = outposts.outpostForNpc(civilian.getUUID()).orElse(null);
+        if (guardOutpost == null || civilianOutpost == null
+                || !guardOutpost.id().equals(civilianOutpost.id())
+                || !dimensionId.equals(guardOutpost.dimensionId())
+                || !guard.isNaturalPlanetNpcInitialized()
+                || !civilian.isNaturalPlanetNpcInitialized()
+                || !guard.hasHome() || !civilian.hasHome()) {
+            guard.discard();
+            civilian.discard();
+            hostile.discard();
+            planet.setChunkForced(chunkX, chunkZ, false);
+            helper.fail("Natural planet NPCs did not join one persisted faction outpost with homes");
+            return;
+        }
+
+        UUID outpostId = guardOutpost.id();
+        long startedAt = helper.getTick();
+        boolean[] complete = {false};
+        boolean[] engaged = {false};
+        boolean[] workerPrepared = {false};
+        helper.onEachTick(() -> {
+            if (complete[0]) {
+                return;
+            }
+            engaged[0] = engaged[0]
+                    || guard.getTarget() == hostile
+                    || BrainUtil.getMemory(guard,
+                    net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET) == hostile;
+            if (!workerPrepared[0] && outposts.siteGenerated(outpostId)) {
+                workerPrepared[0] = true;
+                civilian.setWorkerProfession(WorkerProfession.BUILDER);
+                setRecruitField(civilian, "nextNaturalProductionGameTime", 0L);
+                civilian.setPos(center.getX() + 0.5D, center.getY(), center.getZ() + 0.5D);
+                civilian.getNavigation().stop();
+            }
+            int storedDuracrete = planet.getBlockEntity(center.offset(1, 0, 0))
+                    instanceof Container container
+                    ? container.countItem(ModItems.DURACRETE.get()) : 0;
+            if (engaged[0] && workerPrepared[0] && storedDuracrete > 0) {
+                complete[0] = true;
+                boolean physicalSite = planet.getBlockState(center.offset(1, 0, 0)).is(Blocks.BARREL)
+                        && planet.getBlockState(center.offset(0, 2, 0)).is(Blocks.DEEPSLATE_TILES);
+                guard.discard();
+                civilian.discard();
+                hostile.discard();
+                planet.setChunkForced(chunkX, chunkZ, false);
+                if (!physicalSite) {
+                    helper.fail("Planet faction outpost was marked generated without its physical shelter");
+                    return;
+                }
+                helper.succeed();
+                return;
+            }
+            if (helper.getTick() - startedAt >= 180L) {
+                complete[0] = true;
+                String diagnostics = "site=" + outposts.siteGenerated(outpostId)
+                        + ", engaged=" + engaged[0]
+                        + ", target=" + guard.getTarget()
+                        + ", attackMemory=" + BrainUtil.getMemory(guard,
+                        net.minecraft.world.entity.ai.memory.MemoryModuleType.ATTACK_TARGET)
+                        + ", workerPrepared=" + workerPrepared[0]
+                        + ", storedDuracrete=" + storedDuracrete
+                        + ", guardTicks=" + guard.tickCount
+                        + ", civilianTicks=" + civilian.tickCount;
+                guard.discard();
+                civilian.discard();
+                hostile.discard();
+                planet.setChunkForced(chunkX, chunkZ, false);
+                helper.fail("Planet faction military/work runtime did not complete: " + diagnostics);
+            }
+        });
+    }
+
     private static void physicalTradeTransaction(GameTestHelper helper) {
         ServerPlayer player = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
         ProgressionSavedData progression = ProgressionSavedData.get(helper.getLevel());
@@ -3096,8 +3744,65 @@ public final class ModGameTests {
                 "galacticwars:republic", 1));
         if (!pledge.accepted() || !pledge.state().unlocks().contains("faction_intro")) {
             helper.fail("Faction pledge did not unlock introductory physical trade");
+            return;
+        }
+        var runtimeSnapshot = LaunchContentRuntime.current();
+        var liveDefinitions = runtimeSnapshot.definitions();
+        var liveTrade = liveDefinitions.trades().get("republic_quartermaster");
+        LinkedHashMap<String, LaunchContentDefinitions.TradeDefinition>
+                overriddenTrades = new LinkedHashMap<>(liveDefinitions.trades());
+        overriddenTrades.put(liveTrade.id(),
+                new LaunchContentDefinitions.TradeDefinition(
+                        liveTrade.id(), liveTrade.factionId(), 17, liveTrade.itemId(), 5,
+                        liveTrade.requiredUnlock(), liveTrade.stockTier(), liveTrade.regionalPrerequisite()));
+        PhysicalTradeService.TradePreview overridePreview;
+        try {
+            LaunchContentRuntime.install(
+                    new LaunchContentDefinitions(
+                            liveDefinitions.planets(), liveDefinitions.vehicles(),
+                            liveDefinitions.forceAbilities(), liveDefinitions.quests(),
+                            overriddenTrades, liveDefinitions.conquestRegions()),
+                    runtimeSnapshot.factions(), runtimeSnapshot.units());
+            overridePreview = PhysicalTradeService.preview(player, "republic_quartermaster");
+        } finally {
+            LaunchContentRuntime.install(
+                    liveDefinitions, runtimeSnapshot.factions(), runtimeSnapshot.units());
+        }
+        if (overridePreview.itemCount() != 5 || overridePreview.creditPrice() != 17
+                || !overridePreview.reason().equals("insufficient_credits")) {
+            helper.fail("Server datapack override did not drive the authoritative trade preview: "
+                    + overridePreview);
+            return;
+        }
+        PhysicalTradeService.TradePreview insufficient = PhysicalTradeService.preview(
+                player, "republic_quartermaster");
+        if (insufficient.eligible() || !insufficient.reason().equals("insufficient_credits")
+                || !insufficient.itemId().equals("galacticwars:energy_cell")
+                || insufficient.itemCount() != 8 || insufficient.creditPrice() != 12) {
+            helper.fail("Server trade preview did not expose exact stock and insufficient-credit state: "
+                    + insufficient);
+            return;
         }
         player.getInventory().add(new ItemStack(ModItems.CREDIT_CHIP.get(), 12));
+        PhysicalTradeService.TradePreview available = PhysicalTradeService.preview(
+                player, "republic_quartermaster");
+        if (!available.eligible() || !available.reason().equals("available")) {
+            helper.fail("Funded introductory trade did not become eligible: " + available);
+            return;
+        }
+        PhysicalTradeService.TradeResult staleQuote = PhysicalTradeService.purchase(
+                player,
+                UUID.randomUUID(),
+                "republic_quartermaster",
+                null,
+                new PhysicalTradeService.TradeQuote(
+                        available.tradeId(), available.itemId(), available.itemCount(),
+                        available.creditPrice() + 1));
+        if (staleQuote.accepted() || !staleQuote.reason().equals("offer_changed")
+                || CreditTransactionService.playerBalance(player) != 12) {
+            helper.fail("Stale server quote changed inventory or bypassed revalidation: " + staleQuote);
+            return;
+        }
         UUID eventId = UUID.randomUUID();
         PhysicalTradeService.TradeResult purchase = PhysicalTradeService.purchase(
                 player, eventId, "republic_quartermaster");
@@ -3110,6 +3815,7 @@ public final class ModGameTests {
                 || missingTrade.accepted() || !missingTrade.reason().equals("unknown_trade")
                 || CreditTransactionService.playerBalance(player) != 0 || energyCells != 8) {
             helper.fail("Physical trade did not atomically exchange Credit Chips for goods");
+            return;
         }
         PhysicalTradeService.TradeResult replay = PhysicalTradeService.purchase(
                 player, eventId, "republic_quartermaster");
@@ -3118,6 +3824,104 @@ public final class ModGameTests {
                 .mapToInt(ItemStack::getCount).sum();
         if (!replay.accepted() || replay.changed() || replayedEnergyCells != energyCells) {
             helper.fail("Duplicate physical trade charged or granted twice");
+            return;
+        }
+
+        ServerPlayer huttPlayer = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
+        ProgressionDecision huttPledge = progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), huttPlayer.getUUID(), ProgressionEventType.FACTION_PLEDGED,
+                "galacticwars:hutt_cartel", 1));
+        huttPlayer.getInventory().add(new ItemStack(ModItems.CREDIT_CHIP.get(), 28));
+        PhysicalTradeService.TradePreview locked = PhysicalTradeService.preview(
+                huttPlayer, "hutt_broker");
+        if (!huttPledge.accepted() || locked.eligible() || !locked.reason().equals("trade_locked")) {
+            helper.fail("Advanced merchant stock ignored its progression lock: " + locked);
+            return;
+        }
+        for (int delivery = 0; delivery < 3; delivery++) {
+            progression.apply(new ProgressionEvent(
+                    UUID.randomUUID(), huttPlayer.getUUID(), ProgressionEventType.DELIVERY_COMPLETED,
+                    "courier/" + UUID.randomUUID(), 1));
+        }
+        var regionalSnapshot = LaunchContentRuntime.current();
+        var regionalDefinitions = regionalSnapshot.definitions();
+        var huttTrade = regionalDefinitions.trades().get("hutt_broker");
+        LinkedHashMap<String, LaunchContentDefinitions.TradeDefinition> regionalTrades =
+                new LinkedHashMap<>(regionalDefinitions.trades());
+        String regionalTestId = "gametest_trade_region";
+        regionalTrades.put(huttTrade.id(), new LaunchContentDefinitions.TradeDefinition(
+                huttTrade.id(), huttTrade.factionId(), huttTrade.price(), huttTrade.itemId(),
+                huttTrade.itemCount(), "advanced_trading", huttTrade.stockTier(),
+                regionalTestId));
+        var regionTemplate = regionalDefinitions.conquestRegions().get("tatooine_spaceport");
+        LinkedHashMap<String, LaunchContentDefinitions.ConquestRegionDefinition> regionalRegions =
+                new LinkedHashMap<>(regionalDefinitions.conquestRegions());
+        regionalRegions.put(regionalTestId, new LaunchContentDefinitions.ConquestRegionDefinition(
+                regionalTestId, regionTemplate.planetId(), regionTemplate.protectedRadius(),
+                regionTemplate.captureTicks(), regionTemplate.rewardCredits(),
+                regionTemplate.landmarkX(), regionTemplate.landmarkZ(),
+                regionTemplate.captureRadius(), regionTemplate.defenderFaction()));
+        PhysicalTradeService.TradePreview regional;
+        PhysicalTradeService.TradePreview regionEligible;
+        try {
+            LaunchContentRuntime.install(new LaunchContentDefinitions(
+                            regionalDefinitions.planets(), regionalDefinitions.vehicles(),
+                            regionalDefinitions.forceAbilities(), regionalDefinitions.quests(),
+                            regionalTrades, regionalRegions),
+                    regionalSnapshot.factions(), regionalSnapshot.units());
+            ConquestSavedData conquest = ConquestSavedData.get(helper.getLevel());
+            conquest.put(new ConquestControlState(
+                    regionalTestId, helper.getLevel().dimension().identifier().toString(),
+                    0, 1, 0, "galacticwars:republic", "", "", 0, 1L));
+            regional = PhysicalTradeService.preview(huttPlayer, "hutt_broker");
+            conquest.put(new ConquestControlState(
+                    regionalTestId, helper.getLevel().dimension().identifier().toString(),
+                    0, 1, 0, "galacticwars:hutt_cartel", "", "", 0, 2L));
+            regionEligible = PhysicalTradeService.preview(huttPlayer, "hutt_broker");
+        } finally {
+            LaunchContentRuntime.install(regionalDefinitions,
+                    regionalSnapshot.factions(), regionalSnapshot.units());
+        }
+        if (regional.eligible() || !regional.reason().equals("regional_control_required")) {
+            helper.fail("Regional merchant stock ignored conquest control: " + regional);
+            return;
+        }
+        if (!regionEligible.eligible()) {
+            helper.fail("Regional merchant stock stayed locked after valid faction control: "
+                    + regionEligible);
+            return;
+        }
+
+        ServerPlayer embargoedPlayer = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
+        ServerPlayer merchantOwner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
+        progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), embargoedPlayer.getUUID(), ProgressionEventType.FACTION_PLEDGED,
+                "galacticwars:republic", 1));
+        embargoedPlayer.getInventory().add(new ItemStack(ModItems.CREDIT_CHIP.get(), 12));
+        KingdomSavedData kingdoms = KingdomSavedData.get(helper.getLevel());
+        KingdomRecord customerKingdom = kingdoms.foundKingdom(
+                embargoedPlayer.getUUID(), "galacticwars:republic",
+                helper.getLevel().dimension().identifier().toString(), isolatedCapital(helper, 81));
+        KingdomRecord merchantKingdom = kingdoms.foundKingdom(
+                merchantOwner.getUUID(), "galacticwars:republic",
+                helper.getLevel().dimension().identifier().toString(), isolatedCapital(helper, 82));
+        GalacticRecruitEntity merchant = helper.spawn(
+                ModEntityTypes.REPUBLIC_CIVILIAN.get(), new BlockPos(2, 1, 2));
+        merchant.initializeFromSpawnEgg();
+        merchant.setWorkerProfession(WorkerProfession.MERCHANT);
+        embargoedPlayer.setPos(merchant.getX(), merchant.getY(), merchant.getZ() + 1.0D);
+        boolean merchantRegistered = kingdoms.registerRecruit(
+                merchantOwner.getUUID(), merchant.getUUID(), NpcServiceBranch.CIVILIAN);
+        boolean embargoApplied = kingdoms.setEmbargo(
+                embargoedPlayer.getUUID(), merchantKingdom.id(), true);
+        PhysicalTradeService.TradePreview embargoed = PhysicalTradeService.preview(
+                embargoedPlayer, "republic_quartermaster", merchant);
+        if (!merchantRegistered || !embargoApplied
+                || customerKingdom.id().equals(merchantKingdom.id())
+                || embargoed.eligible() || !embargoed.reason().equals("trade_embargoed")) {
+            helper.fail("Server merchant preview ignored a live kingdom embargo: registered="
+                    + merchantRegistered + ", applied=" + embargoApplied + ", preview=" + embargoed);
+            return;
         }
         helper.succeed();
     }
@@ -3148,7 +3952,7 @@ public final class ModGameTests {
                 helper.absolutePos(stonePos),
                 null);
         if (drops.stream().mapToInt(ItemStack::getCount).sum() != 1
-                || drops.stream().noneMatch(stack -> stack.is(ModBlocks.DURACRETE.asItem()))) {
+                || drops.stream().noneMatch(stack -> stack.is(ModItems.DURACRETE.get()))) {
             helper.fail("duracrete loot table did not conserve one mined block");
         }
         helper.succeed();
@@ -3404,15 +4208,49 @@ public final class ModGameTests {
         attacker.setNoAi(true);
         attacker.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1024.0D);
         attacker.setHealth(attacker.getMaxHealth());
-        helper.runAfterDelay(2, () -> owner.setLastHurtByMob(attacker));
-        helper.succeedWhen(() -> {
-            if (recruit.getTarget() != attacker) {
+        long chunkWaitStartedTick = helper.getTick();
+        int[] scenarioStartedRecruitTick = {-1};
+        boolean[] complete = {false};
+        helper.onEachTick(() -> {
+            if (complete[0]) {
+                return;
+            }
+            BlockPos recruitPosition = recruit.blockPosition();
+            ChunkPos chunk = new ChunkPos(recruitPosition.getX() >> 4, recruitPosition.getZ() >> 4);
+            if (scenarioStartedRecruitTick[0] < 0) {
+                boolean areaTicking = helper.getLevel().areEntitiesActuallyLoadedAndTicking(chunk);
+                boolean recruitIndexed = helper.getLevel().getEntity(recruit.getUUID()) == recruit;
+                boolean attackerIndexed = helper.getLevel().getEntity(attacker.getUUID()) == attacker;
+                if (!areaTicking || !recruitIndexed || !attackerIndexed) {
+                    if (helper.getTick() - chunkWaitStartedTick >= SMART_BRAIN_CHUNK_READY_TIMEOUT) {
+                        complete[0] = true;
+                        helper.fail("Local Protect Me area never became entity-ticking: ticking="
+                                + areaTicking + ", recruit=" + recruitIndexed
+                                + ", attacker=" + attackerIndexed);
+                    }
+                    return;
+                }
+                owner.setLastHurtByMob(attacker);
+                scenarioStartedRecruitTick[0] = recruit.tickCount;
+                return;
+            }
+            if (recruit.getTarget() == attacker) {
+                complete[0] = true;
+                recruit.discard();
+                attacker.discard();
+                helper.succeed();
+                return;
+            }
+            if (recruit.tickCount - scenarioStartedRecruitTick[0] >= 120) {
+                complete[0] = true;
                 helper.fail("Local Protect Me order did not target the owner's attacker: ownerThreat="
                         + (owner.getLastHurtByMob() == attacker)
                         + ", timestamp=" + owner.getLastHurtByMobTimestamp()
                         + ", attackerAlive=" + attacker.isAlive()
                         + ", wantsToAttack=" + recruit.wantsToAttack(attacker, owner)
-                        + ", command=" + recruit.getRecruitCommand());
+                        + ", command=" + recruit.getRecruitCommand()
+                        + ", recruitTicks="
+                        + (recruit.tickCount - scenarioStartedRecruitTick[0]));
             }
         });
     }
@@ -3671,9 +4509,8 @@ public final class ModGameTests {
                 helper.getLevel(), shooter, new ItemStack(ModItems.E5_BLASTER.get()), 5.0D);
         bolt.setPos(guardian.getX() - 0.5D, guardian.getEyeY(), guardian.getZ());
         bolt.setDeltaMovement(1.0D, 0.0D, 0.0D);
-        ProjectileImpactEvent impact = new ProjectileImpactEvent(bolt, new EntityHitResult(guardian));
-        BlasterCombatEvents.onProjectileImpact(impact);
-        if (!impact.isCanceled()
+        boolean deflected = BlasterCombatEvents.handleProjectileImpact(bolt, guardian);
+        if (!deflected
                 || bolt.getOwner() != guardian
                 || bolt.getDeltaMovement().x >= 0.0D
                 || guardian.classProgressState().resource() >= 100) {
@@ -3684,7 +4521,7 @@ public final class ModGameTests {
     }
 
     private static void specialistWorkerLoops(GameTestHelper helper) {
-        BlockPos hallPos = helper.absolutePos(new BlockPos(1, 1, 1));
+        BlockPos hallPos = isolatedCapital(helper, 19);
         CommandCenterBlockEntity hall = placeCommandCenter(helper, hallPos);
         ServerPlayer owner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
         GalacticRecruitEntity recruit = ModEntityTypes.CLONE_TROOPER.get().create(
@@ -3696,10 +4533,16 @@ public final class ModGameTests {
         recruit.setPos(hallPos.getX() + 2.5, hallPos.getY(), hallPos.getZ() + 0.5);
         helper.getLevel().addFreshEntity(recruit);
         owner.setPos(recruit.getX(), recruit.getY(), recruit.getZ());
+        // Embedded GameTest clients never acknowledge this direct long-distance move. Update the
+        // authoritative player ticket so the isolated specialist chunk remains entity-ticking.
+        helper.getLevel().getChunkSource().move(owner);
         hall.claim(owner);
         KingdomSavedData data = KingdomSavedData.get(helper.getLevel());
-        data.activateHall(owner.getUUID(), hall.factionId(),
-                helper.getLevel().dimension().identifier().toString(), hallPos).orElseThrow();
+        if (data.activateHall(owner.getUUID(), hall.factionId(),
+                helper.getLevel().dimension().identifier().toString(), hallPos).isEmpty()) {
+            helper.fail("Specialist worker loop could not reserve its isolated capital claim");
+            return;
+        }
         putContainerItem(hall, new ItemStack(ModItems.CREDIT_CHIP.get(), 32));
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("republic"), 100);
@@ -3881,6 +4724,7 @@ public final class ModGameTests {
                     + ", target=" + recruit.getTarget()
                     + ", tame=" + recruit.isTame()
                     + ", removed=" + recruit.isRemoved()
+                    + ", removalReason=" + recruit.getRemovalReason()
                     + ", duty=" + recruit.getRecruitDuty()
                     + ", command=" + recruit.getRecruitCommand()
                     + ", workTarget=" + recruit.getWorkTarget()
@@ -3963,9 +4807,15 @@ public final class ModGameTests {
             int minZ,
             int maxZ
     ) {
+        int verticalLane = SMART_BRAIN_AREA_SEQUENCE.getAndIncrement();
+        BlockPos testOrigin = helper.absolutePos(BlockPos.ZERO);
+        int baseY = Math.min(
+                helper.getLevel().getMaxY() - 8,
+                helper.getLevel().getMinY() + 256 + verticalLane * 12);
+        BlockPos isolatedBase = new BlockPos(testOrigin.getX(), baseY, testOrigin.getZ());
         return prepareSmartBrainTestAreaAt(
                 helper, playerGameType, minX, maxX, minZ, maxZ,
-                helper.absolutePos(BlockPos.ZERO));
+                isolatedBase);
     }
 
     private static SmartBrainTestArea prepareSmartBrainTestAreaAt(
@@ -3991,6 +4841,9 @@ public final class ModGameTests {
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 helper.getLevel().setBlockAndUpdate(base.offset(x, 0, z), Blocks.STONE.defaultBlockState());
+                for (int y = 1; y <= 4; y++) {
+                    helper.getLevel().setBlockAndUpdate(base.offset(x, y, z), Blocks.AIR.defaultBlockState());
+                }
             }
         }
         ServerPlayer player = makeConnectedMockPlayer(helper, playerGameType);
@@ -4005,6 +4858,9 @@ public final class ModGameTests {
                 true)) {
             throw new IllegalStateException("Could not load SmartBrain GameTest area");
         }
+        // Embedded GameTest clients do not send the movement acknowledgement that normally
+        // advances a player's entity-ticking chunk ticket after a same-dimension teleport.
+        helper.getLevel().getChunkSource().move(player);
         return new SmartBrainTestArea(base, player);
     }
 
@@ -4027,6 +4883,108 @@ public final class ModGameTests {
         }
         recruit.setDeltaMovement(Vec3.ZERO);
         recruit.getNavigation().stop();
+        return recruit;
+    }
+
+    private static <T extends Entity> T spawnEntityAt(
+            GameTestHelper helper,
+            EntityType<T> type,
+            BlockPos position
+    ) {
+        helper.getLevel().getChunkAt(position);
+        T entity = type.create(helper.getLevel(), EntitySpawnReason.EVENT);
+        if (entity == null) {
+            throw new IllegalStateException("Could not create GameTest entity "
+                    + BuiltInRegistries.ENTITY_TYPE.getKey(type));
+        }
+        entity.setPos(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D);
+        if (!helper.getLevel().addFreshEntity(entity)) {
+            throw new IllegalStateException("Could not register GameTest entity "
+                    + BuiltInRegistries.ENTITY_TYPE.getKey(type));
+        }
+        return entity;
+    }
+
+    private static GalacticRecruitEntity spawnNaturalRecruitAt(
+            GameTestHelper helper,
+            EntityType<GalacticRecruitEntity> type,
+            BlockPos position
+    ) {
+        return spawnNaturalRecruitAt(helper.getLevel(), type, position, Optional.empty());
+    }
+
+    private static GalacticRecruitEntity spawnNaturalRecruitAt(
+            GameTestHelper helper,
+            EntityType<GalacticRecruitEntity> type,
+            BlockPos position,
+            UUID entityId
+    ) {
+        return spawnNaturalRecruitAt(helper.getLevel(), type, position, Optional.of(entityId));
+    }
+
+    private static GalacticRecruitEntity spawnNaturalRecruitAt(
+            ServerLevel level,
+            EntityType<GalacticRecruitEntity> type,
+            BlockPos position
+    ) {
+        return spawnNaturalRecruitAt(level, type, position, Optional.empty());
+    }
+
+    private static GalacticRecruitEntity spawnNaturalRecruitAt(
+            ServerLevel level,
+            EntityType<GalacticRecruitEntity> type,
+            BlockPos position,
+            Optional<UUID> entityId
+    ) {
+        level.getChunkAt(position);
+        GalacticRecruitEntity recruit = type.create(level, EntitySpawnReason.NATURAL);
+        if (recruit == null) {
+            throw new IllegalStateException("Could not create natural faction GameTest recruit");
+        }
+        entityId.ifPresent(recruit::setUUID);
+        recruit.setPos(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D);
+        recruit.finalizeSpawn(
+                level,
+                level.getCurrentDifficultyAt(position),
+                EntitySpawnReason.NATURAL,
+                null);
+        if (recruit.isRemoved() || !level.addFreshEntity(recruit)) {
+            throw new IllegalStateException("Could not register natural faction GameTest recruit");
+        }
+        recruit.tick();
+        if (recruit.isRemoved() || recruit.isPendingNaturalSpawnInitialization()) {
+            throw new IllegalStateException("Natural faction GameTest recruit failed live initialization");
+        }
+        return recruit;
+    }
+
+    private static GalacticRecruitEntity spawnPlanetPolicyRecruitAt(
+            ServerLevel level,
+            EntityType<GalacticRecruitEntity> type,
+            BlockPos position,
+            PlanetFactionSpawnPolicy.Evaluation evaluation
+    ) {
+        level.getChunkAt(position);
+        GalacticRecruitEntity recruit = type.create(level, EntitySpawnReason.EVENT);
+        if (recruit == null) {
+            throw new IllegalStateException("Could not create planet faction GameTest recruit");
+        }
+        recruit.setPos(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D);
+        try {
+            Method initializer = GalacticRecruitEntity.class.getDeclaredMethod(
+                    "initializeNaturalPlanetNpc",
+                    ServerLevel.class,
+                    PlanetFactionSpawnPolicy.Evaluation.class);
+            initializer.setAccessible(true);
+            if (!(boolean) initializer.invoke(recruit, level, evaluation)) {
+                throw new IllegalStateException("Planet faction lifecycle rejected an authorized GameTest recruit");
+            }
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not execute planet faction lifecycle", exception);
+        }
+        if (!level.addFreshEntity(recruit)) {
+            throw new IllegalStateException("Could not register planet faction GameTest recruit");
+        }
         return recruit;
     }
 
@@ -4384,8 +5342,14 @@ public final class ModGameTests {
             MerchantTradeMenu tradeMenu = (MerchantTradeMenu) new MerchantTradeMenuProvider(this.merchant)
                     .createMenu(21, this.owner.getInventory(), this.owner);
             int offer = tradeMenu.tradeIds().indexOf("republic_quartermaster");
+            var serverOffer = offer < 0 ? null : tradeMenu.offers().get(offer);
             UUID tradeId = UUID.randomUUID();
-            boolean traded = offer >= 0 && tradeMenu.handleReplayAction(this.owner, tradeId, offer);
+            boolean truthfulOffer = serverOffer != null
+                    && serverOffer.itemId().equals("galacticwars:energy_cell")
+                    && serverOffer.itemCount() == 8
+                    && serverOffer.creditPrice() == 12
+                    && serverOffer.eligible();
+            boolean traded = truthfulOffer && tradeMenu.handleReplayAction(this.owner, tradeId, offer);
             boolean replayRejected = offer >= 0
                     && !tradeMenu.handleReplayAction(this.owner, tradeId, offer);
             ProgressionState tradedState = ProgressionSavedData.get(this.helper.getLevel())
@@ -4403,6 +5367,7 @@ public final class ModGameTests {
                         + this.merchant.factionIdForGameplay() + "/"
                         + this.merchant.factionRelationTo(this.owner)
                         + ", valid=" + tradeMenu.stillValid(this.owner)
+                        + ", serverOffer=" + serverOffer
                         + ", unlocks=" + tradedState.unlocks());
                 return;
             }
@@ -4566,7 +5531,7 @@ public final class ModGameTests {
                 BlockPos spawnPosition = this.area.at(1, 1, 1);
                 if (!this.helper.getLevel().areEntitiesActuallyLoadedAndTicking(
                         new ChunkPos(spawnPosition.getX() >> 4, spawnPosition.getZ() >> 4))) {
-                    if (this.helper.getTick() >= 100L) {
+                    if (this.helper.getTick() >= SMART_BRAIN_CHUNK_READY_TIMEOUT) {
                         this.complete = true;
                         this.helper.fail("Natural civilian GameTest chunk never reached entity-ticking status");
                     }

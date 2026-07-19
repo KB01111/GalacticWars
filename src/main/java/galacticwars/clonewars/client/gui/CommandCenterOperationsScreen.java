@@ -1,6 +1,7 @@
 package galacticwars.clonewars.client.gui;
 
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ActionAvailability;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.BuildSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.BlueprintSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ClaimSummary;
@@ -13,6 +14,7 @@ import galacticwars.clonewars.kingdom.CommandCenterDashboardState.NearbyPlayerSu
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.PositionSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.QuestSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.SquadSummary;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.VehicleFabricationSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.WorkerSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.WorkOrderSummary;
 import galacticwars.clonewars.kingdom.KingdomMemberRole;
@@ -21,8 +23,10 @@ import galacticwars.clonewars.kingdom.KingdomPermissionPolicy;
 import galacticwars.clonewars.menu.CommandCenterOperationsMenu;
 import galacticwars.clonewars.network.GalacticNetwork;
 import galacticwars.clonewars.network.MenuActionPayload;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.network.chat.Component;
@@ -136,15 +140,27 @@ public final class CommandCenterOperationsScreen extends Screen
     }
 
     private void addOverviewActions() {
+        CommandCenterDashboardState state = menu.dashboardState();
         ArrayList<ActionSpec> actions = new ArrayList<>();
         actions.add(action("screen.galacticwars.operations.claim_rewards",
                 CommandCenterOperationsMenu.CLAIM_REWARDS,
                 menu.dashboardState().pendingRewardCredits() > 0));
         actions.add(action("screen.galacticwars.operations.navigation",
-                CommandCenterOperationsMenu.NAVIGATION, true));
+                CommandCenterOperationsMenu.NAVIGATION, state.navigationAvailability()));
+        actions.add(action("screen.galacticwars.operations.player_class",
+                CommandCenterOperationsMenu.PLAYER_CLASS, true));
         for (int index = 0; index < VEHICLES.length; index++) {
+            String vehicleId = VEHICLES[index];
+            Optional<VehicleFabricationSummary> fabrication = state.vehicleFabrication().stream()
+                    .filter(value -> value.vehicleId().equals(vehicleId))
+                    .findFirst();
             actions.add(action("screen.galacticwars.operations.fabricate." + VEHICLES[index],
-                    CommandCenterOperationsMenu.FABRICATE_FIRST + index, true));
+                    CommandCenterOperationsMenu.FABRICATE_FIRST + index,
+                    fabrication.map(VehicleFabricationSummary::availability)
+                            .orElseGet(() -> ActionAvailability.rejected("unknown_vehicle")),
+                    fabrication.map(value -> fabricationTooltip(
+                            value, state.treasuryCredits()))
+                            .orElseGet(() -> reasonTooltip("unknown_vehicle"))));
         }
         addActionGrid(bodyTop + 86, actions);
     }
@@ -431,7 +447,13 @@ public final class CommandCenterOperationsScreen extends Screen
                     .bounds(panelLeft + 8 + column * (buttonWidth + gap),
                             startY + row * controlStride(), buttonWidth, controlHeight())
                     .build();
-            button.active = action.enabled() && canUseAction(action.actionId());
+            boolean permitted = canUseAction(action.actionId());
+            button.active = action.enabled() && permitted;
+            if (!button.active) {
+                button.setTooltip(Tooltip.create(permitted
+                        ? action.disabledTooltip()
+                        : reasonTooltip("permission_denied")));
+            }
             addRenderableWidget(button);
         }
         if (paged) {
@@ -503,6 +525,10 @@ public final class CommandCenterOperationsScreen extends Screen
     }
 
     private void sendAction(int actionId, Optional<UUID> primary, Optional<UUID> secondary) {
+        if (actionId == CommandCenterOperationsMenu.PLAYER_CLASS) {
+            Minecraft.getInstance().setScreenAndShow(new PlayerClassScreen(this));
+            return;
+        }
         GalacticNetwork.CHANNEL.sendToServer(new MenuActionPayload(
                 UUID.randomUUID(), menu.containerId, actionId, primary, secondary));
     }
@@ -917,10 +943,47 @@ public final class CommandCenterOperationsScreen extends Screen
         return action(key, id, Optional.empty(), Optional.empty(), enabled);
     }
 
+    private static ActionSpec action(String key, int id, ActionAvailability availability) {
+        return action(key, id, availability, reasonTooltip(availability.reason()));
+    }
+
+    private static ActionSpec action(
+            String key,
+            int id,
+            ActionAvailability availability,
+            Component disabledTooltip
+    ) {
+        return new ActionSpec(
+                key, id, Optional.empty(), Optional.empty(), availability.available(),
+                disabledTooltip);
+    }
+
     private static ActionSpec action(
             String key, int id, Optional<UUID> primary, Optional<UUID> secondary, boolean enabled
     ) {
-        return new ActionSpec(key, id, primary, secondary, enabled);
+        return new ActionSpec(
+                key, id, primary, secondary, enabled,
+                enabled ? Component.empty() : reasonTooltip("selection_required"));
+    }
+
+    private static Component fabricationTooltip(
+            VehicleFabricationSummary fabrication, int treasuryCredits
+    ) {
+        String materialStock = fabrication.materials().stream()
+                .map(material -> humanize(material.itemId()) + " "
+                        + material.available() + "/" + material.required())
+                .reduce((left, right) -> left + ", " + right)
+                .orElse("-");
+        return Component.translatable(
+                "screen.galacticwars.operations.fabrication.disabled",
+                reasonTooltip(fabrication.availability().reason()),
+                treasuryCredits,
+                fabrication.requiredCredits(),
+                materialStock);
+    }
+
+    private static Component reasonTooltip(String reason) {
+        return Component.translatable("reason.galacticwars.operations." + reason);
     }
 
     private static String path(String id) {
@@ -972,7 +1035,11 @@ public final class CommandCenterOperationsScreen extends Screen
             int actionId,
             Optional<UUID> primaryTargetId,
             Optional<UUID> secondaryTargetId,
-            boolean enabled
+            boolean enabled,
+            Component disabledTooltip
     ) {
+        private ActionSpec {
+            disabledTooltip = disabledTooltip == null ? Component.empty() : disabledTooltip;
+        }
     }
 }

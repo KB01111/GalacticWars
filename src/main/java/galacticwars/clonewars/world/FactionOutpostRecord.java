@@ -66,6 +66,23 @@ public record FactionOutpostRecord(
                 civilianNpcIds.stream().filter(existingNpcId -> !existingNpcId.equals(npcId)).toList(), gameTime);
     }
 
+    public FactionOutpostRecord relocatedTo(int targetX, int targetY, int targetZ, long gameTime) {
+        if (gameTime < 0L) {
+            throw new IllegalArgumentException("gameTime cannot be negative");
+        }
+        return new FactionOutpostRecord(
+                id,
+                factionId,
+                dimensionId,
+                targetX,
+                targetY,
+                targetZ,
+                radius,
+                militaryNpcIds,
+                civilianNpcIds,
+                Math.max(lastActivityGameTime, gameTime));
+    }
+
     private static String required(String value, String label) {
         value = Objects.requireNonNull(value, label).trim().toLowerCase(java.util.Locale.ROOT);
         if (value.isEmpty()) throw new IllegalArgumentException(label + " cannot be blank");

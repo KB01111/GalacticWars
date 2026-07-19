@@ -17,6 +17,9 @@ public record LaunchContentDefinitions(
         Map<String, ConquestRegionDefinition> conquestRegions
 ) {
     public static final int MAX_SERIALIZED_PLANET_ID_BYTES = 128;
+    public static final int MAX_SERIALIZED_TRADE_TEXT_BYTES = 128;
+    public static final int MAX_TRADE_ITEM_COUNT = 64;
+    public static final int MAX_TRADE_CREDIT_PRICE = 1_000_000;
 
     public LaunchContentDefinitions {
         planets = immutable(planets, "planets");
@@ -156,7 +159,13 @@ public record LaunchContentDefinitions(
         public TradeDefinition {
             requireIds(id, factionId, itemId, requiredUnlock);
             regionalPrerequisite = regionalPrerequisite == null ? "" : regionalPrerequisite;
-            if (price <= 0 || itemCount <= 0 || stockTier < 1) throw new IllegalArgumentException("Invalid trade " + id);
+            requireUtf8Bound(id, MAX_SERIALIZED_TRADE_TEXT_BYTES, "trade id");
+            requireUtf8Bound(itemId, MAX_SERIALIZED_TRADE_TEXT_BYTES, "trade item id");
+            if (price <= 0 || price > MAX_TRADE_CREDIT_PRICE
+                    || itemCount <= 0 || itemCount > MAX_TRADE_ITEM_COUNT
+                    || stockTier < 1) {
+                throw new IllegalArgumentException("Invalid trade " + id);
+            }
         }
 
         public TradeDefinition(
@@ -194,5 +203,11 @@ public record LaunchContentDefinitions(
 
     private static void requireIds(String... values) {
         for (String value : values) if (value == null || value.isBlank()) throw new IllegalArgumentException("Launch identifiers cannot be blank");
+    }
+
+    private static void requireUtf8Bound(String value, int maximumBytes, String label) {
+        if (value.getBytes(StandardCharsets.UTF_8).length > maximumBytes) {
+            throw new IllegalArgumentException(label + " exceeds " + maximumBytes + " UTF-8 bytes");
+        }
     }
 }

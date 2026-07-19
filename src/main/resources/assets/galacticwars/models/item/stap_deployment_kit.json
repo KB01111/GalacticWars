@@ -1,1 +1,6 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"galacticwars:item/energy_cell"}}
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "galacticwars:item/stap_deployment_kit"
+  }
+}

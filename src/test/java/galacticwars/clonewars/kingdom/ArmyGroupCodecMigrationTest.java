@@ -21,6 +21,7 @@ import galacticwars.clonewars.army.ArmyPatrolStatus;
 import galacticwars.clonewars.army.ArmyPatrolWaypoint;
 import galacticwars.clonewars.army.ArmyRangedFirePolicy;
 import galacticwars.clonewars.army.ArmyTargetPriority;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,7 +39,7 @@ public final class ArmyGroupCodecMigrationTest {
 
     public static void main(String[] args) {
         legacyGroupsDecodeWithoutMaterializingNewFields();
-        incompleteLegacyPatrolRouteDecodesWithoutMaterializingAPlan();
+        malformedLegacyPatrolRoutesDecodeWithoutMaterializingAPlan();
         enhancedPlansAndTacticsRoundTripLosslessly();
 
         System.out.println("ArmyGroupCodecMigrationTest passed");
@@ -74,7 +75,7 @@ public final class ArmyGroupCodecMigrationTest {
         assertFalse(reencoded.has("tactics"), "read-only legacy load does not materialize doctrine");
     }
 
-    private static void incompleteLegacyPatrolRouteDecodesWithoutMaterializingAPlan() {
+    private static void malformedLegacyPatrolRoutesDecodeWithoutMaterializingAPlan() {
         ArmyLocation first = location(0.0D, 64.0D, 0.0D);
         ArmyLocation second = location(16.0D, 64.0D, 0.0D);
         ArmyGroupRecord legacy = new ArmyGroupRecord(
@@ -90,8 +91,17 @@ public final class ArmyGroupCodecMigrationTest {
 
         ArmyGroupRecord decoded = KingdomCodecs.ARMY_GROUP.parse(JsonOps.INSTANCE, encoded).getOrThrow();
 
-        assertEquals(List.of(first), decoded.patrolRoute(), "incomplete legacy route remains readable");
+        assertTrue(decoded.patrolRoute().isEmpty(), "incomplete legacy route is discarded safely");
         assertTrue(decoded.effectivePatrolPlan().isEmpty(), "incomplete route does not create an invalid plan");
+
+        JsonArray oversizedRoute = new JsonArray();
+        for (ArmyLocation waypoint : Collections.nCopies(33, first)) {
+            oversizedRoute.add(KingdomCodecs.ARMY_LOCATION.encodeStart(JsonOps.INSTANCE, waypoint).getOrThrow());
+        }
+        encoded.add("patrol_route", oversizedRoute);
+        ArmyGroupRecord oversized = KingdomCodecs.ARMY_GROUP.parse(JsonOps.INSTANCE, encoded).getOrThrow();
+        assertTrue(oversized.patrolRoute().isEmpty(), "oversized legacy route is discarded safely");
+        assertTrue(oversized.effectivePatrolPlan().isEmpty(), "oversized route does not create an invalid plan");
     }
 
     private static void enhancedPlansAndTacticsRoundTripLosslessly() {

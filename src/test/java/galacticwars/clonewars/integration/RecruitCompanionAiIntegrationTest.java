@@ -23,6 +23,7 @@ public final class RecruitCompanionAiIntegrationTest {
         walkTargetsRespectTheirArrivalRadius();
         armyRematerializationIsolatesInvalidFormationSlots();
         armyPathStallsTrackTheResolvedDestination();
+        fieldCommandsUseServerTargetPolicy();
 
         System.out.println("RecruitCompanionAiIntegrationTest passed");
     }
@@ -61,7 +62,8 @@ public final class RecruitCompanionAiIntegrationTest {
         assertContains(read("src/main/java/galacticwars/clonewars/entity/ai/RecruitMoveToCommandBehaviour.java"),
                 "shouldMoveToCommandTarget", "move command guard");
         String walkTargetBridge = read(
-                "src/main/java/galacticwars/clonewars/entity/ai/RecruitWalkTargetBehaviour.java");
+                "src/main/java/galacticwars/clonewars/entity/ai/RecruitWalkTargetBehaviour.java")
+                .replace("\r\n", "\n");
         assertContains(walkTargetBridge, "&& !recruit.hasAuthoritativeArmyGroup()",
                 "grouped hold formation bypasses only the local sit veto");
         assertNotContains(walkTargetBridge, "releaseWithoutStopping(recruit);\n            return;",
@@ -90,6 +92,12 @@ public final class RecruitCompanionAiIntegrationTest {
         assertContains(order, "ArmyBehaviorPlanner.plan", "behavior planner");
         assertContains(support, "ArmyEngagementPlanner.plan", "engagement planner");
         assertContains(order, "ArmyTacticalPlanner.plan", "tactical planner");
+        assertContains(order, "state.group().effectiveTactics()", "doctrine-aware order planning");
+        assertContains(combat, "ArmyTacticalPlanner.plan", "combat vital and doctrine gate");
+        assertContains(combat, "state.withSelectedTarget(null)", "tactical combat target release");
+        String patrol = read("src/main/java/galacticwars/clonewars/entity/ai/ArmyPatrolBehaviour.java");
+        assertContains(patrol, "ArmyBrainSupport.resolveState", "same-tick patrol state refresh");
+        assertContains(patrol, "ArmyBrainMemoryTypes.ARMY_STATE, refreshed", "refreshed patrol memory publication");
         assertContains(order, "STALL_TIMEOUT = 200", "bounded group movement recovery");
         assertContains(order, "ArmyBrainSupport.shouldMaintainFormation",
                 "hold formation target arbitration");
@@ -189,11 +197,12 @@ public final class RecruitCompanionAiIntegrationTest {
     }
 
     private static void armyRematerializationIsolatesInvalidFormationSlots() throws IOException {
-        String runtime = read("src/main/java/galacticwars/clonewars/army/ArmyRuntimeEvents.java");
+        String runtime = read("src/main/java/galacticwars/clonewars/army/ArmyRuntimeEvents.java")
+                .replace("\r\n", "\n");
         String rematerialization = section(
                 runtime, "private static void rematerialize", "private static GalacticRecruitEntity createRecruit");
 
-        assertContains(rematerialization, "catch (IllegalStateException ignored)",
+        assertContains(rematerialization, "catch (IllegalStateException | IndexOutOfBoundsException ignored)",
                 "per-member invalid formation slot guard");
         assertContains(rematerialization, "complete = false;\n                continue;",
                 "invalid member isolation");
@@ -211,6 +220,13 @@ public final class RecruitCompanionAiIntegrationTest {
         assertNotContains(publishMoveTarget,
                 "target.x() + 0.5D, target.y(), target.z() + 0.5D",
                 "stall distance avoids unresolved target");
+    }
+
+    private static void fieldCommandsUseServerTargetPolicy() throws IOException {
+        String service = read("src/main/java/galacticwars/clonewars/army/ArmyFieldCommandService.java");
+
+        assertContains(service, "target instanceof Player targetPlayer", "marked player attack target support");
+        assertContains(service, "source.canAttackFactionPlayer(targetPlayer)", "faction and PvP player target policy");
     }
 
     private static void workOrdersStayServerSide() throws IOException {

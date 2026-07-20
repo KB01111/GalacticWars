@@ -63,6 +63,12 @@ public final class FieldCommandPayloadStreamCodecTest {
         } finally {
             invalidAction.release();
         }
+        try {
+            FieldCommandAction.fromWireId(999);
+            throw new AssertionError("unknown action id did not throw");
+        } catch (IllegalArgumentException exception) {
+            assertTrue(exception.getMessage().contains("999"), "unknown action id is included in diagnostics");
+        }
 
         RegistryFriendlyByteBuf truncated = buffer();
         try {
@@ -138,6 +144,12 @@ public final class FieldCommandPayloadStreamCodecTest {
     private static void assertFalse(boolean condition, String label) {
         if (condition) {
             throw new AssertionError(label + " expected false");
+        }
+    }
+
+    private static void assertTrue(boolean condition, String label) {
+        if (!condition) {
+            throw new AssertionError(label + " expected true");
         }
     }
 

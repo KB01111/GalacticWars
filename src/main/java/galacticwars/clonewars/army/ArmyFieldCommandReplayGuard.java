@@ -23,8 +23,11 @@ public final class ArmyFieldCommandReplayGuard {
     public synchronized boolean claim(UUID actorId, UUID replayId) {
         Objects.requireNonNull(actorId, "actorId");
         Objects.requireNonNull(replayId, "replayId");
-        LinkedHashMap<UUID, Boolean> history = histories.computeIfAbsent(actorId,
-                ignored -> new LinkedHashMap<>(16, 0.75F, true));
+        LinkedHashMap<UUID, Boolean> history = histories.get(actorId);
+        if (history == null) {
+            history = new LinkedHashMap<>(16, 0.75F, true);
+            histories.put(actorId, history);
+        }
         if (history.containsKey(replayId)) {
             return false;
         }

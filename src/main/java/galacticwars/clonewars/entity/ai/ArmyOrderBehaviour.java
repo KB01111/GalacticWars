@@ -94,22 +94,9 @@ public final class ArmyOrderBehaviour extends ExtendedBehaviour<GalacticRecruitE
             return;
         }
 
-        LivingEntity selectedTarget = state.selectedTargetId() == null
-                ? null
-                : ArmyBrainSupport.living(level.getEntity(state.selectedTargetId()));
-        if (selectedTarget != null
-                && state.group().order().type() != ArmyCommandType.CLEAR_TARGET
-                && ArmyBrainSupport.canEngageGroupTarget(recruit, state, selectedTarget)) {
-            if (ArmyBrainSupport.shouldMaintainFormation(state, selectedTarget)) {
-                maintainFormation(recruit, state);
-                return;
-            }
-            BrainUtil.setTargetOfEntity(recruit, selectedTarget);
-            return;
-        }
-
         ArmyTacticalDecision tactical = tacticalDecision(recruit, level, state);
         if (tactical.intent() != ArmyTacticalIntent.EXECUTE_ORDER) {
+            BrainUtil.clearMemory(recruit, MemoryModuleType.ATTACK_TARGET);
             publishMoveTarget(recruit, tactical.tacticalTarget(),
                     tactical.intent() == ArmyTacticalIntent.HOLD_POSITION ? 0.8F : 1.05F,
                     formationCloseEnough(state));
@@ -178,6 +165,18 @@ public final class ArmyOrderBehaviour extends ExtendedBehaviour<GalacticRecruitE
             ArmyBrainState state
     ) {
         ArmyCommand command = state.memberCommand();
+        LivingEntity selectedTarget = state.selectedTargetId() == null
+                ? null
+                : ArmyBrainSupport.living(level.getEntity(state.selectedTargetId()));
+        if (selectedTarget != null
+                && command.type() != ArmyCommandType.CLEAR_TARGET
+                && ArmyBrainSupport.canEngageGroupTarget(recruit, state, selectedTarget)) {
+            return ArmyTacticalPlanner.plan(
+                    ArmyBehaviorDecision.attack(selectedTarget.getUUID(), "selected_group_target"),
+                    recruit.getRecruitVitals(),
+                    state.fallbackPosition(),
+                    state.group().effectiveTactics());
+        }
         if (command.type() == ArmyCommandType.PROTECT_ENTITY) {
             LivingEntity protectedEntity = command.targetEntityId() == null
                     ? null
@@ -187,7 +186,8 @@ public final class ArmyOrderBehaviour extends ExtendedBehaviour<GalacticRecruitE
                     : ArmyBehaviorDecision.protect(
                             ArmyBrainSupport.position(protectedEntity), "protect_entity");
             return ArmyTacticalPlanner.plan(
-                    behavior, recruit.getRecruitVitals(), state.fallbackPosition());
+                    behavior, recruit.getRecruitVitals(), state.fallbackPosition(),
+                    state.group().effectiveTactics());
         }
         boolean commandTargetAlive = command.targetEntityId() != null
                 && ArmyBrainSupport.living(level.getEntity(command.targetEntityId())) != null;
@@ -199,7 +199,9 @@ public final class ArmyOrderBehaviour extends ExtendedBehaviour<GalacticRecruitE
                         state.selectedTargetId(),
                         commandTargetAlive,
                         state.followRange()));
-        return ArmyTacticalPlanner.plan(behavior, recruit.getRecruitVitals(), state.fallbackPosition());
+        return ArmyTacticalPlanner.plan(
+                behavior, recruit.getRecruitVitals(), state.fallbackPosition(),
+                state.group().effectiveTactics());
     }
 
     private static void publishMoveTarget(

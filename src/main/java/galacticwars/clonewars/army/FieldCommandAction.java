@@ -37,7 +37,7 @@ public enum FieldCommandAction {
     public static FieldCommandAction fromWireId(int wireId) {
         FieldCommandAction[] values = values();
         if (wireId < 0 || wireId >= values.length) {
-            throw new IllegalArgumentException("unknown field command action");
+            throw new IllegalArgumentException("unknown field command action: " + wireId);
         }
         return values[wireId];
     }

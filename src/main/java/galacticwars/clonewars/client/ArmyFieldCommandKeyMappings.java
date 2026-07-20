@@ -43,11 +43,10 @@ public final class ArmyFieldCommandKeyMappings {
     }
 
     private static void tick(Minecraft minecraft) {
-        boolean acceptsGameplayInput = minecraft.player != null
-                && minecraft.gui.screen() == null
-                && minecraft.gui.overlay() == null;
         while (COMMAND_SCREEN.consumeClick()) {
-            if (acceptsGameplayInput) {
+            if (minecraft.player != null
+                    && minecraft.gui.screen() == null
+                    && minecraft.gui.overlay() == null) {
                 minecraft.setScreenAndShow(new ArmyFieldCommandScreen());
             }
         }

@@ -214,7 +214,7 @@ public final class ArmyRuntimeEvents {
             try {
                 planned = ArmyGroupOrderPlanner.formationPositionForMember(
                         group, snapshot.recruitId(), anchor);
-            } catch (IllegalStateException ignored) {
+            } catch (IllegalStateException | IndexOutOfBoundsException ignored) {
                 complete = false;
                 continue;
             }

@@ -24,6 +24,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Server-authoritative entry point for field-command requests.
@@ -270,13 +271,15 @@ public final class ArmyFieldCommandService {
             List<ArmyGroupRecord> groups,
             LivingEntity target
     ) {
-        if (!isAllowedProtectionTarget(player, groups, target) || target == player) {
+        if (target == player || !target.isAlive()
+                || player.distanceToSqr(target) > MAX_TARGET_DISTANCE_SQUARED
+                || groups.stream().anyMatch(group -> group.contains(target.getUUID()))) {
             return false;
         }
         if (target instanceof Monster) {
             return true;
         }
-        if (!(target instanceof GalacticRecruitEntity recruit)) {
+        if (!(target instanceof Player) && !(target instanceof GalacticRecruitEntity)) {
             return false;
         }
         ServerLevel level = player.level();
@@ -286,7 +289,9 @@ public final class ArmyFieldCommandService {
                 .filter(GalacticRecruitEntity.class::isInstance)
                 .map(GalacticRecruitEntity.class::cast)
                 .filter(source -> source.isAlive() && source.getServiceBranch() == NpcServiceBranch.MILITARY)
-                .anyMatch(source -> source.isHostileFactionRecruit(recruit));
+                .anyMatch(source -> target instanceof Player targetPlayer
+                        ? source.canAttackFactionPlayer(targetPlayer)
+                        : source.isHostileFactionRecruit((GalacticRecruitEntity)target));
     }
 
     private static FieldCommandResult applyOrders(

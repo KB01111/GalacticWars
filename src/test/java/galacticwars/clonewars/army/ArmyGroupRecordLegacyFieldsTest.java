@@ -22,6 +22,7 @@ public final class ArmyGroupRecordLegacyFieldsTest {
     public static void main(String[] args) {
         legacyFieldsRemainAbsentWhileEffectiveViewsPreserveCurrentBehavior();
         membershipChangesMaterializeOnlyReconciledFormationSlots();
+        directConstructionRejectsIncompletePatrolRoutes();
 
         System.out.println("ArmyGroupRecordLegacyFieldsTest passed");
     }
@@ -62,6 +63,23 @@ public final class ArmyGroupRecordLegacyFieldsTest {
         assertEquals(1L, updated.simulation().revision(), "membership revision");
     }
 
+    private static void directConstructionRejectsIncompletePatrolRoutes() {
+        assertThrows(() -> new ArmyGroupRecord(
+                GROUP_ID,
+                OWNER_ID,
+                KINGDOM_ID,
+                Optional.of(COMMANDER_ID),
+                List.of(FIRST_MEMBER),
+                ArmyGroupOrder.follow(ArmyFormation.LINE),
+                new ArmyGroupSimulation(ArmyGroupLifecycleState.LIVE, RALLY, 100L, 0L, 0L, ""),
+                List.of(),
+                "Invalid Legacy Squad",
+                Optional.of(RALLY),
+                List.of(RALLY),
+                Optional.empty(),
+                0), "single-waypoint direct patrol route");
+    }
+
     private static ArmyGroupRecord legacyGroup() {
         return new ArmyGroupRecord(
                 GROUP_ID,
@@ -89,5 +107,14 @@ public final class ArmyGroupRecordLegacyFieldsTest {
         if (!condition) {
             throw new AssertionError(label + " expected to be true");
         }
+    }
+
+    private static void assertThrows(Runnable action, String label) {
+        try {
+            action.run();
+        } catch (IllegalArgumentException expected) {
+            return;
+        }
+        throw new AssertionError(label + " did not throw IllegalArgumentException");
     }
 }

@@ -25,12 +25,13 @@ public record ArmyPatrolRoute(
         if (waitTicksAtWaypoint < 0) {
             throw new IllegalArgumentException("waitTicksAtWaypoint cannot be negative");
         }
+        if (waypointWaitTicks != null
+                && waypointWaitTicks.stream().anyMatch(waitTicks -> waitTicks == null || waitTicks < 0)) {
+            throw new IllegalArgumentException("waypointWaitTicks cannot contain null or negative values");
+        }
         waypointWaitTicks = waypointWaitTicks == null ? List.of() : List.copyOf(waypointWaitTicks);
         if (!waypointWaitTicks.isEmpty() && waypointWaitTicks.size() != waypoints.size()) {
             throw new IllegalArgumentException("waypointWaitTicks must be empty or match waypoints");
-        }
-        if (waypointWaitTicks.stream().anyMatch(waitTicks -> waitTicks == null || waitTicks < 0)) {
-            throw new IllegalArgumentException("waypointWaitTicks cannot contain null or negative values");
         }
         if (!Double.isFinite(movementSpeed) || movementSpeed <= 0.0D) {
             throw new IllegalArgumentException("movementSpeed must be finite and positive");

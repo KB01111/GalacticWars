@@ -17,6 +17,7 @@ public final class ArmyFieldCommandClientIntegrationTest {
 
         assertContains(mappings, "GLFW.GLFW_KEY_G", "default G field command key");
         assertContains(mappings, "ArmyFieldCommandScreen", "field command screen opening");
+        assertNotContains(mappings, "boolean acceptsGameplayInput", "stale buffered-click input state");
         assertContains(screen, "FieldCommandRequestPayload.MAX_GROUPS", "bounded multi-squad selection");
         assertContains(screen, "MOVEMENT(\"screen.galacticwars.field_command.category.movement\"",
                 "movement category");
@@ -45,6 +46,12 @@ public final class ArmyFieldCommandClientIntegrationTest {
     private static void assertContains(String value, String expected, String label) {
         if (!value.contains(expected)) {
             throw new AssertionError(label + " missing <" + expected + ">");
+        }
+    }
+
+    private static void assertNotContains(String value, String unexpected, String label) {
+        if (value.contains(unexpected)) {
+            throw new AssertionError(label + " unexpectedly contained <" + unexpected + ">");
         }
     }
 }

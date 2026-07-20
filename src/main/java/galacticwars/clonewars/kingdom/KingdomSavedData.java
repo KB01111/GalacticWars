@@ -17,6 +17,7 @@ import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.data.SavedDataSchemaPolicy;
 import galacticwars.clonewars.army.ArmyFormation;
+import galacticwars.clonewars.army.ArmyFieldCommandBatch;
 import galacticwars.clonewars.army.ArmyGroupLifecycleState;
 import galacticwars.clonewars.army.ArmyGroupOrder;
 import galacticwars.clonewars.army.ArmyGroupRecord;
@@ -621,7 +622,7 @@ public final class KingdomSavedData extends SavedData {
         Objects.requireNonNull(actorId, "actorId");
         Objects.requireNonNull(replacements, "replacements");
         Objects.requireNonNull(expectedRevisions, "expectedRevisions");
-        if (replacements.isEmpty() || replacements.size() > 8
+        if (replacements.isEmpty() || replacements.size() > ArmyFieldCommandBatch.MAX_GROUPS
                 || expectedRevisions.size() != replacements.size()) {
             return false;
         }

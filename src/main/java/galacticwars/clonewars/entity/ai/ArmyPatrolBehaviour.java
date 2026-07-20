@@ -62,6 +62,11 @@ public final class ArmyPatrolBehaviour extends ExtendedBehaviour<GalacticRecruit
             return;
         }
         ArmyGroupRecord updated = group.withPatrolPlanAndOrder(decision.nextPlan(), decision.nextOrder());
-        KingdomSavedData.get(level).replaceArmyGroup(updated, group.simulation().revision());
+        if (KingdomSavedData.get(level).replaceArmyGroup(updated, group.simulation().revision())) {
+            ArmyBrainState refreshed = ArmyBrainSupport.resolveState(recruit, level, state);
+            if (refreshed != null) {
+                BrainUtil.setMemory(recruit, ArmyBrainMemoryTypes.ARMY_STATE, refreshed);
+            }
+        }
     }
 }

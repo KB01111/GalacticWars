@@ -95,6 +95,14 @@ public final class ArmyFieldCommandBatchTest {
         assertTrue(duplicateGuard.claim(firstPlayer, thirdReplay), "newest replay accepted");
         assertTrue(duplicateGuard.claim(firstPlayer, replay), "duplicate lookup does not prevent oldest eviction");
 
+        ArmyFieldCommandReplayGuard actorGuard = new ArmyFieldCommandReplayGuard(2, 1);
+        UUID thirdPlayer = UUID.fromString("00000000-0000-0000-0000-00000000b003");
+        assertTrue(actorGuard.claim(firstPlayer, replay), "first actor accepted");
+        assertTrue(actorGuard.claim(secondPlayer, replay), "second actor accepted");
+        assertFalse(actorGuard.claim(firstPlayer, replay), "active actor replay rejected and actor recency refreshed");
+        assertTrue(actorGuard.claim(thirdPlayer, replay), "third actor accepted while inactive actor is evicted");
+        assertTrue(actorGuard.claim(secondPlayer, replay), "inactive actor history was evicted first");
+
         guard.clear(firstPlayer);
         assertTrue(guard.claim(firstPlayer, UUID.fromString("00000000-0000-0000-0000-00000000c003")),
                 "player cleanup releases replay history");

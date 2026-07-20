@@ -1,6 +1,7 @@
 package galacticwars.clonewars.army;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,6 +93,8 @@ public final class ArmyPatrolPlannerTest {
         assertTrue(ArmyPatrolPlan.fromLegacyRoute(List.of()).isEmpty(), "empty legacy route");
         assertTrue(ArmyPatrolPlan.fromLegacyRoute(List.of(location(POINT_A))).isEmpty(),
                 "single-waypoint legacy route");
+        assertTrue(ArmyPatrolPlan.fromLegacyRoute(
+                Collections.nCopies(33, location(POINT_A))).isEmpty(), "oversized legacy route");
     }
 
     private static void exposesSafeLoadedMovementSpeed() {
@@ -258,6 +261,11 @@ public final class ArmyPatrolPlannerTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new ArmyPatrolRoute(List.of(POINT_A, POINT_B), ArmyPatrolMode.LOOP, -1, 0),
                 "negative arrival distance");
+        assertThrows(IllegalArgumentException.class,
+                () -> new ArmyPatrolRoute(
+                        List.of(POINT_A, POINT_B), ArmyPatrolMode.LOOP, 0, 0,
+                        Arrays.asList(0, null), 1.0D, ArmyPatrolEnemyPolicy.ENGAGE_HOSTILES),
+                "null waypoint wait");
         assertThrows(IllegalArgumentException.class,
                 () -> new ArmyPatrolState(-1, 1, 0),
                 "negative waypoint index");

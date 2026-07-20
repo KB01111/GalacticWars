@@ -121,6 +121,8 @@ final class KingdomCodecs {
             Codec.DOUBLE.fieldOf("y").forGetter(ArmyLocation::y),
             Codec.DOUBLE.fieldOf("z").forGetter(ArmyLocation::z)
     ).apply(instance, ArmyLocation::new));
+    private static final Codec<List<ArmyLocation>> LEGACY_ARMY_PATROL_ROUTE = ARMY_LOCATION.listOf()
+            .xmap(KingdomCodecs::normalizeLegacyPatrolRoute, List::copyOf);
 
     static final Codec<ArmyGroupOrder> ARMY_GROUP_ORDER = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.xmap(value -> ArmyCommandType.valueOf(value.toUpperCase()), value -> value.name().toLowerCase())
@@ -239,7 +241,8 @@ final class KingdomCodecs {
             ARMY_MEMBER_SNAPSHOT.listOf().optionalFieldOf("snapshots", List.of()).forGetter(ArmyGroupRecord::snapshots),
             Codec.STRING.optionalFieldOf("name", "Squad").forGetter(ArmyGroupRecord::name),
             ARMY_LOCATION.optionalFieldOf("rally_point").forGetter(ArmyGroupRecord::rallyPoint),
-            ARMY_LOCATION.listOf().optionalFieldOf("patrol_route", List.of()).forGetter(ArmyGroupRecord::patrolRoute),
+            LEGACY_ARMY_PATROL_ROUTE.optionalFieldOf("patrol_route", List.of())
+                    .forGetter(ArmyGroupRecord::patrolRoute),
             UUIDUtil.CODEC.optionalFieldOf("defended_claim_id").forGetter(ArmyGroupRecord::defendedClaimId),
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("supply_units", 0)
                     .forGetter(ArmyGroupRecord::supplyUnits),
@@ -423,6 +426,10 @@ final class KingdomCodecs {
             KINGDOM_CLAIM.listOf().optionalFieldOf("claims", List.of()).forGetter(KingdomRecord::claims),
             KINGDOM_NPC.listOf().optionalFieldOf("npc_roster", List.of()).forGetter(KingdomRecord::npcRoster)
     ).apply(instance, KingdomRecord::new));
+
+    private static List<ArmyLocation> normalizeLegacyPatrolRoute(List<ArmyLocation> patrolRoute) {
+        return patrolRoute.size() == 1 || patrolRoute.size() > 32 ? List.of() : patrolRoute;
+    }
 
     private KingdomCodecs() {
     }

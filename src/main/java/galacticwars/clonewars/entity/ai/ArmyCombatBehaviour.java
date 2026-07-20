@@ -1,7 +1,11 @@
 package galacticwars.clonewars.entity.ai;
 
+import galacticwars.clonewars.army.ArmyBehaviorDecision;
 import galacticwars.clonewars.army.ArmyGroupRecord;
 import galacticwars.clonewars.army.ArmySupplyPolicy;
+import galacticwars.clonewars.army.ArmyTacticalDecision;
+import galacticwars.clonewars.army.ArmyTacticalIntent;
+import galacticwars.clonewars.army.ArmyTacticalPlanner;
 import galacticwars.clonewars.combat.BlasterHeatPolicy;
 import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
@@ -72,6 +76,16 @@ public final class ArmyCombatBehaviour extends ExtendedBehaviour<GalacticRecruit
         ArmyBrainState state = BrainUtil.getMemory(recruit, ArmyBrainMemoryTypes.ARMY_STATE);
         LivingEntity target = BrainUtil.getMemory(recruit, MemoryModuleType.ATTACK_TARGET);
         if (state == null || !ArmyBrainSupport.canEngageGroupTarget(recruit, state, target)) {
+            clearCombatTarget(recruit);
+            return;
+        }
+        ArmyTacticalDecision tactical = ArmyTacticalPlanner.plan(
+                ArmyBehaviorDecision.attack(target.getUUID(), "active_group_target"),
+                recruit.getRecruitVitals(),
+                state.fallbackPosition(),
+                state.group().effectiveTactics());
+        if (tactical.intent() != ArmyTacticalIntent.EXECUTE_ORDER) {
+            BrainUtil.setMemory(recruit, ArmyBrainMemoryTypes.ARMY_STATE, state.withSelectedTarget(null));
             clearCombatTarget(recruit);
             return;
         }

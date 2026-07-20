@@ -39,8 +39,8 @@ public record ArmyGroupRecord(
         }
         rallyPoint = rallyPoint == null ? Optional.empty() : rallyPoint;
         patrolRoute = List.copyOf(Objects.requireNonNull(patrolRoute, "patrolRoute"));
-        if (patrolRoute.size() == 1 || patrolRoute.size() > 32) {
-            throw new IllegalArgumentException("patrolRoute must be empty or contain 2-32 waypoints");
+        if (patrolRoute.size() > 32) {
+            throw new IllegalArgumentException("patrolRoute cannot contain more than 32 waypoints");
         }
         if (!patrolRoute.isEmpty()) {
             String patrolDimension = patrolRoute.getFirst().dimensionId();
@@ -238,6 +238,10 @@ public record ArmyGroupRecord(
     }
 
     public ArmyGroupRecord withPatrolRoute(List<ArmyLocation> patrolRoute) {
+        Objects.requireNonNull(patrolRoute, "patrolRoute");
+        if (patrolRoute.size() == 1) {
+            throw new IllegalArgumentException("patrolRoute must be empty or contain 2-32 waypoints");
+        }
         return new ArmyGroupRecord(id, ownerId, kingdomId, commanderId, memberIds, order, simulation, snapshots,
                 name, rallyPoint, patrolRoute, defendedClaimId, supplyUnits, formationSlotAssignments,
                 Optional.empty(), tactics);

@@ -210,11 +210,17 @@ public final class ArmyRuntimeEvents {
                     && recruit.getArmySnapshotGeneration() >= snapshot.generation()) {
                 continue;
             }
+            ArmyPosition planned;
+            try {
+                planned = ArmyGroupOrderPlanner.formationPositionForMember(
+                        group, snapshot.recruitId(), anchor);
+            } catch (IllegalStateException ignored) {
+                complete = false;
+                continue;
+            }
             if (existing != null) {
                 existing.discard();
             }
-            ArmyPosition planned = ArmyGroupOrderPlanner.formationPositionForMember(
-                    group, snapshot.recruitId(), anchor);
             GalacticRecruitEntity recruit = createRecruit(level, snapshot, group.id(), planned);
             if (recruit == null) {
                 complete = false;

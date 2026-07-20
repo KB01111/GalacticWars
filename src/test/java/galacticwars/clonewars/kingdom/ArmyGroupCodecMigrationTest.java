@@ -1,5 +1,6 @@
 package galacticwars.clonewars.kingdom;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
@@ -37,6 +38,7 @@ public final class ArmyGroupCodecMigrationTest {
 
     public static void main(String[] args) {
         legacyGroupsDecodeWithoutMaterializingNewFields();
+        incompleteLegacyPatrolRouteDecodesWithoutMaterializingAPlan();
         enhancedPlansAndTacticsRoundTripLosslessly();
 
         System.out.println("ArmyGroupCodecMigrationTest passed");
@@ -70,6 +72,26 @@ public final class ArmyGroupCodecMigrationTest {
         assertFalse(reencoded.has("formation_slots"), "read-only legacy load does not materialize slots");
         assertFalse(reencoded.has("patrol_plan"), "read-only legacy load does not materialize patrol state");
         assertFalse(reencoded.has("tactics"), "read-only legacy load does not materialize doctrine");
+    }
+
+    private static void incompleteLegacyPatrolRouteDecodesWithoutMaterializingAPlan() {
+        ArmyLocation first = location(0.0D, 64.0D, 0.0D);
+        ArmyLocation second = location(16.0D, 64.0D, 0.0D);
+        ArmyGroupRecord legacy = new ArmyGroupRecord(
+                GROUP, OWNER, KINGDOM, Optional.of(COMMANDER), List.of(MEMBER),
+                new ArmyGroupOrder(ArmyCommandType.PATROL_ROUTE, Optional.of(first), Optional.empty(),
+                        ArmyFormation.LINE, 2),
+                new ArmyGroupSimulation(ArmyGroupLifecycleState.LIVE, first, 40L, 7L, 0L, ""),
+                List.of(), "Incomplete Legacy Squad", Optional.of(first), List.of(first, second), Optional.empty(), 3);
+        JsonObject encoded = encode(legacy);
+        JsonArray incompleteRoute = new JsonArray();
+        incompleteRoute.add(KingdomCodecs.ARMY_LOCATION.encodeStart(JsonOps.INSTANCE, first).getOrThrow());
+        encoded.add("patrol_route", incompleteRoute);
+
+        ArmyGroupRecord decoded = KingdomCodecs.ARMY_GROUP.parse(JsonOps.INSTANCE, encoded).getOrThrow();
+
+        assertEquals(List.of(first), decoded.patrolRoute(), "incomplete legacy route remains readable");
+        assertTrue(decoded.effectivePatrolPlan().isEmpty(), "incomplete route does not create an invalid plan");
     }
 
     private static void enhancedPlansAndTacticsRoundTripLosslessly() {

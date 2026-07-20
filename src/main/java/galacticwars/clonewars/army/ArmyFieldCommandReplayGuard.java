@@ -26,7 +26,6 @@ public final class ArmyFieldCommandReplayGuard {
         LinkedHashMap<UUID, Boolean> history = histories.computeIfAbsent(actorId,
                 ignored -> new LinkedHashMap<>(16, 0.75F, true));
         if (history.containsKey(replayId)) {
-            history.get(replayId);
             return false;
         }
         history.put(replayId, Boolean.TRUE);

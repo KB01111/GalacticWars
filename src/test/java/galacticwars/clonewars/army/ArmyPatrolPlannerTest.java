@@ -18,6 +18,7 @@ public final class ArmyPatrolPlannerTest {
         loopsFromLastWaypointToFirst();
         pingPongReversesAtEndWaypoint();
         waitsBeforeMovingToNextWaypoint();
+        ignoresIncompleteLegacyRoutes();
         exposesSafeLoadedMovementSpeed();
         editsNamedRouteAndIndividualWaypointWaitsWithoutLosingProgress();
         derivesBoundedRetreatAnchorsAwayFromThreats();
@@ -85,6 +86,12 @@ public final class ArmyPatrolPlannerTest {
         assertFalse(moving.waiting(), "wait complete should move");
         assertEquals(POINT_B, moving.moveTarget(), "post-wait target");
         assertEquals("moving_to_waypoint", moving.reasonCode(), "post-wait reason");
+    }
+
+    private static void ignoresIncompleteLegacyRoutes() {
+        assertTrue(ArmyPatrolPlan.fromLegacyRoute(List.of()).isEmpty(), "empty legacy route");
+        assertTrue(ArmyPatrolPlan.fromLegacyRoute(List.of(location(POINT_A))).isEmpty(),
+                "single-waypoint legacy route");
     }
 
     private static void exposesSafeLoadedMovementSpeed() {

@@ -21,6 +21,8 @@ public final class RecruitCompanionAiIntegrationTest {
         workerRuntimeConsumesSavedDataAuthority();
         localCommandNavigationRecoversFromStalls();
         walkTargetsRespectTheirArrivalRadius();
+        armyRematerializationIsolatesInvalidFormationSlots();
+        armyPathStallsTrackTheResolvedDestination();
 
         System.out.println("RecruitCompanionAiIntegrationTest passed");
     }
@@ -184,6 +186,31 @@ public final class RecruitCompanionAiIntegrationTest {
 
         assertContains(stateSensor, "resolveState", "persisted group order projection");
         assertNotContains(order, "workTarget", "worksite-independent army control");
+    }
+
+    private static void armyRematerializationIsolatesInvalidFormationSlots() throws IOException {
+        String runtime = read("src/main/java/galacticwars/clonewars/army/ArmyRuntimeEvents.java");
+        String rematerialization = section(
+                runtime, "private static void rematerialize", "private static GalacticRecruitEntity createRecruit");
+
+        assertContains(rematerialization, "catch (IllegalStateException ignored)",
+                "per-member invalid formation slot guard");
+        assertContains(rematerialization, "complete = false;\n                continue;",
+                "invalid member isolation");
+    }
+
+    private static void armyPathStallsTrackTheResolvedDestination() throws IOException {
+        String behaviour = read("src/main/java/galacticwars/clonewars/entity/ai/ArmyOrderBehaviour.java")
+                .replace("\r\n", "\n");
+        String publishMoveTarget = section(
+                behaviour, "private static void publishMoveTarget", "private static void clearMoveTarget");
+
+        assertContains(publishMoveTarget,
+                "resolvedTarget.x() + 0.5D, resolvedTarget.y(), resolvedTarget.z() + 0.5D",
+                "stall distance uses resolved walk target");
+        assertNotContains(publishMoveTarget,
+                "target.x() + 0.5D, target.y(), target.z() + 0.5D",
+                "stall distance avoids unresolved target");
     }
 
     private static void workOrdersStayServerSide() throws IOException {

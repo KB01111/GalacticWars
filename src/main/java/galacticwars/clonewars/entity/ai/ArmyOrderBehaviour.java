@@ -219,7 +219,7 @@ public final class ArmyOrderBehaviour extends ExtendedBehaviour<GalacticRecruitE
             return;
         }
         double distanceSquared = recruit.distanceToSqr(
-                target.x() + 0.5D, target.y(), target.z() + 0.5D);
+                resolvedTarget.x() + 0.5D, resolvedTarget.y(), resolvedTarget.z() + 0.5D);
         ArmyPathStatus status = BrainUtil.getMemory(recruit, ArmyBrainMemoryTypes.PATH_STATUS);
         if (status == null || !status.target().equals(resolvedTarget)) {
             status = ArmyPathStatus.tracking(resolvedTarget, distanceSquared);

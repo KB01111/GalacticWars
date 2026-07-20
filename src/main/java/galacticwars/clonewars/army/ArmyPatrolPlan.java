@@ -63,7 +63,7 @@ public record ArmyPatrolPlan(
 
     public static Optional<ArmyPatrolPlan> fromLegacyRoute(List<ArmyLocation> legacyRoute) {
         Objects.requireNonNull(legacyRoute, "legacyRoute");
-        if (legacyRoute.isEmpty()) {
+        if (legacyRoute.size() < 2) {
             return Optional.empty();
         }
         return Optional.of(new ArmyPatrolPlan(

@@ -9,7 +9,7 @@ import javax.imageio.ImageIO;
 public final class SpawnCapsuleAssetIntegrationTest {
     private static final Path ASSETS = Path.of("src/main/resources/assets/galacticwars");
     private static final List<String> VISUAL_IDS = List.of(
-            "clone_trooper", "arc_trooper", "jedi_knight",
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper", "jedi_knight",
             "b1_battle_droid", "b2_super_battle_droid", "commando_droid",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
             "hutt_enforcer", "bounty_hunter", "smuggler",

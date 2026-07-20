@@ -36,6 +36,12 @@ public final class ModRegistryCompatibilityTest {
         assertContains(modItems,
                 "ModEntityTypes.CLONE_TROOPER.get(), \"clone_trooper\", properties)",
                 "spawn egg registration must retain its recruit type and visual material id");
+        assertContains(modItems,
+                "ModEntityTypes.PHASE_I_CLONE_TROOPER.get(), \"phase_i_clone_trooper\", properties)",
+                "Phase I clone spawn egg must retain its recruit type and visual material id");
+        assertContains(modItems,
+                "ModEntityTypes.PHASE_I_ARC_TROOPER.get(), \"phase_i_arc_trooper\", properties)",
+                "Phase I ARC spawn egg must retain its recruit type and visual material id");
         assertNotContains(modItems,
                 "new SpawnEggItem(new Item.Properties()",
                 "spawn egg registration must not bypass Item.Properties#setId");
@@ -56,6 +62,9 @@ public final class ModRegistryCompatibilityTest {
         assertRegularFile("src/main/resources/assets/galacticwars/items/nightsister_weave_log.json");
         assertRegularFile("src/main/resources/assets/galacticwars/items/beskar_ingot.json");
         assertRegularFile("src/main/resources/assets/galacticwars/items/clone_trooper_spawn_egg.json");
+        assertRegularFile("src/main/resources/assets/galacticwars/items/phase_i_clone_trooper_spawn_egg.json");
+        assertRegularFile("src/main/resources/assets/galacticwars/items/phase_i_arc_trooper_spawn_egg.json");
+        assertRegularFile("src/main/resources/assets/galacticwars/items/phase_i_clone_helmet.json");
     }
 
     private static void spawnEggModelUsesCurrentItemModelFormat() throws IOException {
@@ -106,12 +115,20 @@ public final class ModRegistryCompatibilityTest {
                 "src/main/java/galacticwars/clonewars/registry/ModEntityTypes.java"));
         assertContains(entityTypes, "registerRecruit(\"clone_trooper\", 0.60F, 1.95F)",
                 "Republic dimensions");
+        assertContains(entityTypes, "registerRecruit(\"phase_i_clone_trooper\", 0.60F, 1.95F)",
+                "Phase I clone dimensions");
+        assertContains(entityTypes, "registerRecruit(\"phase_i_arc_trooper\", 0.60F, 1.95F)",
+                "Phase I ARC dimensions");
         assertContains(entityTypes, "registerRecruit(\"mandalorian_warrior\", 0.60F, 1.95F)",
                 "Mandalorian dimensions");
-        assertContains(entityTypes, "registerRecruit(\"b1_battle_droid\", 0.70F, 1.85F)",
-                "Separatist dimensions");
-        assertContains(entityTypes, "registerRecruit(\"hutt_enforcer\", 0.75F, 1.55F)",
-                "hutt_cartel dimensions");
+        assertContains(entityTypes, "registerRecruit(\"b1_battle_droid\", 0.50F, 1.93F)",
+                "B1 canonical skeletal dimensions");
+        assertContains(entityTypes, "registerRecruit(\"commando_droid\", 0.58F, 1.91F)",
+                "BX canonical agile dimensions");
+        assertContains(entityTypes, "registerRecruit(\"hutt_enforcer\", 0.84F, 2.00F)",
+                "Hutt-aligned enforcer dimensions");
+        assertContains(entityTypes, "registerRecruit(\"separatist_technician\", 0.60F, 1.90F)",
+                "Separatist technician dimensions");
         assertContains(entityTypes, "registerRecruit(\"nightsister_acolyte\", 0.60F, 2.05F)",
                 "nightsister dimensions");
     }

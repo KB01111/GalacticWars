@@ -36,8 +36,10 @@
     "ambient": [],
     "axolotls": [],
     "creature": [
-      {"type": "galacticwars:clone_trooper", "maxCount": 4, "minCount": 2, "weight": 8},
-      {"type": "galacticwars:arc_trooper", "maxCount": 2, "minCount": 1, "weight": 3},
+      {"type": "galacticwars:clone_trooper", "maxCount": 4, "minCount": 2, "weight": 5},
+      {"type": "galacticwars:phase_i_clone_trooper", "maxCount": 4, "minCount": 2, "weight": 3},
+      {"type": "galacticwars:arc_trooper", "maxCount": 2, "minCount": 1, "weight": 2},
+      {"type": "galacticwars:phase_i_arc_trooper", "maxCount": 2, "minCount": 1, "weight": 1},
       {"type": "galacticwars:jedi_knight", "maxCount": 1, "minCount": 1, "weight": 1},
       {"type": "galacticwars:republic_civilian", "maxCount": 4, "minCount": 2, "weight": 7}
     ],

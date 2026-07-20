@@ -1,5 +1,35 @@
 # Galactic Wars Asset Provenance
 
+## 2026-07-20 permissioned upstream character-art replacement
+
+The visually rejected generated clone, B1, and Mandalorian sets were replaced with authored source
+art from two pinned repositories. `tools/generate_character_models.py` still creates the unmatched
+NPC families and animations, then calls `tools/import_authorized_character_assets.py` last so the
+permissioned conversions deterministically replace the matching outputs. Exact upstream inputs are
+retained under `tools/source_art/authorized_upstream` and are never edited in place.
+
+| Source and revision | Shipped Galactic Wars outputs | Deterministic adaptation |
+| --- | --- | --- |
+| `Parzivail-Modding-Team/GalaxiesParzisStarWarsMod` at `b91b4cc1a827eeb7c2ae16f0b703affd78c1c206`, `Clone Trooper.bbmodel`, `Clone Trooper.png`, clone item sprites | `phase_i_clone_trooper`, `phase_i_arc_trooper`, `clone_trooper`, `arc_trooper`; `phase_i_clone` and `republic_plastoid` wearable armor; both clone item-icon sets | Select Phase I/II helmet groups; enable rangefinder, pauldron, and kama for ARCs; mirror the Blockbench X axis; preserve 128x128 per-face UVs; add GeckoLib hand anchors and armor-parent bones. Phase I pixels are copied exactly. |
+| `Pyrix25633/Forge-StarWarsCloneWars` at `c9555aa4966e9e63c22a59f488d4b05bc614569e`, three 501st armor layers | Phase II clone and ARC NPC, wearable armor, and item markings | Select the dominant authored 501st blue from the source helmet texture and transfer that palette only to UV-compatible helmet, torso, arm, and leg regions of the Galaxies atlas. |
+| `Pyrix25633/Forge-StarWarsCloneWars` at `c9555aa4966e9e63c22a59f488d4b05bc614569e`, `Droid.bbmodel`, `droid.png` | `b1_battle_droid` | Convert the authored skeletal model to GeckoLib, scale its 64x32 UV coordinates to the authored 128x64 atlas, add joint and held-item anchors, and omit only three integrated blaster cuboids so the registered E-5 does not z-fight. Texture pixels remain exact. |
+| `Parzivail-Modding-Team/GalaxiesParzisStarWarsMod` at `b91b4cc1a827eeb7c2ae16f0b703affd78c1c206`, `PSWG_Mandalorian.bbmodel`, `PSWG_Mandalorian.png` | `mandalorian_warrior`, `mandalorian_marksman`, `mandalorian_heavy`, `mandalorian_clansperson` | Select distinct helmet, rangefinder, macrobinocular, Z-6, and JT-12 groups; mirror the Blockbench X axis; preserve 128x128 per-face UVs; fill transparent wearable-only body-glove regions and apply deterministic clan-role palettes. |
+
+The Galaxies repository declares non-code assets CC-BY-SA 4.0. The Forge repository is GPL-3.0,
+and the project owner additionally confirmed direct-copy and adaptation permission on 2026-07-20.
+`NOTICE.md`, `third_party/licenses`, and `docs/authorized-source-intake.md` retain the attribution,
+license links/copies, pinned revisions, and transformation ledger.
+
+The Galaxies Jedi Commander overlay was evaluated but is not a shipped replacement. Its partial
+clothing texture is tied to the upstream legacy humanoid UV layout; applying it to the current Jedi
+would mis-map pixels and repeat the quality problem this pass is correcting. Unmatched Jedi, civilian,
+Nightsister, brute, outlaw, B2, BX, and technician assets remain deterministic project-authored sets
+until a UV-compatible permissioned source is identified.
+
+This section supersedes the older generated-only provenance claims below for the nine replaced NPC
+sets and two clone wearable armor sets. Generated orthographic sheets remain references only for the
+unmatched roster; they are not the source of the permissioned outputs listed here.
+
 ## 2026-07-19 field-command and vehicle-deployment completion
 
 Ten placeholder visual paths were replaced with original project-owned artwork generated in the
@@ -336,3 +366,91 @@ The particle sprites resolve through `particles/blaster_bolt.json` and `particle
 ## Armor icon refinement
 
 The twenty armor inventory icons were regenerated as one cohesive project-owned pixel-art sheet (`exec-35cea704-fd2a-43e4-a596-d48046a7341d.png`). The retained source is `tools/source_art/generated_armor_icons.png`; `tools/generate_polished_textures.py` removes its flat green key, isolates the fixed five-by-four cells, fits each silhouette into a transparent 16x16 canvas, and writes the helmet, chestplate, leggings, and boots icons for all five armor families. This keeps the small in-game assets reproducible while preserving distinct Republic plastoid, Separatist alloy, Mandalorian alloy, Nightsister weave, and Beskar material language.
+
+## 2026-07-20 NPC and clone-armor v4 overhaul
+
+`tools/generate_character_models.py` is the sole deterministic source for all twenty-two recruit
+models, textures, animation sets, recruitment-capsule visuals, and six GeckoLib equipped-armor
+families. NPC atlases are 256x256 with explicit north/south/east/west/up/down UV declarations at two
+texels per model unit. Equipped armor remains 1024x1024 with six texels per model unit. The two added
+recruits are `phase_i_clone_trooper` and `phase_i_arc_trooper`; the retained `clone_trooper` and
+`arc_trooper` resources now represent late-war blue-marked armor. The new `phase_i_clone` wearable
+family has its own geometry, texture, animation, and four original 16x16 inventory icons.
+
+Five image-generation outputs are retained only as project-bound silhouette, material, and proportion
+references. No generated reference pixels are cropped, traced, sampled, or copied into shipped atlases.
+All distributable cuboids and pixels are authored by the deterministic Python generator. The sheets are
+original, anonymous designs without official pixels, logos, named-character likenesses, or third-party
+assets:
+
+| Family | Retained source | Built-in result |
+| --- | --- | --- |
+| Clone armor | `tools/source_art/generated_clone_armor_orthographic_v4.png` | `exec-aa4eacd1-972e-4c31-9212-1d626584b4b6.png` |
+| Mechanical infantry | `tools/source_art/generated_droid_orthographic_v4.png` | `exec-0362beec-8040-4b2b-b3cf-77c75ae5f279.png` |
+| Armored clans and guardian | `tools/source_art/generated_mandalorian_jedi_orthographic_v4.png` | `exec-7d705b9c-da21-4b15-9029-c8e3f16187e0.png` |
+| Dathomir-inspired settlement | `tools/source_art/generated_dathomir_orthographic_v4.png` | `exec-1567e44c-d3c6-402e-8a26-a0dcdd7e6fea.png` |
+| Hutt-aligned, outlaw, and civilian | `tools/source_art/generated_hutt_outlaws_civilians_orthographic_v4.png` | `exec-ebbe15ec-d4b7-4415-9168-3aa5fec052ff.png` |
+
+The exact successful built-in prompts were:
+
+```text
+Use case: stylized-concept
+Asset type: project-bound orthographic game character concept sheet for a deterministic voxel-model pipeline
+Primary request: create one cohesive original front, side, and back orthographic design sheet for four anonymous retro-futurist space infantry armor roles: clean early-generation line armor, evolved late-generation blue-marked line armor, early-generation field specialist armor, and late-generation blue-marked field specialist armor.
+Scene/backdrop: neutral light-gray technical presentation background, separated turnarounds, no scenery
+Style/medium: polished original hard-surface concept art translated toward chunky Minecraft-compatible cuboid construction, crisp panel boundaries, readable at small scale
+Composition/framing: full body, all figures same scale, clear front, side, and back views, helmets on, neutral A-pose, generous separation
+Materials/textures: off-white ceramic composite plates, black body glove, restrained cobalt-blue markings on late-generation armor, subtle chipped edges and field wear; specialists add rangefinder, asymmetrical shoulder guard, split utility skirt, ammo pouches, bracers, compact backpack, and holsters
+Constraints: strongly distinguish early and late helmet silhouettes and line-versus-specialist silhouettes; entirely original designs; no existing franchise characters, logos, symbols, text, labels, watermark, weapons, or recognizable faces
+```
+
+```text
+Use case: stylized-concept
+Asset type: project-bound orthographic game character concept sheet for a deterministic voxel-model pipeline
+Primary request: create one cohesive original front, side, and back orthographic design sheet for four anonymous retro-futurist mechanical infantry types: a tall skeletal tan line automaton, a broad gunmetal heavy automaton, an angular charcoal infiltration automaton, and a compact ochre field-repair technician automaton.
+Scene/backdrop: neutral light-gray technical presentation background, separated turnarounds, no scenery
+Style/medium: polished original hard-surface concept art translated toward chunky Minecraft-compatible cuboid construction, crisp panel boundaries and mechanical pivots
+Composition/framing: full body, same scale, clear front, side, and back views, neutral pose, generous separation
+Materials/textures: worn painted metal, exposed neck pistons, elbow and knee hinges, narrow waist couplers, layered chest plates, small optics; orange service markings only on technician
+Constraints: make each body architecture unmistakably different; show usable child-joint shapes for neck, shoulders, elbows, wrists, hips, knees, ankles, torso and backpack; entirely original designs; no existing franchise characters, logos, symbols, text, labels, watermark, weapons, or humanoid faces
+```
+
+```text
+Use case: stylized-concept
+Asset type: project-bound orthographic game character concept sheet for a deterministic voxel-model pipeline
+Primary request: create one cohesive original front, side, and back orthographic design sheet for five anonymous space-fantasy roles: a teal-gray helmeted clan warrior, a sand-orange helmeted clan marksman, a blue-gray heavily armored clan defender, a practical unhelmeted clan civilian, and a robed peacekeeper guardian.
+Scene/backdrop: neutral light-gray technical presentation background, separated turnarounds, no scenery
+Style/medium: polished original hard-surface and costume concept art translated toward chunky Minecraft-compatible cuboid construction
+Composition/framing: full body, same scale, clear front, side, and back views, neutral A-pose, generous separation
+Materials/textures: angular layered clan armor with narrow T-shaped abstract visor language, capes or compact packs, rangefinder only for marksman, thick pauldrons and power pack for heavy; guardian uses layered earth-tone robes, tabards, belt, boots and simple cloak
+Constraints: early-war utilitarian clan aesthetic, not a glossy lone-gunslinger look; readable family-specific child parts; entirely original designs; no existing franchise characters, logos, symbols, text, labels, watermark, weapons, jet flames, or recognizable actor faces
+```
+
+```text
+Use case: stylized-concept
+Asset type: project-bound orthographic game character concept sheet for a deterministic voxel-model pipeline
+Primary request: create one cohesive original front, side, and back orthographic design sheet for four anonymous dark-fantasy alien settlement roles: a hooded pale acolyte, a lean pale archer, a practical pale village civilian, and a tall muscular red-and-black horned brute.
+Scene/backdrop: neutral light-gray technical presentation background, separated turnarounds, no scenery
+Style/medium: polished original costume and creature concept art translated toward chunky Minecraft-compatible cuboid construction
+Composition/framing: full body, same scale, clear front, side, and back views, neutral pose, generous separation
+Materials/textures: layered black, burgundy, charcoal, and bone-gray cloth; woven wraps, belts, pouches, shoulder mantles; restrained geometric face paint; brute has broad shoulders, short crown horns, heavy wraps and rugged boots
+Constraints: readable hood, skirt-panel, mantle, hair or horn child geometry; each silhouette distinct; entirely original designs; no existing franchise characters, logos, symbols, text, labels, watermark, weapons, gore, or recognizable actor faces
+```
+
+```text
+Use case: stylized-concept
+Asset type: project-bound orthographic game character concept sheet for a deterministic voxel-model pipeline
+Primary request: create one cohesive original front, side, and back orthographic design sheet for five anonymous retro-futurist underworld and civilian roles: a huge green alien syndicate enforcer, a practical warm-toned syndicate civilian, a compact armored tracker, a rugged jacketed cargo pilot, and a clean blue-gray metropolitan civilian.
+Scene/backdrop: neutral light-gray technical presentation background, separated turnarounds, no scenery
+Style/medium: polished original creature, costume, and hard-surface concept art translated toward chunky Minecraft-compatible cuboid construction
+Composition/framing: full body, same baseline but believable different heights and widths, clear front, side, and back views, neutral pose, generous separation
+Materials/textures: enforcer has thick neck, broad torso, utility harness and heavy boots; syndicate civilian has layered desert fabrics and sash; tracker has mismatched compact armor, visor and gear pack; pilot has vest, jacket, belt and holster shapes; metropolitan civilian has tailored jacket, utility tablet pouch and clean boots
+Constraints: strongly distinct body proportions and silhouettes; readable packs, belts, hair, headwear and layered clothing as child geometry; entirely original designs; no existing franchise characters, logos, symbols, text, labels, watermark, weapons, cigars, or recognizable actor faces
+```
+
+An earlier clone-family prompt that explicitly named franchise-era roles was rejected by the image
+safety system during output moderation (request ID
+`9cc53275-4589-4841-a2a9-79c5a6279e75`) and produced no retained file. The successful neutral prompt
+above replaced it. Visual validation confirmed distinct early/late and line/specialist clone silhouettes,
+skeletal/heavy/agile droid proportions, family-specific child rigs, twenty or more non-zero cuboids per
+NPC, and unique texture and animation hashes across all twenty-two sets.

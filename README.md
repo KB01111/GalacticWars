@@ -48,20 +48,23 @@ Credits, unlocks, quest milestones, vehicles, Force choices, and conquest use an
 
 ## Launch content contract
 
-- 5 factions and 15 unit definitions: three per faction.
+- 5 factions and 17 military unit definitions, including distinct Phase I and Phase II clone and ARC units.
 - 4 separate planet dimensions.
 - BARC Speeder, AT-RT, STAP, AAT, and LAAT Gunship definitions.
 - Light Force path: Push, Pull, Leap. Dark path: Push, Choke, Dash.
 - 15 quests arranged as one three-chapter campaign per faction.
 - Credit-based recruitment, treasury, profession training, trading, vehicle acquisition, and upkeep.
-- Original project-owned textures only. No official Star Wars or third-party mod assets are bundled.
+- Project-owned art plus permissioned/open-licensed character assets from the two pinned and
+  provenance-tracked upstream repositories; no official Star Wars artwork, film stills, logos, or
+  audio is bundled.
 
 ## Roadmap to the completed release
 
 - [x] Rename the mod, Java packages, mixins, resources, datapacks, tests, and artifact namespace to `galacticwars`.
 - [x] Convert factions, Command Center gameplay, settlement blueprints, Beskar, Credit Chips, and atomic payment/refund behavior.
-- [x] Complete the manifest-driven original art pass for five faction kits, fifteen units, planets, combat effects, GUI, and five vehicle UV atlases, with provenance and executable asset validation.
-- [x] Register and data-drive all fifteen launch-unit IDs while retaining formation, command, hiring, worker, commander, and persistence foundations.
+- [x] Complete the manifest-driven art pass for five faction kits, 22 NPCs, planets, combat effects,
+  GUI, and five vehicle UV atlases, with licensed-source provenance and executable asset validation.
+- [x] Register and data-drive 17 military unit IDs, including distinct Phase I and Phase II clone variants, while retaining formation, command, hiring, worker, commander, and persistence foundations.
 - [x] Finish player-facing blaster heat feedback and autonomous ranged AI goals: held blasters expose a synchronized segmented heat HUD and action-bar failures, player fire is server-authoritative, and grouped or local-order recruits use blasters and Nightsister bows without bypassing cooldown, PvP, faction, or owner protections.
 - [x] Finish planetary respawn and cross-dimension squad transfer: successful jumps bind respawn to the reusable safe-arrival platform, and nearby follow/protect squads are preflight-snapshotted, transactionally virtualized, relocated, and rematerialized without leaving source duplicates or corrupting the group when teleport fails.
 - [x] Implement drivable runtime entities, controls, persistence, combat, repair, and destruction for all five vehicles with authoritative ownership, allied boarding, seat limits, fuel, and dimension-transfer policy.

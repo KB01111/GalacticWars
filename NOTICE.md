@@ -20,9 +20,33 @@ Galactic Wars common interfaces and loader-specific Fabric/NeoForge adapters rat
 art may be used as an authorized source only when it is deliberately transformed to match the
 Galactic Wars visual language and recorded in the asset manifest.
 
+## Permissioned Upstream Character Assets
+
+The 2026-07-20 character-art overhaul includes models and textures adapted from two pinned
+open-source mod repositories:
+
+- `Pyrix25633/Forge-StarWarsCloneWars` at commit
+  `c9555aa4966e9e63c22a59f488d4b05bc614569e`, GPL-3.0. The Galactic Wars project owner also
+  explicitly confirmed permission to copy and adapt its code, models, and textures. Its B1
+  battle-droid model and texture are converted for GeckoLib, and its 501st armor texture supplies
+  the authored blue palette used by the Phase II clone variants.
+- `Parzivail-Modding-Team/GalaxiesParzisStarWarsMod` at commit
+  `b91b4cc1a827eeb7c2ae16f0b703affd78c1c206`. The upstream README declares code under LGPL-3.0
+  and non-code assets under CC-BY-SA 4.0. Its Clone Trooper and Mandalorian Blockbench art is
+  converted into the four clone NPCs, four Mandalorian NPCs, and two wearable clone armor sets.
+
+License copies and notices are retained under `third_party/licenses`; exact immutable inputs are
+under `tools/source_art/authorized_upstream`. The source-to-output mapping and transformations are
+recorded in `docs/authorized-source-intake.md` and `docs/galacticwars-asset-provenance.md`.
+
 ## Project-Owned Galactic Wars Assets
 
-New Galactic Wars textures, models, faction designs, GUI artwork, and writing are project assets. Generated texture prompts and transformations are recorded in `docs/galacticwars-asset-provenance.md`; the required dimensions and UV contracts are recorded in `docs/galacticwars-asset-manifest.json`. Official Star Wars artwork, film stills, logos, audio, and third-party mod assets are not bundled.
+New Galactic Wars textures, models, faction designs, GUI artwork, and writing are project assets.
+Generated texture prompts and transformations are recorded in `docs/galacticwars-asset-provenance.md`;
+the required dimensions and UV contracts are recorded in `docs/galacticwars-asset-manifest.json`.
+No official Star Wars artwork, film stills, logos, or audio is bundled. The permissioned and
+open-licensed third-party character assets listed above are the documented exception to the earlier
+project-owned-only asset policy.
 
 ## User-Provided Resource Pack Assets
 

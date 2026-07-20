@@ -30,18 +30,18 @@ public final class ClassAbilityDataIntegrityTest {
         Set<String> classIds = values(classData, "id");
         Set<String> classUnits = values(classData, "unit");
         assertEquals(30, abilityIds.size(), "ability count");
-        assertEquals(15, classIds.size(), "class count");
-        assertEquals(15, classUnits.size(), "one class per unit");
-        assertEquals(15, count(classData, "\"player_assignable\":true"), "assignable class count");
+        assertEquals(17, classIds.size(), "class count");
+        assertEquals(17, classUnits.size(), "one class per unit");
+        assertEquals(17, count(classData, "\"player_assignable\":true"), "assignable class count");
         List<List<String>> classAbilities = arrayValueGroups(classData, "abilities");
-        assertEquals(15, classAbilities.size(), "class ability declarations");
+        assertEquals(17, classAbilities.size(), "class ability declarations");
         for (List<String> abilities : classAbilities) {
             assertEquals(2, abilities.size(), "two abilities per class");
             for (String abilityReference : abilities) {
                 assertTrue(abilityIds.contains(abilityReference), "known class ability " + abilityReference);
             }
         }
-        assertEquals(30, classAbilities.stream().mapToInt(List::size).sum(), "total class ability references");
+        assertEquals(34, classAbilities.stream().mapToInt(List::size).sum(), "total class ability references");
     }
 
     private static void everyFactionHasRuntimePolicy() throws Exception {

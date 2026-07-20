@@ -92,6 +92,7 @@ import galacticwars.clonewars.network.ClassHudPayload;
 import galacticwars.clonewars.network.ClassSelectPayload;
 import galacticwars.clonewars.network.FieldCommandRequestPayload;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
+import galacticwars.clonewars.progression.GalacticProgressionCoordinator;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionEventType;
@@ -445,7 +446,7 @@ public final class ModGameTests {
         ServerLevel level = helper.getLevel();
         BlockPos position = helper.absolutePos(new BlockPos(3, 1, 1));
         FactionOutpostSavedData outposts = FactionOutpostSavedData.get(level);
-        GalacticRecruitEntity generated = ModEntityTypes.CLONE_TROOPER.get().create(
+        GalacticRecruitEntity generated = ModEntityTypes.PHASE_I_ARC_TROOPER.get().create(
                 level, EntitySpawnReason.NATURAL);
         if (generated == null) {
             helper.fail("Could not create the accepted chunk-generation recruit fixture");
@@ -472,7 +473,7 @@ public final class ModGameTests {
             return;
         }
         CompoundTag serialized = output.buildResult();
-        if (!serialized.getString("id").orElse("").equals("galacticwars:clone_trooper")) {
+        if (!serialized.getString("id").orElse("").equals("galacticwars:phase_i_arc_trooper")) {
             helper.fail("Accepted chunk-generation recruit serialized without its type id: "
                     + serialized);
             return;
@@ -561,7 +562,11 @@ public final class ModGameTests {
 
     private static void classAbilityRuntimeData(GameTestHelper helper) {
         var snapshot = GameplayDataManager.snapshot();
-        if (snapshot.unitClasses().size() != 15
+        OverworldFactionSpawnProfile phaseICloneOutpost = snapshot
+                .overworldSpawnProfileForEntity("galacticwars:phase_i_clone_trooper").orElse(null);
+        OverworldFactionSpawnProfile phaseIArcOutpost = snapshot
+                .overworldSpawnProfileForEntity("galacticwars:phase_i_arc_trooper").orElse(null);
+        if (snapshot.unitClasses().size() != 17
                 || snapshot.abilities().size() != 30
                 || snapshot.factionPolicies().size() != 5
                 || snapshot.launchContent().planets().size() != 4
@@ -571,7 +576,13 @@ public final class ModGameTests {
                 || snapshot.launchContent().trades().size() != 5
                 || snapshot.launchContent().conquestRegions().size() != 4
                 || snapshot.launchContent().forceAbilities().values().stream()
-                        .anyMatch(ability -> !ability.enabled())) {
+                        .anyMatch(ability -> !ability.enabled())
+                || phaseICloneOutpost == null
+                || phaseICloneOutpost.branchFor("galacticwars:phase_i_clone_trooper")
+                != NpcServiceBranch.MILITARY
+                || phaseIArcOutpost == null
+                || phaseIArcOutpost.branchFor("galacticwars:phase_i_arc_trooper")
+                != NpcServiceBranch.MILITARY) {
             helper.fail("Atomic gameplay snapshot did not load the launch class catalogs");
             return;
         }
@@ -2121,6 +2132,10 @@ public final class ModGameTests {
         List<SpawnEggCase> cases = List.of(
                 new SpawnEggCase(ModItems.CLONE_TROOPER_SPAWN_EGG.get(), ModEntityTypes.CLONE_TROOPER.get()),
                 new SpawnEggCase(ModItems.ARC_TROOPER_SPAWN_EGG.get(), ModEntityTypes.ARC_TROOPER.get()),
+                new SpawnEggCase(ModItems.PHASE_I_CLONE_TROOPER_SPAWN_EGG.get(),
+                        ModEntityTypes.PHASE_I_CLONE_TROOPER.get()),
+                new SpawnEggCase(ModItems.PHASE_I_ARC_TROOPER_SPAWN_EGG.get(),
+                        ModEntityTypes.PHASE_I_ARC_TROOPER.get()),
                 new SpawnEggCase(ModItems.JEDI_KNIGHT_SPAWN_EGG.get(), ModEntityTypes.JEDI_KNIGHT.get()),
                 new SpawnEggCase(ModItems.MANDALORIAN_WARRIOR_SPAWN_EGG.get(), ModEntityTypes.MANDALORIAN_WARRIOR.get()),
                 new SpawnEggCase(ModItems.MANDALORIAN_MARKSMAN_SPAWN_EGG.get(), ModEntityTypes.MANDALORIAN_MARKSMAN.get()),
@@ -2191,6 +2206,19 @@ public final class ModGameTests {
             } else if (recruit.getServiceBranch() != NpcServiceBranch.MILITARY
                     || recruit.getMainHandItem().isEmpty()) {
                 helper.fail("Military spawn egg did not apply its unit loadout: " + testCase.type());
+            }
+            if (recruit.getType() == ModEntityTypes.PHASE_I_CLONE_TROOPER.get()
+                    || recruit.getType() == ModEntityTypes.PHASE_I_ARC_TROOPER.get()) {
+                if (!recruit.getItemBySlot(EquipmentSlot.HEAD).is(ModItems.PHASE_I_CLONE_HELMET.get())
+                        || !recruit.getItemBySlot(EquipmentSlot.CHEST)
+                        .is(ModItems.PHASE_I_CLONE_CHESTPLATE.get())
+                        || !recruit.getItemBySlot(EquipmentSlot.LEGS)
+                        .is(ModItems.PHASE_I_CLONE_LEGGINGS.get())
+                        || !recruit.getItemBySlot(EquipmentSlot.FEET)
+                        .is(ModItems.PHASE_I_CLONE_BOOTS.get())) {
+                    helper.fail("Phase I spawn egg did not equip the complete Phase I armor set: "
+                            + testCase.type());
+                }
             }
         }
 
@@ -4621,7 +4649,8 @@ public final class ModGameTests {
         ServerPlayer owner = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
         ServerPlayer intruder = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
         GalacticRecruitEntity recruit = helper.spawn(
-                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(3, 1, 1));
+                ModEntityTypes.PHASE_I_CLONE_TROOPER.get(), new BlockPos(3, 1, 1));
+        recruit.initializeFromSpawnEgg();
         owner.setPos(recruit.getX(), recruit.getY(), recruit.getZ());
         intruder.setPos(recruit.getX(), recruit.getY(), recruit.getZ());
         hall.claim(owner);
@@ -4635,6 +4664,14 @@ public final class ModGameTests {
                 owner.getUUID(), FactionId.of("republic"), 100);
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("mandalorian"), 100);
+        ProgressionSavedData progression = ProgressionSavedData.get(helper.getLevel());
+        ProgressionDecision pledge = progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), owner.getUUID(), ProgressionEventType.FACTION_PLEDGED,
+                "galacticwars:republic", 1));
+        if (!pledge.accepted()) {
+            helper.fail("Phase I hiring setup could not pledge the Republic progression path");
+            return;
+        }
         owner.getInventory().add(new ItemStack(galacticwars.clonewars.registry.ModItems.CREDIT_CHIP.get(), 53));
 
         boolean hired = recruit.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE);
@@ -4642,11 +4679,19 @@ public final class ModGameTests {
         int remainingCredits = RecruitmentPaymentService.creditCount(owner);
         boolean registered = data.kingdomForOwner(owner.getUUID()).orElseThrow()
                 .settlement().containsRecruit(recruit.getUUID());
-        if (!hired || !owned || remainingCredits != 28 || !registered) {
+        ProgressionState phaseIProgress = progression.state(owner.getUUID());
+        boolean objectiveCompatible = GalacticProgressionCoordinator.objectiveComplete(
+                phaseIProgress, "clone_trooper");
+        if (!hired || !owned || remainingCredits != 28 || !registered
+                || !phaseIProgress.hasSubjectPath(
+                ProgressionEventType.RECRUIT_HIRED, "phase_i_clone_trooper")
+                || !objectiveCompatible) {
             helper.fail("Exact-cost direct hiring failed: hired=" + hired
                     + ", owned=" + owned
                     + ", credits=" + remainingCredits
-                    + ", registered=" + registered);
+                    + ", registered=" + registered
+                    + ", phaseIProgress=" + phaseIProgress
+                    + ", objectiveCompatible=" + objectiveCompatible);
         }
         BlockPos intruderHallPos = hallPos.offset(64, 0, 0);
         CommandCenterBlockEntity intruderHall = placeCommandCenter(helper, intruderHallPos);

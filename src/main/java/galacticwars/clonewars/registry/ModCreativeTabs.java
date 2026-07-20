@@ -65,6 +65,10 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.SONIC_EXCAVATOR.get());
                         output.accept(ModItems.HYDROSPANNER.get());
                         ModItems.FACTION_EQUIPMENT.values().forEach(item -> output.accept(item.get()));
+                        output.accept(ModItems.PHASE_I_CLONE_HELMET.get());
+                        output.accept(ModItems.PHASE_I_CLONE_CHESTPLATE.get());
+                        output.accept(ModItems.PHASE_I_CLONE_LEGGINGS.get());
+                        output.accept(ModItems.PHASE_I_CLONE_BOOTS.get());
                         output.accept(ModItems.REPUBLIC_FACTION_TOKEN.get());
                         output.accept(ModItems.MANDALORIAN_FACTION_TOKEN.get());
                         output.accept(ModItems.SEPARATIST_FACTION_TOKEN.get());
@@ -72,6 +76,8 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.NIGHTSISTER_FACTION_TOKEN.get());
                         output.accept(ModItems.CLONE_TROOPER_SPAWN_EGG.get());
                         output.accept(ModItems.ARC_TROOPER_SPAWN_EGG.get());
+                        output.accept(ModItems.PHASE_I_CLONE_TROOPER_SPAWN_EGG.get());
+                        output.accept(ModItems.PHASE_I_ARC_TROOPER_SPAWN_EGG.get());
                         output.accept(ModItems.JEDI_KNIGHT_SPAWN_EGG.get());
                         output.accept(ModItems.MANDALORIAN_WARRIOR_SPAWN_EGG.get());
                         output.accept(ModItems.MANDALORIAN_MARKSMAN_SPAWN_EGG.get());

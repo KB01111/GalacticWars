@@ -1,6 +1,6 @@
 {
   "id": "galacticwars:clone_trooper",
-  "display_name": "Clone Trooper",
+  "display_name": "Phase II Clone Trooper",
   "faction": "galacticwars:republic",
   "entity_type": "galacticwars:clone_trooper",
   "role": "infantry",

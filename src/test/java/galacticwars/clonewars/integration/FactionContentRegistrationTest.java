@@ -8,6 +8,8 @@ public final class FactionContentRegistrationTest {
     private static final String[] ENTITY_IDS = {
             "clone_trooper",
             "arc_trooper",
+            "phase_i_clone_trooper",
+            "phase_i_arc_trooper",
             "jedi_knight",
             "mandalorian_warrior",
             "mandalorian_marksman",
@@ -27,6 +29,12 @@ public final class FactionContentRegistrationTest {
             "mandalorian_fiber",
             "separatist_alloy_shard"
     };
+    private static final String[] PHASE_I_ARMOR_ITEMS = {
+            "phase_i_clone_helmet",
+            "phase_i_clone_chestplate",
+            "phase_i_clone_leggings",
+            "phase_i_clone_boots"
+    };
 
     private FactionContentRegistrationTest() {
     }
@@ -35,6 +43,7 @@ public final class FactionContentRegistrationTest {
         factionRecruitEntitiesAreRegistered();
         factionRecruitEggsAndTexturesExist();
         factionItemsAreRegisteredAndModeled();
+        phaseIArmorIsRegisteredCraftableAndModeled();
 
         System.out.println("FactionContentRegistrationTest passed");
     }
@@ -76,6 +85,22 @@ public final class FactionContentRegistrationTest {
             assertRegularFile("src/main/resources/assets/galacticwars/items/" + id + ".json");
             assertRegularFile("src/main/resources/assets/galacticwars/models/item/" + id + ".json");
             assertRegularFile("src/main/resources/assets/galacticwars/textures/item/" + id + ".png");
+        }
+    }
+
+    private static void phaseIArmorIsRegisteredCraftableAndModeled() throws IOException {
+        String items = read("src/main/java/galacticwars/clonewars/registry/ModItems.java");
+        String creativeTabs = read("src/main/java/galacticwars/clonewars/registry/ModCreativeTabs.java");
+        String language = read("src/main/resources/assets/galacticwars/lang/en_us.json");
+
+        for (String id : PHASE_I_ARMOR_ITEMS) {
+            assertContains(items, id.toUpperCase(), "Phase I armor registration " + id);
+            assertContains(creativeTabs, id.toUpperCase(), "Phase I creative-tab entry " + id);
+            assertContains(language, "\"item.galacticwars." + id + "\"", "Phase I armor translation " + id);
+            assertRegularFile("src/main/resources/assets/galacticwars/items/" + id + ".json");
+            assertRegularFile("src/main/resources/assets/galacticwars/models/item/" + id + ".json");
+            assertRegularFile("src/main/resources/assets/galacticwars/textures/item/" + id + ".png");
+            assertRegularFile("src/main/resources/data/galacticwars/recipe/" + id + ".json");
         }
     }
 

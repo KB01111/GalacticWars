@@ -1,8 +1,10 @@
 {
   "schema_version": 1,
   "classes": [
-    {"id":"galacticwars:clone_trooper","display_name":"Clone Trooper","faction":"galacticwars:republic","unit":"galacticwars:clone_trooper","player_assignable":true,"abilities":["galacticwars:suppressive_fire","galacticwars:formation_discipline"],"requirements":[]},
-    {"id":"galacticwars:arc_trooper","display_name":"ARC Trooper","faction":"galacticwars:republic","unit":"galacticwars:arc_trooper","player_assignable":true,"abilities":["galacticwars:tactical_scan","galacticwars:combat_mobility"],"requirements":[]},
+    {"id":"galacticwars:clone_trooper","display_name":"Phase II Clone Trooper","faction":"galacticwars:republic","unit":"galacticwars:clone_trooper","player_assignable":true,"abilities":["galacticwars:suppressive_fire","galacticwars:formation_discipline"],"requirements":[]},
+    {"id":"galacticwars:arc_trooper","display_name":"Phase II ARC Trooper","faction":"galacticwars:republic","unit":"galacticwars:arc_trooper","player_assignable":true,"abilities":["galacticwars:tactical_scan","galacticwars:combat_mobility"],"requirements":[]},
+    {"id":"galacticwars:phase_i_clone_trooper","display_name":"Phase I Clone Trooper","faction":"galacticwars:republic","unit":"galacticwars:phase_i_clone_trooper","player_assignable":true,"abilities":["galacticwars:suppressive_fire","galacticwars:formation_discipline"],"requirements":[]},
+    {"id":"galacticwars:phase_i_arc_trooper","display_name":"Phase I ARC Trooper","faction":"galacticwars:republic","unit":"galacticwars:phase_i_arc_trooper","player_assignable":true,"abilities":["galacticwars:tactical_scan","galacticwars:combat_mobility"],"requirements":[]},
     {"id":"galacticwars:jedi_guardian","display_name":"Jedi Guardian","faction":"galacticwars:republic","unit":"galacticwars:jedi_knight","player_assignable":true,"abilities":["galacticwars:saber_guard","galacticwars:guardian_rally"],"requirements":[{"type":"quest","subject":"republic_chapter_2","amount":1}],"force_path_slot":"light"},
 
     {"id":"galacticwars:b1_line_droid","display_name":"B1 Line Droid","faction":"galacticwars:separatist","unit":"galacticwars:b1_battle_droid","player_assignable":true,"abilities":["galacticwars:networked_volley","galacticwars:droid_link"],"requirements":[]},

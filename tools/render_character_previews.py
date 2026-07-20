@@ -22,7 +22,15 @@ def front_face(texture: Image.Image, uv: list[int] | dict, size: list[float]) ->
     if isinstance(uv, dict):
         face = uv.get("north") or next(iter(uv.values()))
         left, top = (round(value) for value in face["uv"])
-        face_width, face_height = (max(1, round(value)) for value in face.get("uv_size", (width, height)))
+        raw_width, raw_height = (round(value) for value in face.get("uv_size", (width, height)))
+        right = left + raw_width
+        bottom = top + raw_height
+        crop = texture.crop((min(left, right), min(top, bottom), max(left, right), max(top, bottom)))
+        if raw_width < 0:
+            crop = crop.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        if raw_height < 0:
+            crop = crop.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+        return crop
     else:
         left = uv[0] + depth
         top = uv[1] + depth
@@ -111,6 +119,7 @@ def main() -> None:
     entity_models = ASSETS / "geckolib/models/entity"
     entity_textures = ASSETS / "textures/entity"
     recruits = [
+        "phase_i_clone_trooper", "phase_i_arc_trooper",
         "clone_trooper", "arc_trooper", "jedi_knight", "b1_battle_droid",
         "b2_super_battle_droid", "commando_droid", "mandalorian_warrior",
         "mandalorian_marksman", "mandalorian_heavy", "hutt_enforcer",
@@ -124,8 +133,8 @@ def main() -> None:
     ], 5, OUTPUT / "recruit_models.png")
     armor_models = ASSETS / "geckolib/models/armor"
     armor_textures = ASSETS / "textures/armor"
-    armor = ["republic_plastoid", "separatist_alloy", "mandalorian_alloy",
-             "nightsister_weave", "beskar"]
+    armor = ["phase_i_clone", "republic_plastoid", "separatist_alloy",
+             "mandalorian_alloy", "nightsister_weave", "beskar"]
     contact_sheet([
         (armor_models / f"{family}.geo.json", armor_textures / f"{family}.png", family)
         for family in armor
@@ -140,11 +149,14 @@ def main() -> None:
         for color in ("blue", "green", "red", "purple", "yellow", "white")
     ], 3, OUTPUT / "lightsaber_items.png")
     lightsaber_materials = item_textures / "lightsaber"
-    texture_sheet([
+    lightsaber_entries = [
         (lightsaber_materials / f"{color}_{part}.png", f"{color}_{part}")
         for color in ("blue", "green", "red", "purple", "yellow", "white")
         for part in ("hilt", "blade")
-    ], 6, OUTPUT / "lightsaber_materials.png")
+        if (lightsaber_materials / f"{color}_{part}.png").is_file()
+    ]
+    if lightsaber_entries:
+        texture_sheet(lightsaber_entries, 6, OUTPUT / "lightsaber_materials.png")
     print(f"Rendered previews to {OUTPUT}")
 
 

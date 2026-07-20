@@ -129,7 +129,10 @@ public final class GalacticProgressionCoordinator {
                     state.hasSubjectPath(ProgressionEventType.BUILDING_COMPLETED, objective);
             case "tatooine", "geonosis", "kamino", "coruscant" ->
                     state.hasSubjectPath(ProgressionEventType.PLANET_VISITED, objective);
-            case "clone_trooper", "b1_battle_droid", "mandalorian_warrior", "hutt_enforcer",
+            case "clone_trooper" -> state.hasSubjectPath(
+                    ProgressionEventType.RECRUIT_HIRED, "clone_trooper")
+                    || state.hasSubjectPath(ProgressionEventType.RECRUIT_HIRED, "phase_i_clone_trooper");
+            case "b1_battle_droid", "mandalorian_warrior", "hutt_enforcer",
                     "nightsister_acolyte", "mandalorian_marksman", "bounty_hunter", "smuggler" ->
                     state.hasSubjectPath(ProgressionEventType.RECRUIT_HIRED, objective);
             case "delivery_completed" -> state.total(ProgressionEventType.DELIVERY_COMPLETED) > 0;

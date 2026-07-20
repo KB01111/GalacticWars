@@ -1,6 +1,6 @@
 # Model and Texture Quality Audit
 
-Date: 2026-07-13
+Date: 2026-07-20
 
 ## Findings
 
@@ -8,12 +8,25 @@ Date: 2026-07-13
 | --- | --- | --- |
 | Lightsabers | The former model was a vanilla `elements` item with 17 cuboids. Its blade was 18.2 model units against an 8.3-unit hilt, and every hilt face sampled a generic 32x32 strip. | Replace the renderer, model, UVs, materials, and glow path with a GeckoLib item. |
 | Vehicles | The five models already used GeckoLib and 256x256 authored atlases, but only contained 6-11 cuboids each. Large areas such as the BARC chassis, AAT hull, and LAAT fuselage were single boxes. | Preserve the material atlases and animation bones; rebuild silhouettes with additional UV-safe detail cubes. |
-| Recruits and civilians | Twenty GeckoLib models use 128x128 UV-safe atlases and 12-28 model cuboids, with held-item bones and authored animation files. | Keep this pass intact; it is not the current resolution bottleneck. |
-| Equipped armor | Five GeckoLib armor models used 36-42 mostly generic layered cuboids despite explicit six-face UVs on 1024x1024 atlases. Helmet silhouettes did not clearly communicate their faction or role. | Rebuild all equipped geometry and UV atlases while preserving the liked 16x16 inventory/item-frame icons. |
-| Recruit spawn eggs | Twenty items used flat 16x16 generated sprites only. | Retain vanilla spawn semantics but replace presentation with a shared animated GeckoLib recruitment capsule and unit-specific materials. |
+| Recruits and civilians | The former twenty GeckoLib models used 128x128 box-UV atlases, only 12-28 cubes, the same eight base bones, and byte-identical animations. The first 256x256 generated overhaul improved the contract but its clone, B1, and Mandalorian art failed visual review. | Keep family-specific animation rigs. Replace the rejected families with permissioned authored art from the two pinned upstream repositories, preserving each source atlas and explicit UV layout. |
+| Equipped armor | Five GeckoLib armor models used generic layered cuboids despite explicit six-face UVs on 1024x1024 atlases. The first generated Republic replacement still did not read as high-quality clone armor. | Use the Galaxies selectable Phase I/Phase II Blockbench clone kit for both NPC and wearable geometry, with the permissioned Forge 501st texture supplying Phase II blue. Preserve the authored 128x128 clone atlas rather than upscaling it without detail. |
+| Recruit spawn eggs | Twenty items used a shared capsule presentation. | Extend the established capsule contract and unit-specific materials to both Phase I units. |
 | Inventory sprites | Combat icons are intentionally 16x16 for Minecraft readability. The old saber icons emphasized the hilt and visually shortened the blade. | Redraw only the six saber icons with a longer blade silhouette. |
 
 ## Implemented quality gate
+
+- Twenty-two NPCs use explicit six-face UV mappings. Thirteen project-authored sets retain the
+  deterministic 256x256/two-texel contract; four clones and four Mandalorians preserve the Galaxies
+  128x128 source layout; the Forge B1 preserves its 128x64 source texture with scaled UV coordinates.
+- Clone, ARC, droid, robed, brute, Mandalorian, and civilian families own child rigs and distinct
+  idle, walk/run, and attack data. Regular and ARC clones intentionally share their phase texture
+  because their silhouettes differ through authored equipment geometry.
+- Existing `clone_trooper` and `arc_trooper` resources are Phase II/501st variants. New Phase I clone
+  and ARC units use the source model's separate helmet, equipment, spawn-capsule, and 128x128 wearable
+  armor resources. ARC variants enable rangefinder, pauldron, and kama geometry.
+- Canonical-role dimensions are enforced for the 1.93-block B1 and 1.91-block BX; the Hutt enforcer and Separatist technician hitboxes were realigned to their rebuilt silhouettes.
+- The Python character pipeline runs the permissioned-source importer last and remains deterministic.
+  Both obsolete Java texture generators were removed so they cannot restore 64x64 armor or NPC textures.
 
 - Lightsabers now use one 24-cuboid GeckoLib geometry with separate `hilt` and `blade` bones.
 - The energy blade is 36 model units long and the visible blade-to-hilt ratio is approximately 3.4:1.
@@ -21,11 +34,11 @@ Date: 2026-07-13
   so the hand meets the grip instead of the pommel floating above it.
 - Six four-frame 256x1024 UV atlases and matching emissive glowmasks replace the generic split hilt/blade strips.
 - Minecraft item definitions use `minecraft:special` plus `geckolib:geckolib`; the Java item implements `GeoItem` and renders through `GeoItemRenderer`.
-- Equipped armor now uses 60/51/54/55/54 cuboids across Republic, Separatist, Mandalorian,
-  Nightsister, and Beskar families. Every set has a distinct modeled helmet, torso, arm, belt, leg,
-  and boot language; the Republic helmet has eighteen layered clone-infantry-style components.
-- All five 1024x1024 armor atlases were regenerated against the new exact face maps. The twenty
-  existing armor item icons were not regenerated or modified.
+- Equipped armor uses 24/27 cuboids for permissioned Phase I/Phase II clone sets and 51/54/55/54
+  cuboids for the project-authored Separatist, Mandalorian, Nightsister, and Beskar sets. The clone
+  geometry uses visibly different authored helmet groups and the ARC NPCs add specialist equipment.
+- Clone wearable armor preserves the source 128x128 atlas and source equipment sprites. The other
+  four armor families retain their 1024x1024 exact face maps.
 - All twenty recruit eggs now use one eighteen-cuboid GeckoLib capsule with separate `shell` and
   animated `core` bones, individual 512x512 material/glowmask pairs, and 16x16 fallback capsule icons.
 - `SpawnCapsuleAssetIntegrationTest` protects the full set of item definitions, shared geometry,

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "repository": "Parzivail-Modding-Team/GalaxiesParzisStarWarsMod",
+      "revision": "b91b4cc1a827eeb7c2ae16f0b703affd78c1c206",
+      "code_license": "LGPL-3.0",
+      "asset_license": "CC-BY-SA-4.0",
+      "files": [
+        {"source_path":"resources/models/armor & clothing/armor/Republic/HonorGuard.bbmodel","destination":"galaxies_pswg/HonorGuard.bbmodel","sha256":"b6a49b36b05da13818348c2d184f507e413c77f8974b302e613797ad709e5593","usage":"republic_honor_guard geometry"},
+        {"source_path":"resources/models/armor & clothing/armor/Republic/SenateCommando.bbmodel","destination":"galaxies_pswg/SenateCommando.bbmodel","sha256":"597325ecb8a77041d20d338b3771b68fa9d1e3e7b0e46a67bb00848801830729","usage":"senate_commando geometry"},
+        {"source_path":"resources/textures/wearables/Armor/Clone Wars Addon/Republic/HonorGuard.png","destination":"galaxies_pswg/HonorGuard.png","sha256":"533cc4c1574941bde3954525797741244ca0d60378abedff0411b1853a8674d6","usage":"republic_honor_guard atlas"},
+        {"source_path":"resources/textures/wearables/Armor/Clone Wars Addon/Republic/SenateCommando.png","destination":"galaxies_pswg/SenateCommando.png","sha256":"1bff76dae2183db1ca3240a01284e31681d1c96c3accefcc0a72b67360c1cff1","usage":"senate_commando atlas"},
+        {"source_path":"resources/species/human/HumanoidBody.bbmodel","destination":"galaxies_pswg/HumanoidBody.bbmodel","sha256":"6c9dda34aa01ec87ee7c811fa115988fafc73ee003c3ebf05f08ae85554495e4","usage":"shared Togruta, Duros, and Rodian body"},
+        {"source_path":"resources/species/Togruta/Togruta.bbmodel","destination":"galaxies_pswg/Togruta.bbmodel","sha256":"e6c3c5f5114396ff4b37fdf1b9f2bb054bc140f849ec4070d85ff4fa2da51065","usage":"togruta head geometry"},
+        {"source_path":"resources/species/Togruta/f/body/orange.png","destination":"galaxies_pswg/togruta_body_orange.png","sha256":"c0ea63d62305bafd972a85d6b065ec4663d02d1bd13b07d09d4c066acda67d36","usage":"togruta skin layer"},
+        {"source_path":"resources/species/Togruta/face/1.png","destination":"galaxies_pswg/togruta_face_1.png","sha256":"df805e329ef9f88e9778f4f2557e55c78309cc0d0f1b38d6fdd4604b27ef4be6","usage":"togruta face layer"},
+        {"source_path":"resources/species/Togruta/Montral/montral_base_white.png","destination":"galaxies_pswg/togruta_montral_white.png","sha256":"7d4bd76fc27124eed10626941d20c5bbbbe918f1ca16d55e069222eadf507b25","usage":"togruta montral base layer"},
+        {"source_path":"resources/species/Togruta/Montral Patterns/montral_pattern1_imperialblue.png","destination":"galaxies_pswg/togruta_pattern_imperialblue.png","sha256":"e3efa5d71a053a4641a21bc7c815db37239b2e71dfa530ac557749d6fc21e214","usage":"togruta montral pattern layer"},
+        {"source_path":"resources/species/Duros/duros.bbmodel","destination":"galaxies_pswg/Duros.bbmodel","sha256":"e2f789ef0916abd6a09d40411a2c5b6d9d5d08ee4f043f6a8d7250ea8573c4f6","usage":"duros head geometry"},
+        {"source_path":"resources/species/Duros/m/body/blue.png","destination":"galaxies_pswg/duros_body_blue.png","sha256":"e403c75e46edb06239cca79e0e0459e4077151b4c8bd4e05cce48b31491935a1","usage":"duros skin layer"},
+        {"source_path":"resources/species/Duros/eyes/small.png","destination":"galaxies_pswg/duros_eyes_small.png","sha256":"7a92e157757a12090041e155d2a35db1604412da9ec6654f08f9190d83cadfee","usage":"duros eye layer"},
+        {"source_path":"resources/species/Rodian/rodian.bbmodel","destination":"galaxies_pswg/Rodian.bbmodel","sha256":"a9761b8e72089cd22f4a23340be36dcf97dc0b8c01061896433b074740a907a2","usage":"rodian head geometry"},
+        {"source_path":"resources/species/Rodian/textures/body/m/green.png","destination":"galaxies_pswg/rodian_body_green.png","sha256":"74719e257f6cd3cef846d33d46ba3005cf69ae12ddacc2be5fd738689784dd65","usage":"rodian skin layer"},
+        {"source_path":"resources/species/Rodian/textures/eye/black.png","destination":"galaxies_pswg/rodian_eye_black.png","sha256":"2c054ba09a1067d58431736871a869a3dc18e16b9a9b7e7e5cb380e10197b47a","usage":"rodian eye layer"},
+        {"source_path":"resources/species/Trandoshan/trandoshan.bbmodel","destination":"galaxies_pswg/Trandoshan.bbmodel","sha256":"3b0caf9cb85e01722a77d6c90863f92ae58d628c5eda1bee4b46d9659a710bac","usage":"hutt_enforcer geometry"},
+        {"source_path":"resources/species/Trandoshan/skin/trandoshan.png","destination":"galaxies_pswg/trandoshan_skin.png","sha256":"6b491d2c836c76bb69c791d36eaf58b2810a8d1660a8602db8e149d9019acb15","usage":"hutt_enforcer skin layer"},
+        {"source_path":"resources/species/Trandoshan/eyes/trandoshan_eyes_yellow.png","destination":"galaxies_pswg/trandoshan_eyes_yellow.png","sha256":"b16ec7e9d1ddba40aa40253a01838352c4ef798c0ddbf454d4e03dcb307332ff","usage":"hutt_enforcer eye layer"},
+        {"source_path":"resources/species/Trandoshan/mouth/trandoshan_mouth_teethstraightface.png","destination":"galaxies_pswg/trandoshan_mouth.png","sha256":"d7f66bdc1ea30dde0a1df1bd8d813113595b12aca0b528d46db54582ea4c86ee","usage":"hutt_enforcer mouth layer"},
+        {"source_path":"resources/species/Trandoshan/clothing/Underlayer/Yellow Jumpsuit.png","destination":"galaxies_pswg/trandoshan_jumpsuit.png","sha256":"b1854cb521364dadcf063b868f4cea5a32722654b05148d1449864d0aa1f7bef","usage":"hutt_enforcer underlayer"},
+        {"source_path":"resources/species/Trandoshan/clothing/Outerwear/Ballistic vest thing yes.png","destination":"galaxies_pswg/trandoshan_vest.png","sha256":"32fae5726eb7dbac932bf40388a0e30e2d72231eae7f6b65589172d7d8309652","usage":"hutt_enforcer armor"},
+        {"source_path":"resources/species/Trandoshan/clothing/Belts/belt1.png","destination":"galaxies_pswg/trandoshan_belt.png","sha256":"aa9820e30c84eb65077bd294fcfd529a955c2a2a184162a4f2f3c8256794d14a","usage":"hutt_enforcer belt"}
+      ]
+    },
+    {
+      "repository": "Pyrix25633/Forge-StarWarsCloneWars",
+      "revision": "c9555aa4966e9e63c22a59f488d4b05bc614569e",
+      "asset_license": "GPL-3.0 with recorded additional permission",
+      "files": [
+        {"source_path":"src/main/resources/assets/star_wars/textures/entities/droid_security.png","destination":"forge_star_wars_clone_wars/droid_security.png","sha256":"0881ef8c90384e2c773101da45a0af182121b6aa476dcf0f6f780a9bba9269d5","usage":"b1_security_droid atlas"},
+        {"source_path":"src/main/resources/assets/star_wars/textures/entities/droid_pilot.png","destination":"forge_star_wars_clone_wars/droid_pilot.png","sha256":"b088b9ab2502d1da9611ff7494aa0d23c59deb19a7dbc6d5c7aefd2e7099fd8a","usage":"separatist_technician atlas"},
+        {"source_path":"src/main/resources/assets/star_wars/textures/entities/droid_commander.png","destination":"forge_star_wars_clone_wars/droid_commander.png","sha256":"217d4cef510ab759de631b92d7dd0a0cb446a4364fc0d41f96f4d6224f8d2cc6","usage":"b1 commander atlas"},
+        {"source_path":"src/main/resources/assets/star_wars/textures/entities/clone_armor_armor_commander_layer_helmet.png","destination":"forge_star_wars_clone_wars/clone_commander_helmet.png","sha256":"ea693adf3fa8a039e99a18c6402884451ccd476608d0d7fb058ef8dc9871bc1b","usage":"Phase II clone commander marking palette"}
+      ]
+    }
+  ]
+}

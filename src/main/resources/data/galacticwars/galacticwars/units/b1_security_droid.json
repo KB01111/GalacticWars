@@ -1,0 +1,1 @@
+{"id":"galacticwars:b1_security_droid","display_name":"B1 Security Droid","faction":"galacticwars:separatist","entity_type":"galacticwars:b1_security_droid","role":"archer","hire_cost":26,"attributes":{"max_health":24,"attack_damage":6,"movement_speed":0.27,"follow_range":26.0,"armor":2.0},"equipment":{"main_hand":"galacticwars:e5_blaster"},"default_formation":"column"}

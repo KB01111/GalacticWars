@@ -12,7 +12,10 @@
         {"entity_type": "galacticwars:arc_trooper", "service_branch": "military"},
         {"entity_type": "galacticwars:phase_i_clone_trooper", "service_branch": "military"},
         {"entity_type": "galacticwars:phase_i_arc_trooper", "service_branch": "military"},
-        {"entity_type": "galacticwars:republic_civilian", "service_branch": "civilian"}
+        {"entity_type": "galacticwars:senate_commando", "service_branch": "military"},
+        {"entity_type": "galacticwars:republic_honor_guard", "service_branch": "military"},
+        {"entity_type": "galacticwars:republic_civilian", "service_branch": "civilian"},
+        {"entity_type": "galacticwars:togruta_civilian", "service_branch": "civilian"}
       ]
     },
     {
@@ -24,6 +27,7 @@
       "entities": [
         {"entity_type": "galacticwars:b1_battle_droid", "service_branch": "military"},
         {"entity_type": "galacticwars:b2_super_battle_droid", "service_branch": "military"},
+        {"entity_type": "galacticwars:b1_security_droid", "service_branch": "military"},
         {"entity_type": "galacticwars:separatist_technician", "service_branch": "civilian"}
       ]
     },

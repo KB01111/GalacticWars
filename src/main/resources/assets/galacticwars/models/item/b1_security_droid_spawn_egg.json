@@ -1,0 +1,6 @@
+{
+  "parent": "galacticwars:item/spawn_capsule_base",
+  "textures": {
+    "particle": "galacticwars:item/b1_security_droid_spawn_egg"
+  }
+}

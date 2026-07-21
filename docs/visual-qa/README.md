@@ -4,13 +4,37 @@ This checklist is the repeatable creative-world acceptance pass for player-facin
 Galactic Wars content. Run it with the built JAR in the GDLauncher NeoForge 26.2
 instance and YACL plus GeckoLib enabled.
 
+## 2026-07-20 NPC and clone-armor overhaul
+
+- `tools/generate_character_models.py` was run twice after the source import and every character
+  output hash remained identical. `tools/render_character_previews.py` produced
+  `build/previews/recruit_models.png` and `build/previews/armor_models.png` for native-resolution review.
+- `runHarnesses`: passed all 136 tasks, including mixed-resolution 22-NPC geometry, signed per-face
+  UV bounds, source-pixel equality, named silhouettes, bone parents, animation references, registry,
+  item, recipe, provenance, and manifest gates.
+- `buildAll`: passed all 144 tasks for Fabric and NeoForge.
+- `runGameTestServer`: all 55 required tests passed. Both Phase I entities and
+  spawn eggs loaded their unit data and complete armor loadouts; Phase I hiring
+  satisfied the generic clone campaign objective, persisted, and joined the
+  Republic outpost profile.
+- Development client: resource reload completed after the permissioned import with GeckoLib reporting
+  35 models and 35 animations. `neoforge/run/logs/latest.log` contains no Galactic Wars missing-model,
+  missing-texture, missing-animation, GeckoLib parser, or renderer-loading error.
+- Visual review: Phase I/II helmets, regular/ARC equipment, Forge-derived B1 silhouette, and four
+  Galaxies-derived Mandalorian loadouts are distinguishable in the generated preview. The preview
+  renderer does not evaluate every hierarchical animation or held-item transform.
+- Interactive arena captures for all 22 front/side/back and first/third-person
+  armor views remain a manual release check; Windows exposed duplicate,
+  indistinguishable GLFW windows to the automation controller, so no visual
+  pass is claimed here.
+
 ## Automated gates
 
 - `clean build`: passed on 2026-07-14.
-- `runGameTestServer`: 46/46 required GameTests passed, including direct
+- `runGameTestServer`: 55/55 required GameTests passed, including direct
   Command Center player interaction, all five campaign paths, NPC brains,
   vehicles, Force abilities, multiplayer authority, travel, and persistence.
-- Spawn eggs: all 20 registry entries passed player-game-mode interaction,
+- Spawn eggs: all 22 registry entries passed player-game-mode interaction,
   entity-type component, persistence, loadout/archetype, creative/survival,
   replaceable-block, custom-name, stack-consumption, and spawner checks.
 - Assets: every authored item model has a modern item definition and every
@@ -58,7 +82,7 @@ mod textures or geometry are included.
 Use daylight, a plain stone floor, hitboxes off, and the same camera distance.
 Capture idle, walk, attack/held-item, and seated views where applicable.
 
-1. NPCs: all 20 egg variants; verify body scale, seams, surfaces, held items,
+1. NPCs: all 22 egg variants; verify body scale, seams, surfaces, held items,
    armor, idle/walk/attack clips, and neutral ownership.
 2. Vehicles: BARC speeder, AT-RT, STAP, AAT, and LAAT gunship; verify kit icon,
    deployed model, collision box, rider seat, and animation.

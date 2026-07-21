@@ -10,6 +10,8 @@ import java.util.UUID;
 public final class GalacticProgressionCoordinatorTest {
     public static void main(String[] args) {
         installContent();
+        assertTrue(!GalacticProgressionCoordinator.objectiveComplete(null, "clone_trooper"),
+                "an uninitialized player progression state cannot complete an objective");
         UUID player = UUID.randomUUID();
         ProgressionState state = ProgressionState.create(player);
         state = accepted(state, event(player, ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic", 1));
@@ -62,7 +64,9 @@ public final class GalacticProgressionCoordinatorTest {
         assertTrue(!hostileQuest.accepted() && hostileQuest.reason().equals("wrong_faction_quest"),
                 "another faction's quest cannot be advanced");
         state = accepted(state, event(player, ProgressionEventType.RECRUIT_HIRED,
-                "galacticwars:clone_trooper", 1));
+                "galacticwars:phase_i_clone_trooper", 1));
+        assertTrue(GalacticProgressionCoordinator.objectiveComplete(state, "clone_trooper"),
+                "a Phase I clone satisfies the generic Clone Trooper campaign objective");
         state = accepted(state, event(player, ProgressionEventType.QUEST_ADVANCED, "republic_chapter_1", 1));
         assertEquals(40, state.pendingCreditRewards(), "chapter 1 physical reward pending");
         state = accepted(state, courierEvent(player));
@@ -129,7 +133,7 @@ public final class GalacticProgressionCoordinatorTest {
                 new LaunchContentDefinitions(planets, Map.of(), Map.of(), quests, trades, Map.of()),
                 List.of("galacticwars:republic", "galacticwars:mandalorian", "galacticwars:nightsister"),
                 Map.of(
-                        "republic", List.of("clone_trooper"),
+                        "republic", List.of("clone_trooper", "phase_i_clone_trooper"),
                         "mandalorian", List.of("mandalorian_warrior"),
                         "nightsister", List.of("nightsister_acolyte")));
     }

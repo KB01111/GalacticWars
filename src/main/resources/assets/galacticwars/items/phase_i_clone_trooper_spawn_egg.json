@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "galacticwars:item/phase_i_clone_trooper_spawn_egg",
+    "model": {
+      "type": "geckolib:geckolib"
+    }
+  }
+}

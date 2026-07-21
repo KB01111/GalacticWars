@@ -40,7 +40,7 @@ public final class LaunchDataIntegrityTest {
 
     public static void main(String[] args) throws Exception {
         assertJsonCount(GAMEPLAY.resolve("factions"), 5, "factions");
-        assertJsonCount(GAMEPLAY.resolve("units"), 15, "units");
+        assertJsonCount(GAMEPLAY.resolve("units"), 17, "units");
         for (String category : Set.of("planets", "vehicles", "force_abilities", "quests", "trades", "conquest_regions")) {
             assertTrue(Files.isRegularFile(GAMEPLAY.resolve(category).resolve("launch.json")), category + " launch data");
         }

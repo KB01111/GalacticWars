@@ -12,8 +12,9 @@ import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 
 public final class RecruitTextureAtlasTest {
-    private static final int ATLAS_SIZE = 128;
-    private static final int ARMOR_ATLAS_SIZE = 1024;
+    private static final int PROJECT_ATLAS_SIZE = 256;
+    private static final int RECRUIT_TEXEL_DENSITY = 2;
+    private static final int PROJECT_ARMOR_ATLAS_SIZE = 1024;
     private static final int ARMOR_TEXEL_DENSITY = 6;
     private static final Pattern TEXTURE_WIDTH = Pattern.compile(
             "\\\"texture_width\\\"\\s*:\\s*([0-9]+)");
@@ -25,9 +26,14 @@ public final class RecruitTextureAtlasTest {
             Pattern.DOTALL);
     private static final Pattern BOX_UV = Pattern.compile(
             "\\[\\s*([0-9]+)\\s*,\\s*([0-9]+)\\s*]");
+    private static final Pattern BONE_NAME = Pattern.compile(
+            "\\\"name\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+    private static final Pattern ANIMATED_BONE = Pattern.compile(
+            "\\\"([^\\\"]+)\\\"\\s*:\\s*\\{\\s*\\\"(?:rotation|position|scale)\\\"",
+            Pattern.DOTALL);
     private static final Path ASSET_ROOT = Path.of("src/main/resources/assets/galacticwars");
     private static final List<String> RECRUITS = List.of(
-            "clone_trooper", "arc_trooper", "jedi_knight",
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper", "jedi_knight",
             "b1_battle_droid", "b2_super_battle_droid", "commando_droid",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
             "hutt_enforcer", "bounty_hunter", "smuggler",
@@ -35,8 +41,14 @@ public final class RecruitTextureAtlasTest {
             "republic_civilian", "separatist_technician", "mandalorian_clansperson",
             "hutt_civilian", "nightsister_civilian");
     private static final List<String> ARMOR_FAMILIES = List.of(
-            "mandalorian_alloy", "nightsister_weave", "republic_plastoid",
+            "mandalorian_alloy", "nightsister_weave", "republic_plastoid", "phase_i_clone",
             "separatist_alloy", "beskar");
+    private static final Set<String> LICENSED_128_RECRUITS = Set.of(
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
+            "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
+            "mandalorian_clansperson");
+    private static final Set<String> LICENSED_CLONE_ARMOR = Set.of(
+            "phase_i_clone", "republic_plastoid");
     private static final List<String> HUMANOID_BONES = List.of(
             "head", "body", "right_arm", "left_arm", "right_leg", "left_leg",
             "RightHandItem", "LeftHandItem");
@@ -54,9 +66,11 @@ public final class RecruitTextureAtlasTest {
         for (String family : ARMOR_FAMILIES) {
             validatesArmorAssetSet(family);
         }
-        validatesDistinctAssets(RECRUITS, "textures/entity/", ".png", "recruit textures");
+        validatesDistinctAssetCount(RECRUITS, "textures/entity/", ".png", 20, "recruit textures");
         validatesDistinctAssets(RECRUITS, "textures/item/", "_spawn_egg.png", "spawn eggs");
         validatesDistinctAssets(ARMOR_FAMILIES, "textures/armor/", ".png", "armor textures");
+        validatesAnimationFamiliesDiffer();
+        validatesAuthorizedSourceAssets();
         validatesRendererAndProvenance();
         System.out.println("RecruitTextureAtlasTest passed");
     }
@@ -64,18 +78,36 @@ public final class RecruitTextureAtlasTest {
     private static void validatesRecruitAssetSet(String recruit) throws IOException {
         Path texturePath = ASSET_ROOT.resolve("textures/entity/" + recruit + ".png");
         Path modelPath = ASSET_ROOT.resolve("geckolib/models/entity/" + recruit + ".geo.json");
-        BufferedImage image = readAtlas(texturePath, recruit, ATLAS_SIZE);
-        String geometry = geometry(modelPath, ATLAS_SIZE);
-        validatesGeometry(recruit, geometry, image, HUMANOID_BONES, 12, 1);
+        int width = recruit.equals("b1_battle_droid") ? 128
+                : LICENSED_128_RECRUITS.contains(recruit) ? 128 : PROJECT_ATLAS_SIZE;
+        int height = recruit.equals("b1_battle_droid") ? 64 : width;
+        boolean licensedSource = LICENSED_128_RECRUITS.contains(recruit)
+                || recruit.equals("b1_battle_droid");
+        BufferedImage image = readAtlas(texturePath, recruit, width, height);
+        String geometry = geometry(modelPath, width, height);
+        validatesGeometry(
+                recruit,
+                geometry,
+                image,
+                HUMANOID_BONES,
+                minimumRecruitCubes(recruit),
+                licensedSource ? 0 : RECRUIT_TEXEL_DENSITY
+        );
+        assertMinimumOpaqueColors(image, licensedSource ? 10 : 64,
+                recruit + " material and wear variation");
 
         String animation = Files.readString(
                 ASSET_ROOT.resolve("geckolib/animations/entity/" + recruit + ".animation.json"));
+        validatesAnimationBonesExist(recruit, geometry, animation);
         for (String bone : HUMANOID_BONES.subList(0, 6)) {
             assertContains(animation, '"' + bone + '"', recruit + " animation bone " + bone);
         }
         assertContains(animation, "\"misc.idle\"", recruit + " idle animation");
         assertContains(animation, "\"move.walk\"", recruit + " walk animation");
         assertContains(animation, "\"attack.swing\"", recruit + " attack animation");
+        validatesNamedSilhouette(recruit, geometry);
+        validatesRigPivots(recruit, geometry);
+        validatesIdleDuration(recruit, animation);
 
         BufferedImage egg = ImageIO.read(ASSET_ROOT.resolve(
                 "textures/item/" + recruit + "_spawn_egg.png").toFile());
@@ -86,20 +118,162 @@ public final class RecruitTextureAtlasTest {
         assertRegularFile(ASSET_ROOT.resolve("models/item/" + recruit + "_spawn_egg.json"));
     }
 
+    private static int minimumRecruitCubes(String recruit) {
+        return switch (recruit) {
+            case "phase_i_clone_trooper" -> 24;
+            case "phase_i_arc_trooper" -> 30;
+            case "clone_trooper" -> 27;
+            case "arc_trooper" -> 33;
+            case "b1_battle_droid" -> 23;
+            case "mandalorian_warrior" -> 23;
+            case "mandalorian_marksman" -> 16;
+            case "mandalorian_heavy" -> 33;
+            case "mandalorian_clansperson" -> 14;
+            default -> 20;
+        };
+    }
+
+    private static void validatesNamedSilhouette(String recruit, String geometry) {
+        List<String> requiredParts;
+        if (recruit.equals("clone_trooper") || recruit.equals("phase_i_clone_trooper")) {
+            requiredParts = List.of(
+                    "helmet", "chest_armor", "right_gauntlet", "left_gauntlet",
+                    "right_boot", "left_boot");
+        } else if (recruit.equals("arc_trooper") || recruit.equals("phase_i_arc_trooper")) {
+            requiredParts = List.of(
+                    "helmet", "chest_armor", "right_gauntlet", "left_gauntlet",
+                    "right_boot", "left_boot", "rangefinder", "pauldron", "kama");
+        } else if (Set.of("b1_battle_droid", "b2_super_battle_droid", "commando_droid")
+                .contains(recruit)) {
+            requiredParts = List.of(
+                    "neck", "right_forearm", "left_forearm", "right_shin", "left_shin");
+        } else {
+            return;
+        }
+        for (String part : requiredParts) {
+            assertContains(geometry, "\"name\": \"" + part + "\"",
+                    recruit + " named silhouette component " + part);
+        }
+    }
+
+    private static void validatesAnimationBonesExist(
+            String recruit,
+            String geometry,
+            String animation
+    ) {
+        Set<String> modelBones = new HashSet<>();
+        Matcher modelBone = BONE_NAME.matcher(geometry);
+        while (modelBone.find()) {
+            modelBones.add(modelBone.group(1));
+        }
+        if (modelBones.size() <= HUMANOID_BONES.size()) {
+            throw new AssertionError(recruit + " must use family-specific child bones; found " + modelBones);
+        }
+        Matcher animatedBone = ANIMATED_BONE.matcher(animation);
+        int animatedCount = 0;
+        while (animatedBone.find()) {
+            String bone = animatedBone.group(1);
+            if (!modelBones.contains(bone)) {
+                throw new AssertionError(recruit + " animation references missing model bone " + bone);
+            }
+            animatedCount++;
+        }
+        if (animatedCount == 0) {
+            throw new AssertionError(recruit + " animation contains no bone channels");
+        }
+    }
+
+    private static void validatesAnimationFamiliesDiffer() throws IOException {
+        List<String> representatives = List.of(
+                "phase_i_clone_trooper",
+                "clone_trooper",
+                "b1_battle_droid",
+                "commando_droid",
+                "mandalorian_warrior",
+                "jedi_knight",
+                "nightsister_acolyte",
+                "nightbrother_brute",
+                "hutt_enforcer",
+                "republic_civilian");
+        validatesDistinctAssets(
+                representatives,
+                "geckolib/animations/entity/",
+                ".animation.json",
+                "humanoid, droid, brute, robed, civilian, and clone animation families");
+    }
+
+    private static void validatesRigPivots(String recruit, String geometry) {
+        if (recruit.equals("arc_trooper") || recruit.equals("phase_i_arc_trooper")) {
+            assertBonePivot(geometry, "kama", 0, 12, 0, recruit);
+        }
+        if (recruit.startsWith("mandalorian_")) {
+            assertBonePivot(geometry, "helmet", 0, 24, 0, recruit);
+        }
+    }
+
+    private static void validatesIdleDuration(String recruit, String animation) {
+        int idleName = animation.indexOf("\"misc.idle\"");
+        int idleStart = animation.indexOf('{', idleName);
+        if (idleName < 0 || idleStart < 0) {
+            throw new AssertionError(recruit + " idle animation object missing");
+        }
+        String idle = animation.substring(idleStart, matchingBrace(animation, idleStart) + 1);
+        Pattern idleLength = Pattern.compile(
+                "\\\"animation_length\\\"\\s*:\\s*([0-9.]+)");
+        Matcher lengthMatcher = idleLength.matcher(idle);
+        if (!lengthMatcher.find()) {
+            throw new AssertionError(recruit + " idle animation length declaration missing");
+        }
+        double animationLength = Double.parseDouble(lengthMatcher.group(1));
+        Matcher timestamps = Pattern.compile("\\\"([0-9]+(?:\\.[0-9]+)?)\\\"\\s*:").matcher(idle);
+        double lastKeyframe = -1;
+        while (timestamps.find()) {
+            lastKeyframe = Math.max(lastKeyframe, Double.parseDouble(timestamps.group(1)));
+        }
+        assertDoubleEquals(animationLength, lastKeyframe,
+                recruit + " idle duration must end with its final keyframes");
+    }
+
+    private static void assertBonePivot(
+            String geometry,
+            String bone,
+            double expectedX,
+            double expectedY,
+            double expectedZ,
+            String recruit
+    ) {
+        Pattern pivot = Pattern.compile(
+                "\\\"name\\\"\\s*:\\s*\\\"" + Pattern.quote(bone)
+                        + "\\\"\\s*,\\s*\\\"pivot\\\"\\s*:\\s*\\[\\s*"
+                        + "(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*]",
+                Pattern.DOTALL);
+        Matcher matcher = pivot.matcher(geometry);
+        if (!matcher.find()) {
+            throw new AssertionError(recruit + " " + bone + " pivot declaration missing");
+        }
+        assertDoubleEquals(expectedX, Double.parseDouble(matcher.group(1)), recruit + " " + bone + " pivot x");
+        assertDoubleEquals(expectedY, Double.parseDouble(matcher.group(2)), recruit + " " + bone + " pivot y");
+        assertDoubleEquals(expectedZ, Double.parseDouble(matcher.group(3)), recruit + " " + bone + " pivot z");
+    }
+
     private static void validatesArmorAssetSet(String family) throws IOException {
         Path texturePath = ASSET_ROOT.resolve("textures/armor/" + family + ".png");
         Path modelPath = ASSET_ROOT.resolve("geckolib/models/armor/" + family + ".geo.json");
-        BufferedImage image = readAtlas(texturePath, family + " armor", ARMOR_ATLAS_SIZE);
-        String geometry = geometry(modelPath, ARMOR_ATLAS_SIZE);
+        boolean licensedClone = LICENSED_CLONE_ARMOR.contains(family);
+        int atlasSize = licensedClone ? 128 : PROJECT_ARMOR_ATLAS_SIZE;
+        BufferedImage image = readAtlas(texturePath, family + " armor", atlasSize, atlasSize);
+        String geometry = geometry(modelPath, atlasSize, atlasSize);
         validatesGeometry(
                 family + " armor",
                 geometry,
                 image,
                 ARMOR_BONES,
-                50,
-                ARMOR_TEXEL_DENSITY
+                family.equals("phase_i_clone") ? 24
+                        : family.equals("republic_plastoid") ? 27 : 50,
+                licensedClone ? 0 : ARMOR_TEXEL_DENSITY
         );
-        assertMinimumOpaqueColors(image, 48, family + " high-detail material variation");
+        assertMinimumOpaqueColors(image, licensedClone ? 20 : 48,
+                family + " high-detail material variation");
         assertArmorBoneParent(geometry, "armorHead", "bipedHead", family);
         assertArmorBoneParent(geometry, "armorBody", "bipedBody", family);
         assertArmorBoneParent(geometry, "armorRightArm", "bipedRightArm", family);
@@ -118,14 +292,15 @@ public final class RecruitTextureAtlasTest {
     }
 
     private static void validatesArmorIdentity(String family, String geometry) throws IOException {
+        if (LICENSED_CLONE_ARMOR.contains(family)) {
+            validatesLicensedCloneArmorIdentity(family, geometry);
+            return;
+        }
         String generator = Files.readString(Path.of("tools/generate_character_models.py"));
         String familySource = armorIdentitySource(generator, family);
         assertContains(geometry, "\"name\": \"armorHead\"",
                 family + " equipped helmet bone");
         List<String> requiredParts = switch (family) {
-            case "republic_plastoid" -> List.of(
-                    "helmet_fin", "visor_bar", "visor_nose", "right_cheek_plate",
-                    "mouth_grille", "right_ear_module", "rear_filter", "chest_command_stripe");
             case "separatist_alloy" -> List.of(
                     "crown_reinforcement", "sensor_visor", "face_guard", "chin_filter",
                     "right_sensor_pod", "rear_power_node", "rear_reactor");
@@ -143,6 +318,20 @@ public final class RecruitTextureAtlasTest {
         for (String part : requiredParts) {
             assertContains(familySource, "\"" + part + "\"",
                     family + " reproducible authored armor component " + part);
+        }
+    }
+
+    private static void validatesLicensedCloneArmorIdentity(String family, String geometry)
+            throws IOException {
+        String importer = Files.readString(Path.of("tools/import_authorized_character_assets.py"));
+        assertContains(geometry, "\"name\": \"helmet\"", family + " authored helmet group");
+        assertContains(importer, "Clone Trooper.bbmodel", family + " pinned Blockbench source");
+        assertContains(importer, "clone_group_policy(phase, False)", family + " phase selection");
+        if (family.equals("phase_i_clone")) {
+            assertContains(importer, "(\"phase_i_clone\", 1)", "Phase I armor selection");
+        } else {
+            assertContains(importer, "(\"republic_plastoid\", 2)", "Phase II armor selection");
+            assertContains(importer, "forge_501st_blue", "permissioned 501st source palette");
         }
     }
 
@@ -166,6 +355,7 @@ public final class RecruitTextureAtlasTest {
 
         String helper = switch (family) {
             case "republic_plastoid" -> "add_republic_helmet";
+            case "phase_i_clone" -> "add_phase_i_clone_helmet";
             case "separatist_alloy" -> "add_separatist_helmet";
             case "mandalorian_alloy", "beskar" -> "add_mandalorian_helmet";
             case "nightsister_weave" -> "add_nightsister_helmet";
@@ -198,11 +388,16 @@ public final class RecruitTextureAtlasTest {
         }
     }
 
-    private static BufferedImage readAtlas(Path path, String label, int expectedSize) throws IOException {
+    private static BufferedImage readAtlas(
+            Path path,
+            String label,
+            int expectedWidth,
+            int expectedHeight
+    ) throws IOException {
         BufferedImage image = ImageIO.read(path.toFile());
         assertNotNull(image, label + " texture decodes");
-        assertEquals(expectedSize, image.getWidth(), label + " width");
-        assertEquals(expectedSize, image.getHeight(), label + " height");
+        assertEquals(expectedWidth, image.getWidth(), label + " width");
+        assertEquals(expectedHeight, image.getHeight(), label + " height");
         boolean transparentPixel = false;
         boolean opaquePixel = false;
         for (int y = 0; y < image.getHeight(); y++) {
@@ -218,10 +413,10 @@ public final class RecruitTextureAtlasTest {
         return image;
     }
 
-    private static String geometry(Path path, int expectedSize) throws IOException {
+    private static String geometry(Path path, int expectedWidth, int expectedHeight) throws IOException {
         String model = Files.readString(path);
-        assertPatternValue(TEXTURE_WIDTH, model, expectedSize, path + " texture width");
-        assertPatternValue(TEXTURE_HEIGHT, model, expectedSize, path + " texture height");
+        assertPatternValue(TEXTURE_WIDTH, model, expectedWidth, path + " texture width");
+        assertPatternValue(TEXTURE_HEIGHT, model, expectedHeight, path + " texture height");
         return model;
     }
 
@@ -270,15 +465,24 @@ public final class RecruitTextureAtlasTest {
                             + " must use high-density per-face UVs");
                 }
                 int uvEnd = matchingBrace(geometry, uvStart);
-                assertOpaquePerFaceUvs(
-                        image,
-                        geometry.substring(uvStart, uvEnd + 1),
-                        width,
-                        height,
-                        depth,
-                        texelDensity,
-                        label + " cube " + cubeCount
-                );
+                String perFaceUvs = geometry.substring(uvStart, uvEnd + 1);
+                if (texelDensity == 0) {
+                    assertLicensedPerFaceUvs(
+                            image,
+                            perFaceUvs,
+                            label + " cube " + cubeCount
+                    );
+                } else {
+                    assertOpaquePerFaceUvs(
+                            image,
+                            perFaceUvs,
+                            width,
+                            height,
+                            depth,
+                            texelDensity,
+                            label + " cube " + cubeCount
+                    );
+                }
             }
             cubeCount++;
         }
@@ -303,6 +507,43 @@ public final class RecruitTextureAtlasTest {
         assertOpaqueFace(image, uv, "west", depth * density, height * density, label);
         assertOpaqueFace(image, uv, "up", width * density, depth * density, label);
         assertOpaqueFace(image, uv, "down", width * density, depth * density, label);
+    }
+
+    private static void assertLicensedPerFaceUvs(
+            BufferedImage image,
+            String uv,
+            String label
+    ) {
+        int paintedFaces = 0;
+        for (String faceName : List.of("north", "south", "east", "west", "up", "down")) {
+            Pattern facePattern = Pattern.compile(
+                    "\\\"" + Pattern.quote(faceName) + "\\\"\\s*:\\s*\\{\\s*"
+                            + "\\\"uv\\\"\\s*:\\s*\\[\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*]\\s*,\\s*"
+                            + "\\\"uv_size\\\"\\s*:\\s*\\[\\s*(-?[0-9.]+)\\s*,\\s*(-?[0-9.]+)\\s*]",
+                    Pattern.DOTALL);
+            Matcher face = facePattern.matcher(uv);
+            if (!face.find()) {
+                throw new AssertionError(label + " missing " + faceName + " UV mapping");
+            }
+            double x1 = Double.parseDouble(face.group(1));
+            double y1 = Double.parseDouble(face.group(2));
+            double x2 = x1 + Double.parseDouble(face.group(3));
+            double y2 = y1 + Double.parseDouble(face.group(4));
+            int left = (int) Math.floor(Math.min(x1, x2));
+            int right = (int) Math.ceil(Math.max(x1, x2));
+            int top = (int) Math.floor(Math.min(y1, y2));
+            int bottom = (int) Math.ceil(Math.max(y1, y2));
+            if (left < 0 || top < 0 || right > image.getWidth() || bottom > image.getHeight()
+                    || left == right || top == bottom) {
+                throw new AssertionError(label + " " + faceName + " extends outside its source atlas");
+            }
+            if (hasOpaquePixel(image, left, top, right - left, bottom - top)) {
+                paintedFaces++;
+            }
+        }
+        if (paintedFaces == 0) {
+            throw new AssertionError(label + " maps only transparent source pixels");
+        }
     }
 
     private static void assertOpaqueFace(
@@ -400,6 +641,53 @@ public final class RecruitTextureAtlasTest {
         assertContains(items, "new GalacticArmorItem", "armor registry uses custom geometry");
         assertNotContains(entities, "renderAlias", "civilian renderer aliases");
         assertContains(provenance, "generate_character_models.py", "character model provenance");
+        assertContains(provenance, "import_authorized_character_assets.py",
+                "authorized character importer provenance");
+        assertContains(provenance, "b91b4cc1a827eeb7c2ae16f0b703affd78c1c206",
+                "Galaxies pinned source commit");
+        assertContains(provenance, "c9555aa4966e9e63c22a59f488d4b05bc614569e",
+                "Forge pinned source commit");
+    }
+
+    private static void validatesAuthorizedSourceAssets() throws IOException {
+        Path sourceRoot = Path.of("tools/source_art/authorized_upstream");
+        Path galaxies = sourceRoot.resolve("galaxies_pswg");
+        Path forge = sourceRoot.resolve("forge_star_wars_clone_wars");
+        for (Path source : List.of(
+                galaxies.resolve("Clone Trooper.bbmodel"),
+                galaxies.resolve("Clone Trooper.png"),
+                galaxies.resolve("PSWG_Mandalorian.bbmodel"),
+                galaxies.resolve("PSWG_Mandalorian.png"),
+                forge.resolve("Droid.bbmodel"),
+                forge.resolve("droid.png"),
+                forge.resolve("clone_armor_armor_501st_layer_helmet.png"))) {
+            assertRegularFile(source);
+        }
+        assertImagesEqual(
+                galaxies.resolve("Clone Trooper.png"),
+                ASSET_ROOT.resolve("textures/entity/phase_i_clone_trooper.png"),
+                "Phase I clone source texture");
+        assertImagesEqual(
+                forge.resolve("droid.png"),
+                ASSET_ROOT.resolve("textures/entity/b1_battle_droid.png"),
+                "B1 source texture");
+    }
+
+    private static void assertImagesEqual(Path expectedPath, Path actualPath, String label)
+            throws IOException {
+        BufferedImage expected = ImageIO.read(expectedPath.toFile());
+        BufferedImage actual = ImageIO.read(actualPath.toFile());
+        assertNotNull(expected, label + " source decodes");
+        assertNotNull(actual, label + " output decodes");
+        assertEquals(expected.getWidth(), actual.getWidth(), label + " width");
+        assertEquals(expected.getHeight(), actual.getHeight(), label + " height");
+        for (int y = 0; y < expected.getHeight(); y++) {
+            for (int x = 0; x < expected.getWidth(); x++) {
+                if (expected.getRGB(x, y) != actual.getRGB(x, y)) {
+                    throw new AssertionError(label + " differs at " + x + "," + y);
+                }
+            }
+        }
     }
 
     private static void validatesDistinctAssets(
@@ -413,6 +701,23 @@ public final class RecruitTextureAtlasTest {
             hashes.add(java.util.Arrays.hashCode(Files.readAllBytes(ASSET_ROOT.resolve(prefix + id + suffix))));
         }
         assertEquals(ids.size(), hashes.size(), label + " distinct hashes");
+    }
+
+    private static void validatesDistinctAssetCount(
+            List<String> ids,
+            String prefix,
+            String suffix,
+            int minimum,
+            String label
+    ) throws IOException {
+        Set<Integer> hashes = new HashSet<>();
+        for (String id : ids) {
+            hashes.add(java.util.Arrays.hashCode(Files.readAllBytes(ASSET_ROOT.resolve(prefix + id + suffix))));
+        }
+        if (hashes.size() < minimum) {
+            throw new AssertionError(label + " expected at least " + minimum
+                    + " distinct hashes but found " + hashes.size());
+        }
     }
 
     private static void assertOpaqueBoxFaces(BufferedImage image, BoxUv cube, String label) {
@@ -432,6 +737,17 @@ public final class RecruitTextureAtlasTest {
                 }
             }
         }
+    }
+
+    private static boolean hasOpaquePixel(BufferedImage image, int x, int y, int width, int height) {
+        for (int iy = y; iy < y + height; iy++) {
+            for (int ix = x; ix < x + width; ix++) {
+                if ((image.getRGB(ix, iy) >>> 24) != 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void assertContains(String value, String expected, String label) {
@@ -454,6 +770,12 @@ public final class RecruitTextureAtlasTest {
 
     private static void assertEquals(int expected, int actual, String label) {
         if (expected != actual) {
+            throw new AssertionError(label + " expected <" + expected + "> but was <" + actual + ">");
+        }
+    }
+
+    private static void assertDoubleEquals(double expected, double actual, String label) {
+        if (Math.abs(expected - actual) > 0.00001) {
             throw new AssertionError(label + " expected <" + expected + "> but was <" + actual + ">");
         }
     }

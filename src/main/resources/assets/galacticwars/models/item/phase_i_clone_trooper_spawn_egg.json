@@ -1,0 +1,6 @@
+{
+  "parent": "galacticwars:item/spawn_capsule_base",
+  "textures": {
+    "particle": "galacticwars:item/phase_i_clone_trooper_spawn_egg"
+  }
+}

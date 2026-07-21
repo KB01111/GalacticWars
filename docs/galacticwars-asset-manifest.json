@@ -3,8 +3,8 @@
   "namespace": "galacticwars",
   "style": {
     "blocks_and_items": "Minecraft-readable cinematic pixel art",
-    "entities": "cinematic Clone Wars-inspired original fan art fitted to exact GeckoLib UVs",
-    "copyright_rule": "original generated artwork only; no official or third-party assets",
+    "entities": "project-authored and permissioned upstream-derived Clone Wars character art fitted to exact GeckoLib UVs",
+    "copyright_rule": "every upstream-derived asset must retain its repository, pinned commit, license, transformation, and authorization record",
     "alpha_rule": "unused UV space and inventory-icon backgrounds must be fully transparent"
   },
   "batches": [
@@ -55,27 +55,46 @@
     {
       "id": "units",
       "kind": "geckolib_entity",
-      "size": "128x128",
+      "default_size": "256x256",
       "transparent": true,
-      "uv_template": "deterministic non-overlapping 128x128 box UVs generated with each detailed GeckoLib model",
-      "ids": ["clone_trooper","arc_trooper","jedi_knight","b1_battle_droid","b2_super_battle_droid","commando_droid","mandalorian_warrior","mandalorian_marksman","mandalorian_heavy","hutt_enforcer","bounty_hunter","smuggler","nightsister_acolyte","nightsister_archer","nightbrother_brute","republic_civilian","separatist_technician","mandalorian_clansperson","hutt_civilian","nightsister_civilian"],
+      "uv_template": "explicit six-face UV maps; project-authored sets use two texels per model unit while licensed source sets preserve their authored atlas resolution and mirrored face orientation",
+      "ids": ["phase_i_clone_trooper","phase_i_arc_trooper","clone_trooper","arc_trooper","jedi_knight","b1_battle_droid","b2_super_battle_droid","commando_droid","mandalorian_warrior","mandalorian_marksman","mandalorian_heavy","hutt_enforcer","bounty_hunter","smuggler","nightsister_acolyte","nightsister_archer","nightbrother_brute","republic_civilian","separatist_technician","mandalorian_clansperson","hutt_civilian","nightsister_civilian"],
+      "size_overrides": {
+        "phase_i_clone_trooper":"128x128",
+        "phase_i_arc_trooper":"128x128",
+        "clone_trooper":"128x128",
+        "arc_trooper":"128x128",
+        "b1_battle_droid":"128x64",
+        "mandalorian_warrior":"128x128",
+        "mandalorian_marksman":"128x128",
+        "mandalorian_heavy":"128x128",
+        "mandalorian_clansperson":"128x128"
+      },
+      "source_overrides": {
+        "galaxies_pswg_clone_trooper":["phase_i_clone_trooper","phase_i_arc_trooper","clone_trooper","arc_trooper"],
+        "forge_star_wars_clone_wars_droid":["b1_battle_droid"],
+        "galaxies_pswg_mandalorian":["mandalorian_warrior","mandalorian_marksman","mandalorian_heavy","mandalorian_clansperson"]
+      },
       "path_template": "textures/entity/{id}.png"
     },
     {
       "id": "equipped_armor",
       "kind": "geckolib_armor",
-      "size": "1024x1024",
+      "default_size": "1024x1024",
       "transparent": true,
-      "uv_template": "explicit six-face UV mappings at six texels per model unit",
-      "ids": ["republic_plastoid","separatist_alloy","mandalorian_alloy","nightsister_weave","beskar"],
+      "uv_template": "explicit six-face UV mappings; licensed clone sets preserve their 128x128 authored layout and other project-authored sets use six texels per model unit",
+      "ids": ["phase_i_clone","republic_plastoid","separatist_alloy","mandalorian_alloy","nightsister_weave","beskar"],
+      "size_overrides": {"phase_i_clone":"128x128","republic_plastoid":"128x128"},
       "path_template": "textures/armor/{id}.png",
-      "cube_counts": {"republic_plastoid":60,"separatist_alloy":51,"mandalorian_alloy":54,"nightsister_weave":55,"beskar":54},
-      "inventory_icon_policy": "preserve existing 16x16 armor item icons for inventory and item frames"
+      "cube_counts": {"phase_i_clone":24,"republic_plastoid":27,"separatist_alloy":51,"mandalorian_alloy":54,"nightsister_weave":55,"beskar":54},
+      "source_overrides": {"galaxies_pswg_clone_trooper":["phase_i_clone","republic_plastoid"]},
+      "inventory_icon_policy": "preserve existing icons and use the licensed source sprites for distinct Phase I and Phase II four-piece clone sets",
+      "inventory_ids": ["phase_i_clone_helmet","phase_i_clone_chestplate","phase_i_clone_leggings","phase_i_clone_boots"]
     },
     {
       "id": "recruit_spawn_capsules",
       "kind": "geckolib_animated_3d_item",
-      "ids": ["clone_trooper","arc_trooper","jedi_knight","b1_battle_droid","b2_super_battle_droid","commando_droid","mandalorian_warrior","mandalorian_marksman","mandalorian_heavy","hutt_enforcer","bounty_hunter","smuggler","nightsister_acolyte","nightsister_archer","nightbrother_brute","republic_civilian","separatist_technician","mandalorian_clansperson","hutt_civilian","nightsister_civilian"],
+      "ids": ["phase_i_clone_trooper","phase_i_arc_trooper","clone_trooper","arc_trooper","jedi_knight","b1_battle_droid","b2_super_battle_droid","commando_droid","mandalorian_warrior","mandalorian_marksman","mandalorian_heavy","hutt_enforcer","bounty_hunter","smuggler","nightsister_acolyte","nightsister_archer","nightbrother_brute","republic_civilian","separatist_technician","mandalorian_clansperson","hutt_civilian","nightsister_civilian"],
       "model": "geckolib/models/item/spawn_capsule.geo.json",
       "animation": "geckolib/animations/item/spawn_capsule.animation.json",
       "size": "512x512",

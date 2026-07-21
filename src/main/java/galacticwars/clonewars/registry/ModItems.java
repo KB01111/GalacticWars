@@ -126,6 +126,14 @@ public final class ModItems {
     public static final RegistrySupplier<Item> NIGHTSISTER_WEAVE =
             registerSimpleItem("nightsister_weave", properties -> properties);
     public static final java.util.Map<String, RegistrySupplier<Item>> FACTION_EQUIPMENT = registerFactionEquipment();
+    public static final RegistrySupplier<GalacticArmorItem> PHASE_I_CLONE_HELMET =
+            phaseICloneArmor("helmet", ArmorType.HELMET);
+    public static final RegistrySupplier<GalacticArmorItem> PHASE_I_CLONE_CHESTPLATE =
+            phaseICloneArmor("chestplate", ArmorType.CHESTPLATE);
+    public static final RegistrySupplier<GalacticArmorItem> PHASE_I_CLONE_LEGGINGS =
+            phaseICloneArmor("leggings", ArmorType.LEGGINGS);
+    public static final RegistrySupplier<GalacticArmorItem> PHASE_I_CLONE_BOOTS =
+            phaseICloneArmor("boots", ArmorType.BOOTS);
     public static final RegistrySupplier<IdentityChipItem> REPUBLIC_FACTION_TOKEN = factionToken("republic");
     public static final RegistrySupplier<IdentityChipItem> MANDALORIAN_FACTION_TOKEN = factionToken("mandalorian");
     public static final RegistrySupplier<IdentityChipItem> SEPARATIST_FACTION_TOKEN = factionToken("separatist");
@@ -139,6 +147,14 @@ public final class ModItems {
             registerItem("arc_trooper_spawn_egg",
                     properties -> new RecruitSpawnEggItem(
                             ModEntityTypes.ARC_TROOPER.get(), "arc_trooper", properties));
+    public static final RegistrySupplier<RecruitSpawnEggItem> PHASE_I_CLONE_TROOPER_SPAWN_EGG =
+            registerItem("phase_i_clone_trooper_spawn_egg",
+                    properties -> new RecruitSpawnEggItem(
+                            ModEntityTypes.PHASE_I_CLONE_TROOPER.get(), "phase_i_clone_trooper", properties));
+    public static final RegistrySupplier<RecruitSpawnEggItem> PHASE_I_ARC_TROOPER_SPAWN_EGG =
+            registerItem("phase_i_arc_trooper_spawn_egg",
+                    properties -> new RecruitSpawnEggItem(
+                            ModEntityTypes.PHASE_I_ARC_TROOPER.get(), "phase_i_arc_trooper", properties));
     public static final RegistrySupplier<RecruitSpawnEggItem> JEDI_KNIGHT_SPAWN_EGG =
             registerItem("jedi_knight_spawn_egg",
                     properties -> new RecruitSpawnEggItem(
@@ -224,6 +240,12 @@ public final class ModItems {
         return registerItem(colorId + "_lightsaber", properties -> new LightsaberItem(
                 colorId,
                 properties.sword(ModEquipmentMaterials.BESKAR.tool(), 5.0F, -2.1F)));
+    }
+
+    private static RegistrySupplier<GalacticArmorItem> phaseICloneArmor(String piece, ArmorType armorType) {
+        return registerItem("phase_i_clone_" + piece, properties -> new GalacticArmorItem(
+                "phase_i_clone",
+                properties.humanoidArmor(ModEquipmentMaterials.REPUBLIC.armor(), armorType)));
     }
 
     public static void register() {

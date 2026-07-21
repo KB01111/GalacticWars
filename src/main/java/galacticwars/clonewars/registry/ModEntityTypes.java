@@ -47,6 +47,10 @@ public final class ModEntityTypes {
             registerRecruit("clone_trooper", 0.60F, 1.95F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> ARC_TROOPER =
             registerRecruit("arc_trooper", 0.60F, 1.95F);
+    public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> PHASE_I_CLONE_TROOPER =
+            registerRecruit("phase_i_clone_trooper", 0.60F, 1.95F);
+    public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> PHASE_I_ARC_TROOPER =
+            registerRecruit("phase_i_arc_trooper", 0.60F, 1.95F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> JEDI_KNIGHT =
             registerRecruit("jedi_knight", 0.60F, 1.95F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> MANDALORIAN_WARRIOR =
@@ -56,13 +60,13 @@ public final class ModEntityTypes {
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> MANDALORIAN_HEAVY =
             registerRecruit("mandalorian_heavy", 0.68F, 1.95F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> B1_BATTLE_DROID =
-            registerRecruit("b1_battle_droid", 0.70F, 1.85F);
+            registerRecruit("b1_battle_droid", 0.50F, 1.93F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> B2_SUPER_BATTLE_DROID =
             registerRecruit("b2_super_battle_droid", 0.82F, 2.05F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> COMMANDO_DROID =
-            registerRecruit("commando_droid", 0.64F, 1.95F);
+            registerRecruit("commando_droid", 0.58F, 1.91F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> HUTT_ENFORCER =
-            registerRecruit("hutt_enforcer", 0.75F, 1.55F);
+            registerRecruit("hutt_enforcer", 0.84F, 2.00F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> BOUNTY_HUNTER =
             registerRecruit("bounty_hunter", 0.60F, 1.95F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> SMUGGLER =
@@ -76,7 +80,7 @@ public final class ModEntityTypes {
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> REPUBLIC_CIVILIAN =
             registerRecruit("republic_civilian", 0.60F, 1.90F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> SEPARATIST_TECHNICIAN =
-            registerRecruit("separatist_technician", 0.65F, 1.85F);
+            registerRecruit("separatist_technician", 0.60F, 1.90F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> MANDALORIAN_CLANSPERSON =
             registerRecruit("mandalorian_clansperson", 0.60F, 1.90F);
     public static final RegistrySupplier<EntityType<GalacticRecruitEntity>> HUTT_CIVILIAN =
@@ -85,7 +89,7 @@ public final class ModEntityTypes {
             registerRecruit("nightsister_civilian", 0.60F, 2.00F);
 
     private static final List<RegistrySupplier<EntityType<GalacticRecruitEntity>>> RECRUITS = List.of(
-            CLONE_TROOPER, ARC_TROOPER, JEDI_KNIGHT,
+            CLONE_TROOPER, ARC_TROOPER, PHASE_I_CLONE_TROOPER, PHASE_I_ARC_TROOPER, JEDI_KNIGHT,
             B1_BATTLE_DROID, B2_SUPER_BATTLE_DROID, COMMANDO_DROID,
             MANDALORIAN_WARRIOR, MANDALORIAN_MARKSMAN, MANDALORIAN_HEAVY,
             HUTT_ENFORCER, BOUNTY_HUNTER, SMUGGLER,

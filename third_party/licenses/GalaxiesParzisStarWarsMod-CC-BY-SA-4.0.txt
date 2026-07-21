@@ -1,0 +1,19 @@
+Galaxies: Parzi's Star Wars Mod non-code asset notice
+
+Upstream repository:
+https://github.com/Parzivail-Modding-Team/GalaxiesParzisStarWarsMod
+
+Pinned revision:
+b91b4cc1a827eeb7c2ae16f0b703affd78c1c206
+
+The upstream README declares all non-code assets under the Creative Commons
+Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0).
+
+License deed and legal code:
+https://creativecommons.org/licenses/by-sa/4.0/
+https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+Attribution: Parzivail Modding Team and upstream contributors.
+Changes: selected Blockbench groups were converted to GeckoLib bones and explicit
+per-face UVs; variants, held-item anchors, player-armor parenting, and deterministic
+palette adaptations were added for Galactic Wars.

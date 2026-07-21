@@ -17,6 +17,7 @@ public final class ProgressionIntegrityPolicyTest {
                 valid(ProgressionEventType.CAMPAIGN_RECHECK, "eligible_quests", 0),
                 valid(ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic", 1),
                 valid(ProgressionEventType.RECRUIT_HIRED, "clone_trooper", 1),
+                valid(ProgressionEventType.RECRUIT_HIRED, "phase_i_clone_trooper", 1),
                 valid(ProgressionEventType.DELIVERY_COMPLETED, courier, 1),
                 valid(ProgressionEventType.PLANET_VISITED, "tatooine", 1),
                 valid(ProgressionEventType.VEHICLE_ACQUIRED, "barc_speeder", 1),
@@ -79,7 +80,8 @@ public final class ProgressionIntegrityPolicyTest {
         LaunchContentRuntime.install(new LaunchContentDefinitions(
                         Map.of(planet.id(), planet), Map.of(vehicle.id(), vehicle), Map.of(force.id(), force),
                         Map.of(quest.id(), quest), Map.of(trade.id(), trade), Map.of(region.id(), region)),
-                List.of("galacticwars:republic"), Map.of("republic", List.of("clone_trooper")));
+                List.of("galacticwars:republic"),
+                Map.of("republic", List.of("clone_trooper", "phase_i_clone_trooper")));
     }
 
     private static void assertValidation(

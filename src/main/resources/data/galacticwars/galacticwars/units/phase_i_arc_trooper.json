@@ -1,0 +1,23 @@
+{
+  "id": "galacticwars:phase_i_arc_trooper",
+  "display_name": "Phase I ARC Trooper",
+  "faction": "galacticwars:republic",
+  "entity_type": "galacticwars:phase_i_arc_trooper",
+  "role": "archer",
+  "hire_cost": 38,
+  "attributes": {
+    "max_health": 28,
+    "attack_damage": 7,
+    "movement_speed": 0.31,
+    "follow_range": 32.0,
+    "armor": 3.0
+  },
+  "equipment": {
+    "main_hand": "galacticwars:dc15_blaster",
+    "head": "galacticwars:phase_i_clone_helmet",
+    "chest": "galacticwars:phase_i_clone_chestplate",
+    "legs": "galacticwars:phase_i_clone_leggings",
+    "feet": "galacticwars:phase_i_clone_boots"
+  },
+  "default_formation": "line"
+}

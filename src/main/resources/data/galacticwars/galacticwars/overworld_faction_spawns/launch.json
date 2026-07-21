@@ -10,6 +10,8 @@
       "entities": [
         {"entity_type": "galacticwars:clone_trooper", "service_branch": "military"},
         {"entity_type": "galacticwars:arc_trooper", "service_branch": "military"},
+        {"entity_type": "galacticwars:phase_i_clone_trooper", "service_branch": "military"},
+        {"entity_type": "galacticwars:phase_i_arc_trooper", "service_branch": "military"},
         {"entity_type": "galacticwars:republic_civilian", "service_branch": "civilian"}
       ]
     },

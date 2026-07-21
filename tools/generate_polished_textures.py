@@ -311,8 +311,8 @@ def lightsaber(name, blade, glow):
 if __name__ == "__main__":
     for block in ("coruscant_panel", "kamino_panel", "geonosis_rock", "tatooine_sand"):
         generated_block_texture(block)
-    # Recruit textures are generated alongside their exact 128x128 UV geometry
-    # by generate_character_models.py. Do not rewrite them from this legacy pass.
+    # Recruit textures are generated alongside their exact 256x256 per-face UV geometry
+    # by generate_character_models.py, the sole character-asset source of truth.
     lightsaber("blue", (84, 188, 255, 255), (28, 111, 231, 255))
     lightsaber("green", (102, 244, 145, 255), (20, 166, 84, 255))
     lightsaber("red", (255, 104, 96, 255), (211, 31, 39, 255))

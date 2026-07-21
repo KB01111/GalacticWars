@@ -19,12 +19,16 @@ public final class AssetManifestCompletenessTest {
     private static final Path MANIFEST = Path.of("docs/galacticwars-asset-manifest.json");
     private static final Path ASSET_ROOT = Path.of("src/main/resources/assets/galacticwars");
     private static final Set<String> UNIQUE_BATCHES = Set.of(
-            "units", "equipped_armor", "combat_and_tools", "planets", "vehicles", "effects_and_gui",
+            "equipped_armor", "combat_and_tools", "planets", "vehicles", "effects_and_gui",
             "field_command_and_deployment");
+    private static final Set<String> SOURCE_128_UNITS = Set.of(
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
+            "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
+            "mandalorian_clansperson");
     private static final List<String> FACTIONS = List.of(
             "republic", "separatist", "mandalorian", "hutt_cartel", "nightsister");
     private static final List<String> UNITS = List.of(
-            "clone_trooper", "arc_trooper", "jedi_knight",
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper", "jedi_knight",
             "b1_battle_droid", "b2_super_battle_droid", "commando_droid",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
             "hutt_enforcer", "bounty_hunter", "smuggler",
@@ -41,7 +45,7 @@ public final class AssetManifestCompletenessTest {
             "barc_speeder", "at_rt", "stap", "aat", "laat_gunship");
     private static final List<String> ARMOR_FAMILIES = List.of(
             "republic_plastoid", "separatist_alloy", "mandalorian_alloy",
-            "nightsister_weave", "beskar");
+            "nightsister_weave", "beskar", "phase_i_clone");
 
     private AssetManifestCompletenessTest() {
     }
@@ -83,6 +87,7 @@ public final class AssetManifestCompletenessTest {
                 }
             }
         }
+        validateMinimumDistinctUnitTextures(UNITS.size() - 2);
         for (String faction : FACTIONS) validateFactionEquipment(faction);
         System.out.println("AssetManifestCompletenessTest passed (" + assets.size() + " authored assets)");
     }
@@ -121,12 +126,19 @@ public final class AssetManifestCompletenessTest {
             transparent(assets, "factions", faction + "_armor_leggings",
                     "textures/entity/equipment/humanoid_leggings/" + faction + ".png", "64x32");
         }
+        for (String piece : List.of("helmet", "chestplate", "leggings", "boots")) {
+            item(assets, "equipped_armor", "phase_i_clone_" + piece);
+        }
         for (String unit : UNITS) {
-            transparent(assets, "units", unit, "textures/entity/" + unit + ".png", "128x128");
+            String size = unit.equals("b1_battle_droid") ? "128x64"
+                    : SOURCE_128_UNITS.contains(unit) ? "128x128" : "256x256";
+            transparent(assets, "units", unit, "textures/entity/" + unit + ".png", size);
         }
         for (String family : ARMOR_FAMILIES) {
+            String size = Set.of("phase_i_clone", "republic_plastoid").contains(family)
+                    ? "128x128" : "1024x1024";
             transparent(assets, "equipped_armor", family,
-                    "textures/armor/" + family + ".png", "1024x1024");
+                    "textures/armor/" + family + ".png", size);
         }
         for (String id : COMBAT) {
             if (id.endsWith("_lightsaber")) {
@@ -241,6 +253,17 @@ public final class AssetManifestCompletenessTest {
 
     private static String sha256(Path file) throws IOException, NoSuchAlgorithmException {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
+    }
+
+    private static void validateMinimumDistinctUnitTextures(int minimum) throws Exception {
+        Set<String> hashes = new HashSet<>();
+        for (String unit : UNITS) {
+            hashes.add(sha256(ASSET_ROOT.resolve("textures/entity/" + unit + ".png")));
+        }
+        if (hashes.size() < minimum) {
+            throw new AssertionError("Unit roster has only " + hashes.size()
+                    + " distinct texture atlases; expected at least " + minimum);
+        }
     }
 
     private static void assertContains(String value, String expected, String label) {

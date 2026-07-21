@@ -73,9 +73,18 @@ RECRUITS = (
     RecruitDesign("jedi_knight", "robe", "jedi", Palette(
         (185, 124, 79), (78, 47, 29), (48, 31, 23), (160, 118, 68),
         (222, 198, 142), (87, 220, 110), (91, 61, 39))),
+    RecruitDesign("senate_commando", "plate", "senate_commando", Palette(
+        (185, 124, 79), (31, 39, 59), (14, 20, 36), (42, 69, 116),
+        (120, 157, 202), (235, 211, 112), (30, 39, 57))),
+    RecruitDesign("republic_honor_guard", "plate", "honor_guard", Palette(
+        (185, 124, 79), (80, 33, 32), (37, 22, 24), (146, 51, 48),
+        (219, 177, 116), (236, 211, 146), (70, 34, 36))),
     RecruitDesign("b1_battle_droid", "droid_slim", "b1", Palette(
         (196, 163, 105), (87, 69, 45), (39, 37, 32), (151, 123, 78),
         (210, 180, 120), (232, 157, 48), (72, 65, 53))),
+    RecruitDesign("b1_security_droid", "droid_slim", "b1", Palette(
+        (196, 163, 105), (74, 65, 49), (34, 35, 32), (137, 122, 91),
+        (207, 183, 133), (206, 49, 43), (65, 61, 51))),
     RecruitDesign("b2_super_battle_droid", "droid_heavy", "b2", Palette(
         (91, 98, 108), (42, 47, 54), (20, 23, 28), (75, 83, 94),
         (133, 144, 153), (244, 146, 32), (45, 49, 56))),
@@ -112,6 +121,9 @@ RECRUITS = (
     RecruitDesign("republic_civilian", "civilian", "republic", Palette(
         (184, 123, 81), (65, 72, 82), (30, 34, 42), (99, 116, 139),
         (173, 188, 201), (52, 105, 186), (72, 80, 94))),
+    RecruitDesign("togruta_civilian", "civilian", "togruta", Palette(
+        (211, 102, 57), (55, 67, 91), (24, 34, 58), (79, 104, 151),
+        (205, 216, 221), (45, 82, 151), (51, 66, 96))),
     RecruitDesign("separatist_technician", "droid_slim", "technician", Palette(
         (170, 139, 88), (76, 69, 55), (34, 34, 31), (115, 106, 88),
         (179, 165, 132), (225, 151, 44), (62, 59, 51))),

@@ -24,17 +24,25 @@ public final class AssetManifestCompletenessTest {
     private static final Set<String> SOURCE_128_UNITS = Set.of(
             "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
-            "mandalorian_clansperson");
+            "mandalorian_clansperson", "senate_commando", "republic_honor_guard",
+            "hutt_enforcer");
+    private static final Set<String> SOURCE_128_BY_64_UNITS = Set.of(
+            "b1_battle_droid", "b1_security_droid", "separatist_technician");
     private static final List<String> FACTIONS = List.of(
             "republic", "separatist", "mandalorian", "hutt_cartel", "nightsister");
     private static final List<String> UNITS = List.of(
-            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper", "jedi_knight",
-            "b1_battle_droid", "b2_super_battle_droid", "commando_droid",
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
+            "senate_commando", "republic_honor_guard", "jedi_knight",
+            "b1_battle_droid", "b1_security_droid", "b2_super_battle_droid", "commando_droid",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
             "hutt_enforcer", "bounty_hunter", "smuggler",
             "nightsister_acolyte", "nightsister_archer", "nightbrother_brute",
-            "republic_civilian", "separatist_technician", "mandalorian_clansperson",
+            "republic_civilian", "togruta_civilian", "separatist_technician", "mandalorian_clansperson",
             "hutt_civilian", "nightsister_civilian");
+    private static final Map<String, String> COMMANDER_TEXTURES = Map.of(
+            "clone_trooper_commander", "128x128",
+            "arc_trooper_commander", "128x128",
+            "b1_battle_droid_commander", "128x64");
     private static final List<String> COMBAT = List.of(
             "vibroblade", "plasma_cutter", "power_drill", "sonic_excavator", "hydrospanner",
             "dc15_blaster", "e5_blaster", "westar_blaster", "scatter_blaster", "nightsister_bow",
@@ -59,6 +67,10 @@ public final class AssetManifestCompletenessTest {
             assertContains(manifest, "\"id\": \"" + batch + "\"", "asset batch " + batch);
         }
         for (String id : UNITS) assertContains(manifest, "\"" + id + "\"", "unit manifest id " + id);
+        for (String id : COMMANDER_TEXTURES.keySet()) {
+            assertContains(manifest, "textures/entity/" + id + ".png",
+                    "commander texture manifest path " + id);
+        }
         for (String id : COMBAT) assertContains(manifest, "\"" + id + "\"", "combat manifest id " + id);
         for (String id : VEHICLES) assertContains(manifest, "\"" + id + "\"", "vehicle manifest id " + id);
         for (String id : ARMOR_FAMILIES) {
@@ -130,9 +142,13 @@ public final class AssetManifestCompletenessTest {
             item(assets, "equipped_armor", "phase_i_clone_" + piece);
         }
         for (String unit : UNITS) {
-            String size = unit.equals("b1_battle_droid") ? "128x64"
+            String size = SOURCE_128_BY_64_UNITS.contains(unit) ? "128x64"
                     : SOURCE_128_UNITS.contains(unit) ? "128x128" : "256x256";
             transparent(assets, "units", unit, "textures/entity/" + unit + ".png", size);
+        }
+        for (Map.Entry<String, String> commander : COMMANDER_TEXTURES.entrySet()) {
+            transparent(assets, "units", commander.getKey(),
+                    "textures/entity/" + commander.getKey() + ".png", commander.getValue());
         }
         for (String family : ARMOR_FAMILIES) {
             String size = Set.of("phase_i_clone", "republic_plastoid").contains(family)

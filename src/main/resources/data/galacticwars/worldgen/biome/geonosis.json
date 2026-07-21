@@ -56,6 +56,7 @@
     "creature": [
       {"type": "minecraft:armadillo", "maxCount": 2, "minCount": 1, "weight": 4},
       {"type": "galacticwars:b1_battle_droid", "maxCount": 5, "minCount": 2, "weight": 8},
+      {"type": "galacticwars:b1_security_droid", "maxCount": 3, "minCount": 1, "weight": 3},
       {"type": "galacticwars:b2_super_battle_droid", "maxCount": 2, "minCount": 1, "weight": 2},
       {"type": "galacticwars:commando_droid", "maxCount": 2, "minCount": 1, "weight": 3},
       {"type": "galacticwars:separatist_technician", "maxCount": 3, "minCount": 1, "weight": 5}

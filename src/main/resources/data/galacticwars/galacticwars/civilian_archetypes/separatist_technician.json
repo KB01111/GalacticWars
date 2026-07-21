@@ -1,6 +1,6 @@
 {
   "id": "galacticwars:separatist_technician",
-  "display_name": "Separatist Technician Droid",
+  "display_name": "B1 Technician Droid",
   "faction": "galacticwars:separatist",
   "entity_type": "galacticwars:separatist_technician",
   "professions": ["miner", "builder", "courier"],

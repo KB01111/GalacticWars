@@ -159,6 +159,14 @@ public final class ModItems {
             registerItem("jedi_knight_spawn_egg",
                     properties -> new RecruitSpawnEggItem(
                             ModEntityTypes.JEDI_KNIGHT.get(), "jedi_knight", properties));
+    public static final RegistrySupplier<RecruitSpawnEggItem> SENATE_COMMANDO_SPAWN_EGG =
+            registerItem("senate_commando_spawn_egg",
+                    properties -> new RecruitSpawnEggItem(
+                            ModEntityTypes.SENATE_COMMANDO.get(), "senate_commando", properties));
+    public static final RegistrySupplier<RecruitSpawnEggItem> REPUBLIC_HONOR_GUARD_SPAWN_EGG =
+            registerItem("republic_honor_guard_spawn_egg",
+                    properties -> new RecruitSpawnEggItem(
+                            ModEntityTypes.REPUBLIC_HONOR_GUARD.get(), "republic_honor_guard", properties));
     public static final RegistrySupplier<RecruitSpawnEggItem> MANDALORIAN_WARRIOR_SPAWN_EGG =
             registerItem("mandalorian_warrior_spawn_egg",
                     properties -> new RecruitSpawnEggItem(
@@ -175,6 +183,10 @@ public final class ModItems {
             registerItem("b1_battle_droid_spawn_egg",
                     properties -> new RecruitSpawnEggItem(
                             ModEntityTypes.B1_BATTLE_DROID.get(), "b1_battle_droid", properties));
+    public static final RegistrySupplier<RecruitSpawnEggItem> B1_SECURITY_DROID_SPAWN_EGG =
+            registerItem("b1_security_droid_spawn_egg",
+                    properties -> new RecruitSpawnEggItem(
+                            ModEntityTypes.B1_SECURITY_DROID.get(), "b1_security_droid", properties));
     public static final RegistrySupplier<RecruitSpawnEggItem> B2_SUPER_BATTLE_DROID_SPAWN_EGG =
             registerItem("b2_super_battle_droid_spawn_egg",
                     properties -> new RecruitSpawnEggItem(
@@ -211,6 +223,10 @@ public final class ModItems {
             registerItem("republic_civilian_spawn_egg",
                     properties -> new RecruitSpawnEggItem(
                             ModEntityTypes.REPUBLIC_CIVILIAN.get(), "republic_civilian", properties));
+    public static final RegistrySupplier<RecruitSpawnEggItem> TOGRUTA_CIVILIAN_SPAWN_EGG =
+            registerItem("togruta_civilian_spawn_egg",
+                    properties -> new RecruitSpawnEggItem(
+                            ModEntityTypes.TOGRUTA_CIVILIAN.get(), "togruta_civilian", properties));
     public static final RegistrySupplier<RecruitSpawnEggItem> SEPARATIST_TECHNICIAN_SPAWN_EGG =
             registerItem("separatist_technician_spawn_egg",
                     properties -> new RecruitSpawnEggItem(

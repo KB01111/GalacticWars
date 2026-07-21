@@ -21,6 +21,8 @@ object FabricBiomeSpawns {
 
         addSpawn(ModEntityTypes.ARC_TROOPER.get(), 2, 1, 1,
             "minecraft:plains", "minecraft:sunflower_plains", "minecraft:meadow")
+        addSpawn(ModEntityTypes.B1_SECURITY_DROID.get(), 3, 1, 3,
+            "minecraft:desert", "minecraft:badlands", "minecraft:wooded_badlands")
         addSpawn(ModEntityTypes.B1_BATTLE_DROID.get(), 8, 2, 5,
             "minecraft:desert", "minecraft:badlands", "minecraft:wooded_badlands")
         addSpawn(ModEntityTypes.B2_SUPER_BATTLE_DROID.get(), 2, 1, 2,
@@ -45,10 +47,16 @@ object FabricBiomeSpawns {
             "minecraft:dark_forest", "minecraft:swamp", "minecraft:old_growth_pine_taiga")
         addSpawn(ModEntityTypes.REPUBLIC_CIVILIAN.get(), 5, 1, 3,
             "minecraft:plains", "minecraft:sunflower_plains", "minecraft:meadow")
+        addSpawn(ModEntityTypes.REPUBLIC_HONOR_GUARD.get(), 1, 1, 1,
+            "minecraft:plains", "minecraft:sunflower_plains", "minecraft:meadow")
+        addSpawn(ModEntityTypes.SENATE_COMMANDO.get(), 2, 1, 2,
+            "minecraft:plains", "minecraft:sunflower_plains", "minecraft:meadow")
         addSpawn(ModEntityTypes.SEPARATIST_TECHNICIAN.get(), 5, 1, 3,
             "minecraft:desert", "minecraft:badlands", "minecraft:wooded_badlands")
         addSpawn(ModEntityTypes.SMUGGLER.get(), 5, 1, 3,
             "minecraft:swamp", "minecraft:mangrove_swamp", "minecraft:desert")
+        addSpawn(ModEntityTypes.TOGRUTA_CIVILIAN.get(), 3, 1, 3,
+            "minecraft:plains", "minecraft:sunflower_plains", "minecraft:meadow")
     }
 
     private fun addSpawn(

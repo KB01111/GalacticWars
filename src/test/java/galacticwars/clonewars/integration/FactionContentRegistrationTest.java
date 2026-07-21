@@ -10,11 +10,14 @@ public final class FactionContentRegistrationTest {
             "arc_trooper",
             "phase_i_clone_trooper",
             "phase_i_arc_trooper",
+            "senate_commando",
+            "republic_honor_guard",
             "jedi_knight",
             "mandalorian_warrior",
             "mandalorian_marksman",
             "mandalorian_heavy",
             "b1_battle_droid",
+            "b1_security_droid",
             "b2_super_battle_droid",
             "commando_droid",
             "hutt_enforcer",
@@ -22,7 +25,13 @@ public final class FactionContentRegistrationTest {
             "smuggler",
             "nightsister_acolyte",
             "nightsister_archer",
-            "nightbrother_brute"
+            "nightbrother_brute",
+            "republic_civilian",
+            "togruta_civilian",
+            "separatist_technician",
+            "mandalorian_clansperson",
+            "hutt_civilian",
+            "nightsister_civilian"
     };
     private static final String[] FACTION_ITEMS = {
             "republic_plastoid_ingot",

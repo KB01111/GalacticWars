@@ -33,12 +33,13 @@ public final class RecruitTextureAtlasTest {
             Pattern.DOTALL);
     private static final Path ASSET_ROOT = Path.of("src/main/resources/assets/galacticwars");
     private static final List<String> RECRUITS = List.of(
-            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper", "jedi_knight",
-            "b1_battle_droid", "b2_super_battle_droid", "commando_droid",
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
+            "senate_commando", "republic_honor_guard", "jedi_knight",
+            "b1_battle_droid", "b1_security_droid", "b2_super_battle_droid", "commando_droid",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
             "hutt_enforcer", "bounty_hunter", "smuggler",
             "nightsister_acolyte", "nightsister_archer", "nightbrother_brute",
-            "republic_civilian", "separatist_technician", "mandalorian_clansperson",
+            "republic_civilian", "togruta_civilian", "separatist_technician", "mandalorian_clansperson",
             "hutt_civilian", "nightsister_civilian");
     private static final List<String> ARMOR_FAMILIES = List.of(
             "mandalorian_alloy", "nightsister_weave", "republic_plastoid", "phase_i_clone",
@@ -46,7 +47,16 @@ public final class RecruitTextureAtlasTest {
     private static final Set<String> LICENSED_128_RECRUITS = Set.of(
             "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
-            "mandalorian_clansperson");
+            "mandalorian_clansperson", "senate_commando", "republic_honor_guard",
+            "hutt_enforcer");
+    private static final Set<String> LICENSED_128_BY_64_RECRUITS = Set.of(
+            "b1_battle_droid", "b1_security_droid", "separatist_technician");
+    private static final Set<String> AUTHORIZED_SOURCE_RECRUITS = Set.of(
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
+            "senate_commando", "republic_honor_guard", "b1_battle_droid", "b1_security_droid",
+            "togruta_civilian", "hutt_enforcer", "smuggler", "hutt_civilian",
+            "separatist_technician", "mandalorian_warrior", "mandalorian_marksman",
+            "mandalorian_heavy", "mandalorian_clansperson");
     private static final Set<String> LICENSED_CLONE_ARMOR = Set.of(
             "phase_i_clone", "republic_plastoid");
     private static final List<String> HUMANOID_BONES = List.of(
@@ -66,10 +76,11 @@ public final class RecruitTextureAtlasTest {
         for (String family : ARMOR_FAMILIES) {
             validatesArmorAssetSet(family);
         }
-        validatesDistinctAssetCount(RECRUITS, "textures/entity/", ".png", 20, "recruit textures");
+        validatesDistinctAssetCount(RECRUITS, "textures/entity/", ".png", 24, "recruit textures");
         validatesDistinctAssets(RECRUITS, "textures/item/", "_spawn_egg.png", "spawn eggs");
         validatesDistinctAssets(ARMOR_FAMILIES, "textures/armor/", ".png", "armor textures");
         validatesAnimationFamiliesDiffer();
+        validatesCommanderTextureVariants();
         validatesAuthorizedSourceAssets();
         validatesRendererAndProvenance();
         System.out.println("RecruitTextureAtlasTest passed");
@@ -78,11 +89,10 @@ public final class RecruitTextureAtlasTest {
     private static void validatesRecruitAssetSet(String recruit) throws IOException {
         Path texturePath = ASSET_ROOT.resolve("textures/entity/" + recruit + ".png");
         Path modelPath = ASSET_ROOT.resolve("geckolib/models/entity/" + recruit + ".geo.json");
-        int width = recruit.equals("b1_battle_droid") ? 128
+        int width = LICENSED_128_BY_64_RECRUITS.contains(recruit) ? 128
                 : LICENSED_128_RECRUITS.contains(recruit) ? 128 : PROJECT_ATLAS_SIZE;
-        int height = recruit.equals("b1_battle_droid") ? 64 : width;
-        boolean licensedSource = LICENSED_128_RECRUITS.contains(recruit)
-                || recruit.equals("b1_battle_droid");
+        int height = LICENSED_128_BY_64_RECRUITS.contains(recruit) ? 64 : width;
+        boolean licensedSource = AUTHORIZED_SOURCE_RECRUITS.contains(recruit);
         BufferedImage image = readAtlas(texturePath, recruit, width, height);
         String geometry = geometry(modelPath, width, height);
         validatesGeometry(
@@ -125,6 +135,12 @@ public final class RecruitTextureAtlasTest {
             case "clone_trooper" -> 27;
             case "arc_trooper" -> 33;
             case "b1_battle_droid" -> 23;
+            case "b1_security_droid", "separatist_technician" -> 23;
+            case "senate_commando" -> 22;
+            case "republic_honor_guard" -> 21;
+            case "togruta_civilian", "smuggler" -> 16;
+            case "hutt_civilian" -> 17;
+            case "hutt_enforcer" -> 15;
             case "mandalorian_warrior" -> 23;
             case "mandalorian_marksman" -> 16;
             case "mandalorian_heavy" -> 33;
@@ -143,7 +159,8 @@ public final class RecruitTextureAtlasTest {
             requiredParts = List.of(
                     "helmet", "chest_armor", "right_gauntlet", "left_gauntlet",
                     "right_boot", "left_boot", "rangefinder", "pauldron", "kama");
-        } else if (Set.of("b1_battle_droid", "b2_super_battle_droid", "commando_droid")
+        } else if (Set.of("b1_battle_droid", "b1_security_droid", "separatist_technician",
+                "b2_super_battle_droid", "commando_droid")
                 .contains(recruit)) {
             requiredParts = List.of(
                     "neck", "right_forearm", "left_forearm", "right_shin", "left_shin");
@@ -208,6 +225,23 @@ public final class RecruitTextureAtlasTest {
         }
         if (recruit.startsWith("mandalorian_")) {
             assertBonePivot(geometry, "helmet", 0, 24, 0, recruit);
+        }
+        if (recruit.equals("republic_honor_guard") || recruit.equals("togruta_civilian")) {
+            assertBonePivot(geometry, "head", 0, 24, 0, recruit);
+        }
+        if (recruit.equals("hutt_enforcer")) {
+            for (String bone : List.of("right_arm", "left_arm", "right_leg", "left_leg")) {
+                assertContains(geometry, "\"name\": \"" + bone + "\"",
+                        recruit + " canonical limb bone " + bone);
+            }
+            assertContains(geometry, "\"parent\": \"right_arm\"",
+                    recruit + " right arm overlays and held-item anchor");
+            assertContains(geometry, "\"parent\": \"left_arm\"",
+                    recruit + " left arm overlays and held-item anchor");
+            assertContains(geometry, "\"parent\": \"right_leg\"",
+                    recruit + " right leg overlay");
+            assertContains(geometry, "\"parent\": \"left_leg\"",
+                    recruit + " left leg overlay");
         }
     }
 
@@ -647,6 +681,16 @@ public final class RecruitTextureAtlasTest {
                 "Galaxies pinned source commit");
         assertContains(provenance, "c9555aa4966e9e63c22a59f488d4b05bc614569e",
                 "Forge pinned source commit");
+        String visualProfiles = Files.readString(Path.of(
+                "src/main/java/galacticwars/clonewars/client/render/RecruitVisualProfileCatalog.java"));
+        assertContains(visualProfiles, "Map<EntityType<?>, String>",
+                "commander visual profiles keyed by registered entity type");
+        assertContains(visualProfiles, "Identifier textureResource(",
+                "visual profile returns a texture identifier");
+        for (String commander : List.of("CLONE_TROOPER", "ARC_TROOPER", "B1_BATTLE_DROID")) {
+            assertContains(visualProfiles, "ModEntityTypes." + commander + ".get()",
+                    commander + " commander texture override");
+        }
     }
 
     private static void validatesAuthorizedSourceAssets() throws IOException {
@@ -658,8 +702,18 @@ public final class RecruitTextureAtlasTest {
                 galaxies.resolve("Clone Trooper.png"),
                 galaxies.resolve("PSWG_Mandalorian.bbmodel"),
                 galaxies.resolve("PSWG_Mandalorian.png"),
+                galaxies.resolve("HonorGuard.bbmodel"),
+                galaxies.resolve("SenateCommando.bbmodel"),
+                galaxies.resolve("HumanoidBody.bbmodel"),
+                galaxies.resolve("Togruta.bbmodel"),
+                galaxies.resolve("Duros.bbmodel"),
+                galaxies.resolve("Rodian.bbmodel"),
+                galaxies.resolve("Trandoshan.bbmodel"),
                 forge.resolve("Droid.bbmodel"),
                 forge.resolve("droid.png"),
+                forge.resolve("droid_security.png"),
+                forge.resolve("droid_pilot.png"),
+                forge.resolve("droid_commander.png"),
                 forge.resolve("clone_armor_armor_501st_layer_helmet.png"))) {
             assertRegularFile(source);
         }
@@ -667,10 +721,18 @@ public final class RecruitTextureAtlasTest {
                 galaxies.resolve("Clone Trooper.png"),
                 ASSET_ROOT.resolve("textures/entity/phase_i_clone_trooper.png"),
                 "Phase I clone source texture");
-        assertImagesEqual(
+        assertImageDimensionsEqual(
                 forge.resolve("droid.png"),
                 ASSET_ROOT.resolve("textures/entity/b1_battle_droid.png"),
-                "B1 source texture");
+                "B1 derived texture");
+        assertImageDimensionsEqual(
+                forge.resolve("droid_security.png"),
+                ASSET_ROOT.resolve("textures/entity/b1_security_droid.png"),
+                "B1 security derived texture");
+        assertImageDimensionsEqual(
+                forge.resolve("droid_pilot.png"),
+                ASSET_ROOT.resolve("textures/entity/separatist_technician.png"),
+                "B1 pilot derived texture");
     }
 
     private static void assertImagesEqual(Path expectedPath, Path actualPath, String label)
@@ -688,6 +750,48 @@ public final class RecruitTextureAtlasTest {
                 }
             }
         }
+    }
+
+    private static void validatesCommanderTextureVariants() throws IOException {
+        for (String recruit : List.of("clone_trooper", "arc_trooper", "b1_battle_droid")) {
+            int width = recruit.equals("b1_battle_droid") ? 128 : 128;
+            int height = recruit.equals("b1_battle_droid") ? 64 : 128;
+            BufferedImage texture = readAtlas(
+                    ASSET_ROOT.resolve("textures/entity/" + recruit + "_commander.png"),
+                    recruit + " commander",
+                    width,
+                    height
+            );
+            String model = geometry(
+                    ASSET_ROOT.resolve("geckolib/models/entity/" + recruit + ".geo.json"),
+                    width,
+                    height
+            );
+            validatesGeometry(
+                    recruit + " commander",
+                    model,
+                    texture,
+                    HUMANOID_BONES,
+                    minimumRecruitCubes(recruit),
+                    0
+            );
+            if (java.util.Arrays.equals(
+                    Files.readAllBytes(ASSET_ROOT.resolve("textures/entity/" + recruit + ".png")),
+                    Files.readAllBytes(ASSET_ROOT.resolve(
+                            "textures/entity/" + recruit + "_commander.png")))) {
+                throw new AssertionError(recruit + " commander texture must differ from soldier texture");
+            }
+        }
+    }
+
+    private static void assertImageDimensionsEqual(Path expectedPath, Path actualPath, String label)
+            throws IOException {
+        BufferedImage expected = ImageIO.read(expectedPath.toFile());
+        BufferedImage actual = ImageIO.read(actualPath.toFile());
+        assertNotNull(expected, label + " source decodes");
+        assertNotNull(actual, label + " output decodes");
+        assertEquals(expected.getWidth(), actual.getWidth(), label + " width");
+        assertEquals(expected.getHeight(), actual.getHeight(), label + " height");
     }
 
     private static void validatesDistinctAssets(

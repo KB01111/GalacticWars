@@ -30,18 +30,24 @@ public final class ClassAbilityDataIntegrityTest {
         Set<String> classIds = values(classData, "id");
         Set<String> classUnits = values(classData, "unit");
         assertEquals(30, abilityIds.size(), "ability count");
-        assertEquals(17, classIds.size(), "class count");
-        assertEquals(17, classUnits.size(), "one class per unit");
-        assertEquals(17, count(classData, "\"player_assignable\":true"), "assignable class count");
+        assertEquals(20, classIds.size(), "class count");
+        assertEquals(20, classUnits.size(), "one class per unit");
+        assertEquals(20, count(classData, "\"player_assignable\":true"), "assignable class count");
         List<List<String>> classAbilities = arrayValueGroups(classData, "abilities");
-        assertEquals(17, classAbilities.size(), "class ability declarations");
+        assertEquals(20, classAbilities.size(), "class ability declarations");
         for (List<String> abilities : classAbilities) {
             assertEquals(2, abilities.size(), "two abilities per class");
             for (String abilityReference : abilities) {
                 assertTrue(abilityIds.contains(abilityReference), "known class ability " + abilityReference);
             }
         }
-        assertEquals(34, classAbilities.stream().mapToInt(List::size).sum(), "total class ability references");
+        assertEquals(40, classAbilities.stream().mapToInt(List::size).sum(), "total class ability references");
+        for (String curatedClass : Set.of(
+                "galacticwars:senate_commando",
+                "galacticwars:republic_honor_guard",
+                "galacticwars:b1_security_droid")) {
+            assertTrue(classIds.contains(curatedClass), "curated class " + curatedClass);
+        }
     }
 
     private static void everyFactionHasRuntimePolicy() throws Exception {

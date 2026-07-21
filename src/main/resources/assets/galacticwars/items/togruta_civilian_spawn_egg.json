@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "galacticwars:item/togruta_civilian_spawn_egg",
+    "model": {
+      "type": "geckolib:geckolib"
+    }
+  }
+}

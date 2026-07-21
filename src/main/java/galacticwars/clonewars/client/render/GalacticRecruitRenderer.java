@@ -14,7 +14,7 @@ public class GalacticRecruitRenderer<R extends EntityRenderState & GeoRenderStat
             EntityRendererProvider.Context context,
             EntityType<GalacticRecruitEntity> entityType
     ) {
-        super(context, entityType);
+        super(context, new GalacticRecruitGeoModel(entityType));
         this.withRenderLayer(new ItemInHandGeoLayer<>(context, this));
         this.withScale(1.0F);
     }

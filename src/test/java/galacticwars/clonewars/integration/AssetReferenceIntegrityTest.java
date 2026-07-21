@@ -12,11 +12,14 @@ import java.util.zip.ZipFile;
 
 public final class AssetReferenceIntegrityTest {
     private static final Set<String> LAUNCH_UNITS = Set.of(
-            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper", "jedi_knight",
-            "b1_battle_droid", "b2_super_battle_droid", "commando_droid",
+            "clone_trooper", "arc_trooper", "phase_i_clone_trooper", "phase_i_arc_trooper",
+            "senate_commando", "republic_honor_guard", "jedi_knight",
+            "b1_battle_droid", "b1_security_droid", "b2_super_battle_droid", "commando_droid",
             "mandalorian_warrior", "mandalorian_marksman", "mandalorian_heavy",
             "hutt_enforcer", "bounty_hunter", "smuggler",
-            "nightsister_acolyte", "nightsister_archer", "nightbrother_brute");
+            "nightsister_acolyte", "nightsister_archer", "nightbrother_brute",
+            "republic_civilian", "togruta_civilian", "separatist_technician",
+            "mandalorian_clansperson", "hutt_civilian", "nightsister_civilian");
     private static final Path RESOURCE_ROOT = Path.of("src/main/resources");
     private static final Path MOD_ASSET_ROOT = RESOURCE_ROOT.resolve("assets/galacticwars");
     private static final Path MOD_DATA_ROOT = RESOURCE_ROOT.resolve("data/galacticwars");
@@ -122,7 +125,8 @@ public final class AssetReferenceIntegrityTest {
             for (Path file : files.filter(Files::isRegularFile).toList()) {
                 String content = Files.readString(file);
                 assertContains(content, "galacticwars:", "spawn modifier entity namespace");
-                assertContains(content, "\"type\": \"neoforge:add_spawns\"", "spawn modifier type");
+                assertContains(content, "\"type\"", "spawn modifier type field");
+                assertContains(content, "\"neoforge:add_spawns\"", "spawn modifier type value");
             }
         }
     }

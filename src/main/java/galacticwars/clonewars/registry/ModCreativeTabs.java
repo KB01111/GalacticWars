@@ -79,10 +79,13 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.PHASE_I_CLONE_TROOPER_SPAWN_EGG.get());
                         output.accept(ModItems.PHASE_I_ARC_TROOPER_SPAWN_EGG.get());
                         output.accept(ModItems.JEDI_KNIGHT_SPAWN_EGG.get());
+                        output.accept(ModItems.SENATE_COMMANDO_SPAWN_EGG.get());
+                        output.accept(ModItems.REPUBLIC_HONOR_GUARD_SPAWN_EGG.get());
                         output.accept(ModItems.MANDALORIAN_WARRIOR_SPAWN_EGG.get());
                         output.accept(ModItems.MANDALORIAN_MARKSMAN_SPAWN_EGG.get());
                         output.accept(ModItems.MANDALORIAN_HEAVY_SPAWN_EGG.get());
                         output.accept(ModItems.B1_BATTLE_DROID_SPAWN_EGG.get());
+                        output.accept(ModItems.B1_SECURITY_DROID_SPAWN_EGG.get());
                         output.accept(ModItems.B2_SUPER_BATTLE_DROID_SPAWN_EGG.get());
                         output.accept(ModItems.COMMANDO_DROID_SPAWN_EGG.get());
                         output.accept(ModItems.HUTT_ENFORCER_SPAWN_EGG.get());
@@ -92,6 +95,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.NIGHTSISTER_ARCHER_SPAWN_EGG.get());
                         output.accept(ModItems.NIGHTBROTHER_BRUTE_SPAWN_EGG.get());
                         output.accept(ModItems.REPUBLIC_CIVILIAN_SPAWN_EGG.get());
+                        output.accept(ModItems.TOGRUTA_CIVILIAN_SPAWN_EGG.get());
                         output.accept(ModItems.SEPARATIST_TECHNICIAN_SPAWN_EGG.get());
                         output.accept(ModItems.MANDALORIAN_CLANSPERSON_SPAWN_EGG.get());
                         output.accept(ModItems.HUTT_CIVILIAN_SPAWN_EGG.get());

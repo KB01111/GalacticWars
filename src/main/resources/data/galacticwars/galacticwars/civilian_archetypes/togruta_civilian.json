@@ -1,0 +1,1 @@
+{"id":"galacticwars:togruta_civilian","display_name":"Togruta Civilian","faction":"galacticwars:republic","entity_type":"galacticwars:togruta_civilian","professions":["farmer","cook","courier","builder"],"max_health":20,"movement_speed":0.27,"base_morale":75,"home_type":"republic_hab"}

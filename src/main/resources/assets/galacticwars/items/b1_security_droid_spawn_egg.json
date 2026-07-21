@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "galacticwars:item/b1_security_droid_spawn_egg",
+    "model": {
+      "type": "geckolib:geckolib"
+    }
+  }
+}

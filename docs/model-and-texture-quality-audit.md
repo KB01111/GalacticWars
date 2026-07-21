@@ -15,9 +15,10 @@ Date: 2026-07-20
 
 ## Implemented quality gate
 
-- Twenty-two NPCs use explicit six-face UV mappings. Thirteen project-authored sets retain the
-  deterministic 256x256/two-texel contract; four clones and four Mandalorians preserve the Galaxies
-  128x128 source layout; the Forge B1 preserves its 128x64 source texture with scaled UV coordinates.
+- Twenty-six NPCs use explicit six-face UV mappings. Nine project-authored sets retain the
+  deterministic 256x256/two-texel contract. Seventeen permissioned sets preserve source-appropriate
+  contracts: 128x128 clones, Mandalorians, guards, and Trandoshan; 128x64 B1 variants; and 256x256
+  non-overlapping Togruta, Duros, and Rodian composites.
 - Clone, ARC, droid, robed, brute, Mandalorian, and civilian families own child rigs and distinct
   idle, walk/run, and attack data. Regular and ARC clones intentionally share their phase texture
   because their silhouettes differ through authored equipment geometry.
@@ -39,7 +40,7 @@ Date: 2026-07-20
   geometry uses visibly different authored helmet groups and the ARC NPCs add specialist equipment.
 - Clone wearable armor preserves the source 128x128 atlas and source equipment sprites. The other
   four armor families retain their 1024x1024 exact face maps.
-- All twenty recruit eggs now use one eighteen-cuboid GeckoLib capsule with separate `shell` and
+- All twenty-six recruit eggs now use one eighteen-cuboid GeckoLib capsule with separate `shell` and
   animated `core` bones, individual 512x512 material/glowmask pairs, and 16x16 fallback capsule icons.
 - `SpawnCapsuleAssetIntegrationTest` protects the full set of item definitions, shared geometry,
   animation, renderer/glow layer, per-unit material atlases, and preserved vanilla spawn binding.

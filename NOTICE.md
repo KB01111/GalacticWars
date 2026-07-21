@@ -27,17 +27,21 @@ open-source mod repositories:
 
 - `Pyrix25633/Forge-StarWarsCloneWars` at commit
   `c9555aa4966e9e63c22a59f488d4b05bc614569e`, GPL-3.0. The Galactic Wars project owner also
-  explicitly confirmed permission to copy and adapt its code, models, and textures. Its B1
-  battle-droid model and texture are converted for GeckoLib, and its 501st armor texture supplies
-  the authored blue palette used by the Phase II clone variants.
+  explicitly confirmed permission to copy and adapt its code, models, and textures. Its B1 model
+  and battle/security/pilot/commander atlases are converted into the three B1-based NPC visuals and
+  the commander duty override. Its 501st and commander armor textures supply the authored palettes
+  used by the Phase II clone and ARC duty variants.
 - `Parzivail-Modding-Team/GalaxiesParzisStarWarsMod` at commit
   `b91b4cc1a827eeb7c2ae16f0b703affd78c1c206`. The upstream README declares code under LGPL-3.0
-  and non-code assets under CC-BY-SA 4.0. Its Clone Trooper and Mandalorian Blockbench art is
-  converted into the four clone NPCs, four Mandalorian NPCs, and two wearable clone armor sets.
+  and non-code assets under CC-BY-SA 4.0. Its Clone Trooper, Mandalorian, Senate Commando, Honor
+  Guard, humanoid, Togruta, Duros, Rodian, and Trandoshan art is converted into four clone NPCs,
+  four Mandalorian NPCs, two Republic guards, three composite species, the Hutt enforcer, and two
+  wearable clone armor sets.
 
-License copies and notices are retained under `third_party/licenses`; exact immutable inputs are
-under `tools/source_art/authorized_upstream`. The source-to-output mapping and transformations are
-recorded in `docs/authorized-source-intake.md` and `docs/galacticwars-asset-provenance.md`.
+License copies and notices are retained under `third_party/licenses`; provenance-locked vendored
+inputs and their raw/vendored hashes are under `tools/source_art/authorized_upstream`. The
+source-to-output mapping and transformations are recorded in `docs/authorized-source-intake.md` and
+`docs/galacticwars-asset-provenance.md`.
 
 ## Project-Owned Galactic Wars Assets
 

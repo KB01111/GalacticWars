@@ -355,6 +355,7 @@ public final class ModGameTests {
         tests.put(id("all_faction_campaign_paths"), ModGameTests::allFactionCampaignPaths);
         tests.put(id("conquest_control_authority"), ModGameTests::conquestControlAuthority);
         tests.put(id("recruit_entity_contract"), ModGameTests::recruitEntityContract);
+        tests.put(id("curated_npc_runtime_contracts"), ModGameTests::curatedNpcRuntimeContracts);
         tests.put(id("worker_tags_and_loot"), ModGameTests::workerTagsAndLoot);
         tests.put(id("recruit_contract_lifecycle"), ModGameTests::recruitContractLifecycle);
         tests.put(id("local_recruit_protect_owner"), ModGameTests::localRecruitProtectOwner);
@@ -566,7 +567,7 @@ public final class ModGameTests {
                 .overworldSpawnProfileForEntity("galacticwars:phase_i_clone_trooper").orElse(null);
         OverworldFactionSpawnProfile phaseIArcOutpost = snapshot
                 .overworldSpawnProfileForEntity("galacticwars:phase_i_arc_trooper").orElse(null);
-        if (snapshot.unitClasses().size() != 17
+        if (snapshot.unitClasses().size() != 20
                 || snapshot.abilities().size() != 30
                 || snapshot.factionPolicies().size() != 5
                 || snapshot.launchContent().planets().size() != 4
@@ -2136,11 +2137,17 @@ public final class ModGameTests {
                         ModEntityTypes.PHASE_I_CLONE_TROOPER.get()),
                 new SpawnEggCase(ModItems.PHASE_I_ARC_TROOPER_SPAWN_EGG.get(),
                         ModEntityTypes.PHASE_I_ARC_TROOPER.get()),
+                new SpawnEggCase(ModItems.SENATE_COMMANDO_SPAWN_EGG.get(),
+                        ModEntityTypes.SENATE_COMMANDO.get()),
+                new SpawnEggCase(ModItems.REPUBLIC_HONOR_GUARD_SPAWN_EGG.get(),
+                        ModEntityTypes.REPUBLIC_HONOR_GUARD.get()),
                 new SpawnEggCase(ModItems.JEDI_KNIGHT_SPAWN_EGG.get(), ModEntityTypes.JEDI_KNIGHT.get()),
                 new SpawnEggCase(ModItems.MANDALORIAN_WARRIOR_SPAWN_EGG.get(), ModEntityTypes.MANDALORIAN_WARRIOR.get()),
                 new SpawnEggCase(ModItems.MANDALORIAN_MARKSMAN_SPAWN_EGG.get(), ModEntityTypes.MANDALORIAN_MARKSMAN.get()),
                 new SpawnEggCase(ModItems.MANDALORIAN_HEAVY_SPAWN_EGG.get(), ModEntityTypes.MANDALORIAN_HEAVY.get()),
                 new SpawnEggCase(ModItems.B1_BATTLE_DROID_SPAWN_EGG.get(), ModEntityTypes.B1_BATTLE_DROID.get()),
+                new SpawnEggCase(ModItems.B1_SECURITY_DROID_SPAWN_EGG.get(),
+                        ModEntityTypes.B1_SECURITY_DROID.get()),
                 new SpawnEggCase(ModItems.B2_SUPER_BATTLE_DROID_SPAWN_EGG.get(), ModEntityTypes.B2_SUPER_BATTLE_DROID.get()),
                 new SpawnEggCase(ModItems.COMMANDO_DROID_SPAWN_EGG.get(), ModEntityTypes.COMMANDO_DROID.get()),
                 new SpawnEggCase(ModItems.HUTT_ENFORCER_SPAWN_EGG.get(), ModEntityTypes.HUTT_ENFORCER.get()),
@@ -2150,6 +2157,8 @@ public final class ModGameTests {
                 new SpawnEggCase(ModItems.NIGHTSISTER_ARCHER_SPAWN_EGG.get(), ModEntityTypes.NIGHTSISTER_ARCHER.get(), false),
                 new SpawnEggCase(ModItems.NIGHTBROTHER_BRUTE_SPAWN_EGG.get(), ModEntityTypes.NIGHTBROTHER_BRUTE.get(), false),
                 new SpawnEggCase(ModItems.REPUBLIC_CIVILIAN_SPAWN_EGG.get(), ModEntityTypes.REPUBLIC_CIVILIAN.get(), true),
+                new SpawnEggCase(ModItems.TOGRUTA_CIVILIAN_SPAWN_EGG.get(),
+                        ModEntityTypes.TOGRUTA_CIVILIAN.get(), true),
                 new SpawnEggCase(ModItems.SEPARATIST_TECHNICIAN_SPAWN_EGG.get(), ModEntityTypes.SEPARATIST_TECHNICIAN.get(), true),
                 new SpawnEggCase(ModItems.MANDALORIAN_CLANSPERSON_SPAWN_EGG.get(), ModEntityTypes.MANDALORIAN_CLANSPERSON.get(), true),
                 new SpawnEggCase(ModItems.HUTT_CIVILIAN_SPAWN_EGG.get(), ModEntityTypes.HUTT_CIVILIAN.get(), true),
@@ -2198,6 +2207,7 @@ public final class ModGameTests {
             if (!recruit.isPersistenceRequired()) {
                 helper.fail("Spawn egg recruit was not marked persistent: " + testCase.type());
             }
+            validateCuratedNpcContract(helper, recruit);
             if (testCase.civilian()) {
                 if (recruit.getServiceBranch() != NpcServiceBranch.CIVILIAN
                         || !recruit.getMainHandItem().isEmpty()) {
@@ -4225,7 +4235,7 @@ public final class ModGameTests {
         ServerLevel planet = helper.getLevel();
         String geonosisDimensionId = "galacticwars:geonosis";
         String guardEntityTypeId = BuiltInRegistries.ENTITY_TYPE
-                .getKey(ModEntityTypes.B1_BATTLE_DROID.get()).toString();
+                .getKey(ModEntityTypes.B1_SECURITY_DROID.get()).toString();
         String civilianEntityTypeId = BuiltInRegistries.ENTITY_TYPE
                 .getKey(ModEntityTypes.SEPARATIST_TECHNICIAN.get()).toString();
         PlanetFactionSpawnPolicy.Evaluation guardEvaluation = PlanetFactionSpawnPolicy.evaluate(
@@ -4272,7 +4282,7 @@ public final class ModGameTests {
             }
         }
         GalacticRecruitEntity guard = spawnPlanetPolicyRecruitAt(
-                planet, ModEntityTypes.B1_BATTLE_DROID.get(), center, guardEvaluation);
+                planet, ModEntityTypes.B1_SECURITY_DROID.get(), center, guardEvaluation);
         guard.setInvulnerable(true);
         guard.setPos(center.getX() + 0.5D, center.getY(), center.getZ() - 2.5D);
         GalacticRecruitEntity civilian = spawnPlanetPolicyRecruitAt(
@@ -4574,6 +4584,215 @@ public final class ModGameTests {
             helper.fail("Recruit entity did not apply its persisted worker duty and held equipment contract");
         }
         helper.succeed();
+    }
+
+    private static void curatedNpcRuntimeContracts(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        KingdomSavedData data = KingdomSavedData.get(level);
+        ServerPlayer republicOwner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
+        ServerPlayer separatistOwner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
+        BlockPos republicHallPos = isolatedCapital(helper, 90);
+        BlockPos separatistHallPos = isolatedCapital(helper, 91);
+        CommandCenterBlockEntity republicHall = placeCommandCenter(helper, republicHallPos);
+        CommandCenterBlockEntity separatistHall = placeCommandCenter(helper, separatistHallPos);
+        republicHall.claim(republicOwner);
+        separatistHall.claim(separatistOwner);
+        data.activateHall(
+                republicOwner.getUUID(), "galacticwars:republic",
+                level.dimension().identifier().toString(), republicHallPos).orElseThrow();
+        data.activateHall(
+                separatistOwner.getUUID(), "galacticwars:separatist",
+                level.dimension().identifier().toString(), separatistHallPos).orElseThrow();
+        FactionAlignmentSavedData.get(level).setScore(
+                republicOwner.getUUID(), FactionId.of("republic"), 100);
+        FactionAlignmentSavedData.get(level).setScore(
+                separatistOwner.getUUID(), FactionId.of("separatist"), 100);
+        ProgressionSavedData progression = ProgressionSavedData.get(level);
+        if (!progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), republicOwner.getUUID(), ProgressionEventType.FACTION_PLEDGED,
+                "galacticwars:republic", 1)).accepted()
+                || !progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), separatistOwner.getUUID(), ProgressionEventType.FACTION_PLEDGED,
+                "galacticwars:separatist", 1)).accepted()) {
+            helper.fail("Curated NPC hiring setup could not pledge both test factions");
+            return;
+        }
+
+        GalacticRecruitEntity togruta = helper.spawn(
+                ModEntityTypes.TOGRUTA_CIVILIAN.get(), new BlockPos(2, 1, 2));
+        togruta.initializeFromSpawnEgg();
+        republicOwner.setPos(togruta.getX(), togruta.getY(), togruta.getZ());
+        if (!togruta.handleMenuButton(republicOwner, RecruitCommandMenu.BUTTON_HIRE)
+                || !togruta.isOwnedBy(republicOwner)
+                || togruta.getServiceBranch() != NpcServiceBranch.CIVILIAN
+                || togruta.getRecruitDuty() != RecruitDuty.WORKER) {
+            helper.fail("Same-faction Togruta civilian hiring did not create a worker contract");
+            return;
+        }
+
+        var togrutaArchetype = GameplayDataManager.snapshot()
+                .civilianArchetypeForEntity("galacticwars:togruta_civilian").orElseThrow();
+        if (!Set.copyOf(togrutaArchetype.professions()).equals(
+                Set.of("farmer", "cook", "courier", "builder"))) {
+            helper.fail("Togruta civilian profession catalog changed: "
+                    + togrutaArchetype.professions());
+            return;
+        }
+
+        GalacticRecruitEntity crossFaction = helper.spawn(
+                ModEntityTypes.SENATE_COMMANDO.get(), new BlockPos(3, 1, 2));
+        crossFaction.initializeFromSpawnEgg();
+        separatistOwner.setPos(crossFaction.getX(), crossFaction.getY(), crossFaction.getZ());
+        if (crossFaction.handleMenuButton(separatistOwner, RecruitCommandMenu.BUTTON_HIRE)
+                || crossFaction.isTame()) {
+            helper.fail("A Separatist kingdom hired the cross-faction Senate Commando");
+            return;
+        }
+
+        GalacticRecruitEntity commander = helper.spawn(
+                ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(4, 1, 2));
+        commander.initializeFromSpawnEgg();
+        republicOwner.setPos(commander.getX(), commander.getY(), commander.getZ());
+        if (!commander.handleMenuButton(republicOwner, RecruitCommandMenu.BUTTON_HIRE)) {
+            helper.fail("Clone commander candidate could not be hired");
+            return;
+        }
+        KingdomBaseBlueprint keepBlueprint = GameplayDataManager.snapshot()
+                .blueprint(KingdomBaseBlueprint.STARTER_KEEP_ID).orElseThrow();
+        BuildProject keepProject = fullyProgressProject(
+                data, republicOwner.getUUID(), keepBlueprint,
+                level.dimension().identifier().toString(), republicHallPos.offset(8, 0, 0));
+        if (!data.completeBuildProject(republicOwner.getUUID(), keepProject, keepBlueprint)
+                || !commander.handleMenuButton(
+                republicOwner, RecruitCommandMenu.BUTTON_PROMOTE_COMMANDER)
+                || commander.getRecruitDuty() != RecruitDuty.COMMANDER) {
+            helper.fail("Clone commander promotion did not update synchronized duty");
+            return;
+        }
+
+        TagValueOutput commanderOutput = TagValueOutput.createWithContext(
+                ProblemReporter.DISCARDING, level.registryAccess());
+        if (!commander.save(commanderOutput)) {
+            helper.fail("Promoted commander could not be serialized");
+            return;
+        }
+        CompoundTag commanderTag = commanderOutput.buildResult();
+        Entity loadedCommander = EntityType.loadEntityRecursive(
+                commanderTag,
+                level,
+                new EntitySpawnRequest(EntitySpawnReason.LOAD, false),
+                entity -> entity);
+        if (!(loadedCommander instanceof GalacticRecruitEntity persistedCommander)
+                || persistedCommander.getRecruitDuty() != RecruitDuty.COMMANDER) {
+            helper.fail("Commander duty did not survive entity persistence");
+            return;
+        }
+
+        if (!data.clearCommander(republicOwner.getUUID(), commander.getUUID())) {
+            helper.fail("Commander demotion could not clear settlement authority");
+            return;
+        }
+        CompoundTag demotedTag = commanderTag.copy();
+        demotedTag.putString("RecruitDuty", RecruitDuty.SOLDIER.id());
+        Entity loadedSoldier = EntityType.loadEntityRecursive(
+                demotedTag,
+                level,
+                new EntitySpawnRequest(EntitySpawnReason.LOAD, false),
+                entity -> entity);
+        if (!(loadedSoldier instanceof GalacticRecruitEntity demoted)
+                || demoted.getRecruitDuty() != RecruitDuty.SOLDIER
+                || demoted.getServiceBranch() != NpcServiceBranch.MILITARY) {
+            helper.fail("Demoted commander did not restore the soldier duty and military branch");
+            return;
+        }
+
+        OverworldFactionSpawnProfile republicSpawns = GameplayDataManager.snapshot()
+                .overworldSpawnProfiles().get("galacticwars:republic");
+        OverworldFactionSpawnProfile separatistSpawns = GameplayDataManager.snapshot()
+                .overworldSpawnProfiles().get("galacticwars:separatist");
+        if (republicSpawns == null
+                || republicSpawns.branchFor("galacticwars:senate_commando")
+                != NpcServiceBranch.MILITARY
+                || republicSpawns.branchFor("galacticwars:republic_honor_guard")
+                != NpcServiceBranch.MILITARY
+                || republicSpawns.branchFor("galacticwars:togruta_civilian")
+                != NpcServiceBranch.CIVILIAN
+                || separatistSpawns == null
+                || separatistSpawns.branchFor("galacticwars:b1_security_droid")
+                != NpcServiceBranch.MILITARY
+                || separatistSpawns.branchFor("galacticwars:separatist_technician")
+                != NpcServiceBranch.CIVILIAN) {
+            helper.fail("Curated natural/outpost mappings do not match their runtime roles");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static void validateCuratedNpcContract(
+            GameTestHelper helper,
+            GalacticRecruitEntity recruit
+    ) {
+        String expectedFaction;
+        NpcServiceBranch expectedBranch;
+        net.minecraft.world.item.Item expectedMainHand;
+        float expectedHealth;
+        if (recruit.getType() == ModEntityTypes.SENATE_COMMANDO.get()) {
+            expectedFaction = "galacticwars:republic";
+            expectedBranch = NpcServiceBranch.MILITARY;
+            expectedMainHand = ModItems.DC15_BLASTER.get();
+            expectedHealth = 30.0F;
+        } else if (recruit.getType() == ModEntityTypes.REPUBLIC_HONOR_GUARD.get()) {
+            expectedFaction = "galacticwars:republic";
+            expectedBranch = NpcServiceBranch.MILITARY;
+            expectedMainHand = ModItems.VIBROBLADE.get();
+            expectedHealth = 34.0F;
+        } else if (recruit.getType() == ModEntityTypes.B1_SECURITY_DROID.get()) {
+            expectedFaction = "galacticwars:separatist";
+            expectedBranch = NpcServiceBranch.MILITARY;
+            expectedMainHand = ModItems.E5_BLASTER.get();
+            expectedHealth = 24.0F;
+        } else if (recruit.getType() == ModEntityTypes.TOGRUTA_CIVILIAN.get()) {
+            expectedFaction = "galacticwars:republic";
+            expectedBranch = NpcServiceBranch.CIVILIAN;
+            expectedMainHand = Items.AIR;
+            expectedHealth = 20.0F;
+        } else if (recruit.getType() == ModEntityTypes.HUTT_ENFORCER.get()) {
+            expectedFaction = "galacticwars:hutt_cartel";
+            expectedBranch = NpcServiceBranch.MILITARY;
+            expectedMainHand = ModItems.SCATTER_BLASTER.get();
+            expectedHealth = 28.0F;
+        } else if (recruit.getType() == ModEntityTypes.SMUGGLER.get()) {
+            expectedFaction = "galacticwars:hutt_cartel";
+            expectedBranch = NpcServiceBranch.MILITARY;
+            expectedMainHand = ModItems.SCATTER_BLASTER.get();
+            expectedHealth = 24.0F;
+        } else if (recruit.getType() == ModEntityTypes.HUTT_CIVILIAN.get()) {
+            expectedFaction = "galacticwars:hutt_cartel";
+            expectedBranch = NpcServiceBranch.CIVILIAN;
+            expectedMainHand = Items.AIR;
+            expectedHealth = 18.0F;
+        } else if (recruit.getType() == ModEntityTypes.SEPARATIST_TECHNICIAN.get()) {
+            expectedFaction = "galacticwars:separatist";
+            expectedBranch = NpcServiceBranch.CIVILIAN;
+            expectedMainHand = Items.AIR;
+            expectedHealth = 18.0F;
+        } else {
+            return;
+        }
+        boolean correctMainHand = expectedMainHand == Items.AIR
+                ? recruit.getMainHandItem().isEmpty()
+                : recruit.getMainHandItem().is(expectedMainHand);
+        if (!recruit.getRecruitFactionId().equals(expectedFaction)
+                || recruit.getServiceBranch() != expectedBranch
+                || !correctMainHand
+                || Math.abs(recruit.getMaxHealth() - expectedHealth) > 0.01F
+                || recruit.getAttributeValue(Attributes.MOVEMENT_SPEED) <= 0.0D) {
+            helper.fail("Curated NPC runtime contract mismatch for " + recruit.getType()
+                    + ": faction=" + recruit.getRecruitFactionId()
+                    + ", branch=" + recruit.getServiceBranch()
+                    + ", mainHand=" + recruit.getMainHandItem()
+                    + ", maxHealth=" + recruit.getMaxHealth());
+        }
     }
 
     private static void workerTagsAndLoot(GameTestHelper helper) {

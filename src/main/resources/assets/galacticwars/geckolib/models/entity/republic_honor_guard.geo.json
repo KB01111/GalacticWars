@@ -19,7 +19,7 @@
           "name": "head",
           "pivot": [
             0,
-            0,
+            24,
             0
           ],
           "cubes": [

@@ -32,25 +32,6 @@ ARMOR_TEXTURES = ASSETS / "textures/armor"
 ITEM_TEXTURES = ASSETS / "textures/item"
 SOURCE_INVENTORY = SOURCE_ROOT / "source_inventory.json"
 
-LEGACY_SOURCE_HASHES = {
-    "forge_star_wars_clone_wars/clone_armor_armor_501st_layer_1.png": "0250d6d697d89df8a1ee8b3881740aa4f8969c3b4b7d772e579dc34269d5838b",
-    "forge_star_wars_clone_wars/clone_armor_armor_501st_layer_2.png": "350b8559ebae8620caaec0c3d45860cceb21426fd9021b932b581b5fe94645c7",
-    "forge_star_wars_clone_wars/clone_armor_armor_501st_layer_helmet.png": "08430ec6a1aa37b0ff3b828d37aeb40c412706fce8edf95d7ee47e7fbb0a49bb",
-    "forge_star_wars_clone_wars/Droid.bbmodel": "3790117703c69283081358b27e3b7f473ab72da2de253cf3d592bd5a48072439",
-    "forge_star_wars_clone_wars/droid.png": "da8c357eb41f926d3835e07c97cf76c4c02e297a8ea07759a2a5d9211bf14e19",
-    "galaxies_pswg/Clone Trooper.bbmodel": "332ecb7d78767265d3b949db81e885e6a13ff26e9229e0dc4b17dd1311fb3c87",
-    "galaxies_pswg/Clone Trooper.png": "4c8df3b51e0ae4380431653123be7f9deca61747d6bb5e5465cca02b7678ec20",
-    "galaxies_pswg/clonetrooper_boots.png": "3740809d5bfb3703b09a0c020cea0c978c6ff420781dfdf2ed47e068ad983595",
-    "galaxies_pswg/clonetrooper_chestplate.png": "7545f75037a63381f2d0ae5850195cd6f220b6a81604f6086c67f7954e00cd38",
-    "galaxies_pswg/clonetrooper_leggings.png": "3ad12ee8f6d4daf834409c5803f22c276fc718c28c724e33a446e8565b3c1253",
-    "galaxies_pswg/ct_p1_helmet.png": "598f1c7faaa2e6ec5797a19900d683a9bd47c9456ee7044c02949556c76d9261",
-    "galaxies_pswg/ct_p2_helmet.png": "bf62ed816d5eb09a955a06a4456b847732691632c3cde1e208c7bd4b84f9b7f7",
-    "galaxies_pswg/JediCommander.bbmodel": "f255f8389975170e20a72c2e50ccb46c4675b9ae2e822e296c7307f82c2bbe59",
-    "galaxies_pswg/JediCommander.png": "25d85ae67f7577f653ed8a6eeb7aface715bd6c9587772646c58011170e19b00",
-    "galaxies_pswg/PSWG_Mandalorian.bbmodel": "8c5594b8f74743cbb0003013af02317f3d1b08bf4f742b8768071fae10b8b043",
-    "galaxies_pswg/PSWG_Mandalorian.png": "eb1ca5cb414254ab0a6d85b87b08b721b070ebda6cd33f7477d4200f8370766e",
-}
-
 Policy = Literal["default", "include", "force", "exclude"]
 GroupPolicy = Callable[[tuple[str, ...], dict], Policy]
 CubePolicy = Callable[[tuple[str, ...], dict, int], bool]
@@ -63,11 +44,11 @@ class ConvertedModel:
 
 
 def validate_source_inputs() -> None:
-    expected = dict(LEGACY_SOURCE_HASHES)
+    expected = {}
     inventory = json.loads(SOURCE_INVENTORY.read_text(encoding="utf-8"))
     for source in inventory["sources"]:
         for entry in source["files"]:
-            expected[entry["destination"]] = entry["sha256"]
+            expected[entry["destination"]] = entry["vendored_sha256"]
     failures = []
     for relative_path, expected_hash in expected.items():
         source_path = SOURCE_ROOT / relative_path
@@ -247,6 +228,8 @@ def converted_bone_name(source_name: str, armor: bool, parent: str | None) -> st
         "leftleg": "armorLeftLeg" if armor else "left_leg",
     }
     if parent is None and name in root_names:
+        return root_names[name]
+    if not armor and name in {"rightarm", "leftarm", "rightleg", "leftleg"}:
         return root_names[name]
     if name in {"phase1", "phase_1", "phase2", "phase_2", "helmet1", "helmet2", "helmet3"}:
         return "helmet"
@@ -577,6 +560,13 @@ def body_only_group_policy(path: tuple[str, ...], group: dict) -> Policy:
     return "include" if len(path) == 1 else "default"
 
 
+def trandoshan_group_policy(path: tuple[str, ...], group: dict) -> Policy:
+    name = snake_case(group.get("name", ""))
+    if path == ("body", "leftleg") and name == "leftleg":
+        return "force"
+    return "include" if len(path) == 1 else "default"
+
+
 def reparent_humanoid_overlays(converted: ConvertedModel) -> None:
     parents = {
         "jacket": "body",
@@ -623,18 +613,33 @@ def alpha_composite_layers(layer_names: Iterable[str], size: tuple[int, int]) ->
     return image
 
 
+def bounded_face_rect(image: Image.Image, face: dict) -> tuple[int, int, int, int] | None:
+    """Return the atlas intersection of a four-coordinate Blockbench face rectangle."""
+    coordinates = face.get("uv")
+    if not isinstance(coordinates, list) or len(coordinates) != 4:
+        return None
+    u1, v1, u2, v2 = (int(round(float(value))) for value in coordinates)
+    left, right = sorted((u1, u2))
+    top, bottom = sorted((v1, v2))
+    left = max(0, left)
+    top = max(0, top)
+    right = min(image.width, right)
+    bottom = min(image.height, bottom)
+    if left >= right or top >= bottom:
+        return None
+    return left, top, right, bottom
+
+
 def fill_face_rect(
         image: Image.Image,
         face: dict,
         color: tuple[int, int, int],
         salt: int,
 ) -> None:
-    coordinates = face.get("uv")
-    if not isinstance(coordinates, list) or len(coordinates) != 4:
+    bounds = bounded_face_rect(image, face)
+    if bounds is None:
         return
-    u1, v1, u2, v2 = (int(round(float(value))) for value in coordinates)
-    left, right = sorted((u1, u2))
-    top, bottom = sorted((v1, v2))
+    left, top, right, bottom = bounds
     for y in range(top, bottom):
         for x in range(left, right):
             shade = -14 if (x + y + salt) % 7 == 0 else 8 if y == top else 0
@@ -689,17 +694,50 @@ def fill_required_faces(
     for path, element in selected_elements:
         salt = sum(ord(character) for character in "/".join(path))
         for face in element.get("faces", {}).values():
-            coordinates = face.get("uv")
-            if not isinstance(coordinates, list) or len(coordinates) != 4:
+            bounds = bounded_face_rect(image, face)
+            if bounds is None:
                 continue
-            u1, v1, u2, v2 = (int(round(float(value))) for value in coordinates)
-            left, right = sorted((u1, u2))
-            top, bottom = sorted((v1, v2))
+            left, top, right, bottom = bounds
             for y in range(top, bottom):
                 for x in range(left, right):
                     if image.getpixel((x, y))[3] == 0:
                         shade = -12 if (x + y + salt) % 5 == 0 else 0
                         image.putpixel((x, y), tuple(max(0, channel + shade) for channel in fallback) + (255,))
+
+
+def fill_converted_faces(
+        image: Image.Image,
+        converted: ConvertedModel,
+        fallback: tuple[int, int, int],
+) -> None:
+    """Fill transparent pixels on every face referenced by converted GeckoLib geometry."""
+    geometry = converted.geometry["minecraft:geometry"][0]
+    for bone in geometry["bones"]:
+        salt = sum(ord(character) for character in bone["name"])
+        for cube in bone.get("cubes", []):
+            uv = cube.get("uv")
+            if not isinstance(uv, dict):
+                continue
+            for face in uv.values():
+                origin = face.get("uv")
+                size = face.get("uv_size")
+                if not isinstance(origin, list) or not isinstance(size, list):
+                    continue
+                rectangle = {
+                    "uv": [origin[0], origin[1], origin[0] + size[0], origin[1] + size[1]]
+                }
+                bounds = bounded_face_rect(image, rectangle)
+                if bounds is None:
+                    continue
+                left, top, right, bottom = bounds
+                for y in range(top, bottom):
+                    for x in range(left, right):
+                        if image.getpixel((x, y))[3] == 0:
+                            shade = -12 if (x + y + salt) % 5 == 0 else 0
+                            image.putpixel(
+                                (x, y),
+                                tuple(max(0, channel + shade) for channel in fallback) + (255,),
+                            )
 
 
 def copy_animation(source_id: str, destination_id: str) -> None:
@@ -719,14 +757,18 @@ def paint_pixels(image: Image.Image, face: dict, predicate: Callable[[float, flo
     if not isinstance(coordinates, list) or len(coordinates) != 4:
         return
     u1, v1, u2, v2 = (int(round(float(value))) for value in coordinates)
-    left, right = sorted((u1, u2))
-    top, bottom = sorted((v1, v2))
-    width = max(1, right - left)
-    height = max(1, bottom - top)
+    source_left, source_right = sorted((u1, u2))
+    source_top, source_bottom = sorted((v1, v2))
+    bounds = bounded_face_rect(image, face)
+    if bounds is None:
+        return
+    left, top, right, bottom = bounds
+    width = max(1, source_right - source_left)
+    height = max(1, source_bottom - source_top)
     for y in range(top, bottom):
         for x in range(left, right):
-            nx = (x - left + 0.5) / width
-            ny = (y - top + 0.5) / height
+            nx = (x - source_left + 0.5) / width
+            ny = (y - source_top + 0.5) / height
             if not predicate(nx, ny):
                 continue
             red, green, blue, alpha = image.getpixel((x, y))
@@ -740,13 +782,20 @@ def paint_pixels(image: Image.Image, face: dict, predicate: Callable[[float, flo
             ))
 
 
+def rgba_pixels(image: Image.Image) -> Iterable[tuple[int, int, int, int]]:
+    rgba = image.convert("RGBA")
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            yield rgba.getpixel((x, y))
+
+
 def forge_501st_blue() -> tuple[int, int, int]:
     """Select the dominant authored 501st blue from the permissioned Forge texture."""
     source_path = FORGE_SOURCE / "clone_armor_armor_501st_layer_helmet.png"
     with Image.open(source_path) as source:
         colors = Counter(
             pixel[:3]
-            for pixel in source.convert("RGBA").get_flattened_data()
+            for pixel in rgba_pixels(source)
             if pixel[3] and pixel[2] > pixel[0] * 1.15
         )
     if not colors:
@@ -786,7 +835,7 @@ def forge_commander_color() -> tuple[int, int, int]:
     with Image.open(source_path) as source:
         colors = Counter(
             pixel[:3]
-            for pixel in source.convert("RGBA").get_flattened_data()
+            for pixel in rgba_pixels(source)
             if pixel[3]
             and max(pixel[:3]) - min(pixel[:3]) > 35
             and pixel[0] > pixel[2] * 1.2
@@ -812,6 +861,7 @@ def write_clone_commander_texture(
                 paint_pixels(image, face, lambda x, y: 0.42 <= x <= 0.58 and y <= 0.82, commander)
             elif direction in {"east", "west"}:
                 paint_pixels(image, face, lambda x, y: 0.34 <= x <= 0.66 and y <= 0.46, commander)
+    fill_converted_faces(image, converted, (188, 188, 185))
     destination.parent.mkdir(parents=True, exist_ok=True)
     image.save(destination, optimize=False)
 
@@ -979,15 +1029,21 @@ def build_b1_assets() -> None:
     # 64x32 Blockbench UV layout. Scaling UV coordinates keeps every authored pixel aligned.
     scale_model_uvs(converted, 2)
     variants = {
-        "b1_battle_droid": "droid.png",
-        "b1_security_droid": "droid_security.png",
-        "separatist_technician": "droid_pilot.png",
+        "b1_battle_droid": ("droid.png", (121, 104, 71)),
+        "b1_security_droid": ("droid_security.png", (111, 78, 64)),
+        "separatist_technician": ("droid_pilot.png", (91, 82, 65)),
     }
-    for asset_id, texture_name in variants.items():
-        write_model(ENTITY_MODELS / f"{asset_id}.geo.json", copy_converted(converted, asset_id))
-        copy_rgba(FORGE_SOURCE / texture_name, ENTITY_TEXTURES / f"{asset_id}.png")
-    copy_rgba(FORGE_SOURCE / "droid_commander.png",
-              ENTITY_TEXTURES / "b1_battle_droid_commander.png")
+    for asset_id, (texture_name, fallback) in variants.items():
+        variant = copy_converted(converted, asset_id)
+        write_model(ENTITY_MODELS / f"{asset_id}.geo.json", variant)
+        with Image.open(FORGE_SOURCE / texture_name) as source:
+            texture = source.convert("RGBA")
+        fill_converted_faces(texture, variant, fallback)
+        texture.save(ENTITY_TEXTURES / f"{asset_id}.png", optimize=False)
+    with Image.open(FORGE_SOURCE / "droid_commander.png") as source:
+        commander = source.convert("RGBA")
+    fill_converted_faces(commander, converted, (105, 87, 62))
+    commander.save(ENTITY_TEXTURES / "b1_battle_droid_commander.png", optimize=False)
     copy_animation("b1_battle_droid", "b1_security_droid")
     copy_animation("b1_battle_droid", "separatist_technician")
 
@@ -999,6 +1055,7 @@ def build_republic_guard_assets() -> None:
     }
     for asset_id, (model_name, texture_name, underlayer) in variants.items():
         converted = convert_bbmodel(GALAXIES_SOURCE / model_name, asset_id)
+        set_bone_pivot(converted, "head", (0, 24, 0))
         write_model(ENTITY_MODELS / f"{asset_id}.geo.json", converted)
         with Image.open(GALAXIES_SOURCE / texture_name) as source:
             texture = source.convert("RGBA")
@@ -1019,6 +1076,8 @@ def build_species_composite(
         head_layers: tuple[str, ...],
         cloth: tuple[int, int, int],
         trousers: tuple[int, int, int],
+        fallback: tuple[int, int, int],
+        head_pivot: tuple[int, int, int] | None = None,
 ) -> None:
     body = convert_bbmodel(
         GALAXIES_SOURCE / "HumanoidBody.bbmodel",
@@ -1029,15 +1088,22 @@ def build_species_composite(
     head = convert_bbmodel(GALAXIES_SOURCE / head_model, asset_id)
     offset_model_uvs(head, 106, 0)
     converted = merge_species_geometry(asset_id, body, head)
+    if head_pivot is not None:
+        set_bone_pivot(converted, "head", head_pivot)
     write_model(ENTITY_MODELS / f"{asset_id}.geo.json", converted)
+    texture_path = ENTITY_TEXTURES / f"{asset_id}.png"
     write_species_composite_texture(
-        ENTITY_TEXTURES / f"{asset_id}.png",
+        texture_path,
         body,
         skin_layer,
         head_layers,
         cloth,
         trousers,
     )
+    with Image.open(texture_path) as source:
+        texture = source.convert("RGBA")
+    fill_converted_faces(texture, converted, fallback)
+    texture.save(texture_path, optimize=False)
 
 
 def build_species_assets() -> None:
@@ -1053,6 +1119,8 @@ def build_species_assets() -> None:
         ),
         (63, 86, 130),
         (37, 48, 70),
+        (166, 78, 44),
+        (0, 24, 0),
     )
     copy_animation("republic_civilian", "togruta_civilian")
     adapt_animation_bones("togruta_civilian", {
@@ -1068,6 +1136,7 @@ def build_species_assets() -> None:
         ("duros_body_blue.png", "duros_eyes_small.png"),
         (135, 65, 36),
         (54, 45, 40),
+        (48, 92, 141),
     )
     adapt_animation_bones("smuggler", {
         "hair": "head",
@@ -1082,6 +1151,7 @@ def build_species_assets() -> None:
         ("rodian_body_green.png", "rodian_eye_black.png"),
         (112, 68, 42),
         (61, 45, 37),
+        (69, 122, 56),
     )
     adapt_animation_bones("hutt_civilian", {
         "hair": "head",
@@ -1094,7 +1164,9 @@ def build_trandoshan_asset() -> None:
     converted = convert_bbmodel(
         GALAXIES_SOURCE / "Trandoshan.bbmodel",
         "hutt_enforcer",
+        group_policy=trandoshan_group_policy,
     )
+    set_model_identity(converted, "hutt_enforcer", 128, 128)
     write_model(ENTITY_MODELS / "hutt_enforcer.geo.json", converted)
     texture = alpha_composite_layers((
         "trandoshan_skin.png",
@@ -1148,17 +1220,39 @@ def build_mandalorian_assets() -> None:
             })
 
 
+def configure_asset_root(asset_root: Path) -> None:
+    global ASSETS, ENTITY_MODELS, ENTITY_ANIMATIONS, ENTITY_TEXTURES
+    global ARMOR_MODELS, ARMOR_TEXTURES, ITEM_TEXTURES
+    ASSETS = asset_root
+    ENTITY_MODELS = ASSETS / "geckolib/models/entity"
+    ENTITY_ANIMATIONS = ASSETS / "geckolib/animations/entity"
+    ENTITY_TEXTURES = ASSETS / "textures/entity"
+    ARMOR_MODELS = ASSETS / "geckolib/models/armor"
+    ARMOR_TEXTURES = ASSETS / "textures/armor"
+    ITEM_TEXTURES = ASSETS / "textures/item"
+
+
+def import_assets(asset_root: Path | None = None) -> None:
+    original_root = ASSETS
+    if asset_root is not None:
+        configure_asset_root(asset_root)
+    try:
+        validate_source_inputs()
+        for directory in (ENTITY_MODELS, ENTITY_TEXTURES, ARMOR_MODELS, ARMOR_TEXTURES, ITEM_TEXTURES):
+            directory.mkdir(parents=True, exist_ok=True)
+        build_clone_assets()
+        build_b1_assets()
+        build_republic_guard_assets()
+        build_species_assets()
+        build_trandoshan_asset()
+        build_mandalorian_assets()
+    finally:
+        configure_asset_root(original_root)
+
+
 def main() -> None:
-    validate_source_inputs()
-    for directory in (ENTITY_MODELS, ENTITY_TEXTURES, ARMOR_MODELS, ARMOR_TEXTURES, ITEM_TEXTURES):
-        directory.mkdir(parents=True, exist_ok=True)
-    build_clone_assets()
-    build_b1_assets()
-    build_republic_guard_assets()
-    build_species_assets()
-    build_trandoshan_asset()
-    build_mandalorian_assets()
-    print("Imported 16 NPC sets, 3 duty variants, and 2 wearable armor sets from authorized upstream art")
+    import_assets()
+    print("Imported 17 NPC sets, 3 duty variants, and 2 wearable armor sets from authorized upstream art")
 
 
 if __name__ == "__main__":

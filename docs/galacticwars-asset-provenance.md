@@ -5,15 +5,20 @@
 The visually rejected generated clone, B1, and Mandalorian sets were replaced with authored source
 art from two pinned repositories. `tools/generate_character_models.py` still creates the unmatched
 NPC families and animations, then calls `tools/import_authorized_character_assets.py` last so the
-permissioned conversions deterministically replace the matching outputs. Exact upstream inputs are
-retained under `tools/source_art/authorized_upstream` and are never edited in place.
+permissioned conversions deterministically replace the matching outputs. The unified
+`source_inventory.json` records raw upstream and sanitized-vendored hashes. Vendored Blockbench
+copies remove only host-local texture paths; all other inputs and source art remain unchanged.
 
 | Source and revision | Shipped Galactic Wars outputs | Deterministic adaptation |
 | --- | --- | --- |
 | `Parzivail-Modding-Team/GalaxiesParzisStarWarsMod` at `b91b4cc1a827eeb7c2ae16f0b703affd78c1c206`, `Clone Trooper.bbmodel`, `Clone Trooper.png`, clone item sprites | `phase_i_clone_trooper`, `phase_i_arc_trooper`, `clone_trooper`, `arc_trooper`; `phase_i_clone` and `republic_plastoid` wearable armor; both clone item-icon sets | Select Phase I/II helmet groups; enable rangefinder, pauldron, and kama for ARCs; mirror the Blockbench X axis; preserve 128x128 per-face UVs; add GeckoLib hand anchors and armor-parent bones. Phase I pixels are copied exactly. |
 | `Pyrix25633/Forge-StarWarsCloneWars` at `c9555aa4966e9e63c22a59f488d4b05bc614569e`, three 501st armor layers | Phase II clone and ARC NPC, wearable armor, and item markings | Select the dominant authored 501st blue from the source helmet texture and transfer that palette only to UV-compatible helmet, torso, arm, and leg regions of the Galaxies atlas. |
-| `Pyrix25633/Forge-StarWarsCloneWars` at `c9555aa4966e9e63c22a59f488d4b05bc614569e`, `Droid.bbmodel`, `droid.png` | `b1_battle_droid` | Convert the authored skeletal model to GeckoLib, scale its 64x32 UV coordinates to the authored 128x64 atlas, add joint and held-item anchors, and omit only three integrated blaster cuboids so the registered E-5 does not z-fight. Texture pixels remain exact. |
+| `Pyrix25633/Forge-StarWarsCloneWars` at `c9555aa4966e9e63c22a59f488d4b05bc614569e`, `Droid.bbmodel` and battle/security/pilot/commander atlases | `b1_battle_droid`, `b1_security_droid`, `separatist_technician`, and the B1 commander duty texture | Convert the authored skeletal model to GeckoLib, scale its 64x32 UV coordinates to the authored 128x64 atlases, add joint and held-item anchors, omit three integrated blaster cuboids so the runtime E-5 does not z-fight, and fill only transparent geometry-required face pixels. |
 | `Parzivail-Modding-Team/GalaxiesParzisStarWarsMod` at `b91b4cc1a827eeb7c2ae16f0b703affd78c1c206`, `PSWG_Mandalorian.bbmodel`, `PSWG_Mandalorian.png` | `mandalorian_warrior`, `mandalorian_marksman`, `mandalorian_heavy`, `mandalorian_clansperson` | Select distinct helmet, rangefinder, macrobinocular, Z-6, and JT-12 groups; mirror the Blockbench X axis; preserve 128x128 per-face UVs; fill transparent wearable-only body-glove regions and apply deterministic clan-role palettes. |
+| Same Galaxies revision, Senate Commando and Honor Guard models/atlases | `senate_commando`, `republic_honor_guard` | Preserve authored 128x128 UVs, establish canonical GeckoLib bones and hand anchors, and set head pivots to neck height. |
+| Same Galaxies revision, shared humanoid plus Togruta, Duros, and Rodian models/layers | `togruta_civilian`, `smuggler`, `hutt_civilian` | Build 256x256 composites with body faces limited to `0..95`, species faces beginning at `106`, non-overlapping clothing/head regions, and opaque required faces. |
+| Same Galaxies revision, Trandoshan model and selected clothing/face layers | `hutt_enforcer` | Repair canonical limbs, restore both leg meshes, reparent overlays and held-item anchors, and composite a declared 128x128 geometry/texture pair. |
+| Galaxies clone geometry/base atlas combined with Pyrix 501st/commander palettes | `clone_trooper_commander`, `arc_trooper_commander` duty textures | Apply only permissioned palette markings to compatible clone face regions. This is a recorded mixed Galaxies/Pyrix derivative and does not add registry IDs. |
 
 The Galaxies repository declares non-code assets CC-BY-SA 4.0. The Forge repository is GPL-3.0,
 and the project owner additionally confirmed direct-copy and adaptation permission on 2026-07-20.
@@ -22,12 +27,12 @@ license links/copies, pinned revisions, and transformation ledger.
 
 The Galaxies Jedi Commander overlay was evaluated but is not a shipped replacement. Its partial
 clothing texture is tied to the upstream legacy humanoid UV layout; applying it to the current Jedi
-would mis-map pixels and repeat the quality problem this pass is correcting. Unmatched Jedi, civilian,
-Nightsister, brute, outlaw, B2, BX, and technician assets remain deterministic project-authored sets
-until a UV-compatible permissioned source is identified.
+would mis-map pixels and repeat the quality problem this pass is correcting. Unmatched Jedi, Republic
+and Nightsister civilians, Nightsister combatants, brute, bounty hunter, B2, and BX assets remain
+deterministic project-authored sets until a UV-compatible permissioned source is identified.
 
-This section supersedes the older generated-only provenance claims below for the nine replaced NPC
-sets and two clone wearable armor sets. Generated orthographic sheets remain references only for the
+This section supersedes the older generated-only provenance claims below for the seventeen imported
+NPC sets, three duty textures, and two clone wearable armor sets. Generated orthographic sheets remain references only for the
 unmatched roster; they are not the source of the permissioned outputs listed here.
 
 ## 2026-07-19 field-command and vehicle-deployment completion

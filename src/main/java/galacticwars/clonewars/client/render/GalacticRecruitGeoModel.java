@@ -4,10 +4,8 @@ import com.geckolib.constant.DataTickets;
 import com.geckolib.constant.dataticket.DataTicket;
 import com.geckolib.model.DefaultedEntityGeoModel;
 import com.geckolib.renderer.base.GeoRenderState;
-import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.recruitment.RecruitDuty;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
 
@@ -16,29 +14,27 @@ public final class GalacticRecruitGeoModel extends DefaultedEntityGeoModel<Galac
     public static final DataTicket<RecruitDuty> RECRUIT_DUTY = DataTickets.create(
             "galacticwars:recruit_duty", RecruitDuty.class);
 
-    private final String visualId;
+    private final EntityType<GalacticRecruitEntity> entityType;
 
     public GalacticRecruitGeoModel(EntityType<GalacticRecruitEntity> entityType) {
         super(entityType);
-        this.visualId = BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath();
+        this.entityType = entityType;
     }
 
     @Override
     public void addAdditionalStateData(
             GalacticRecruitEntity animatable,
             Object relatedObject,
-            GeoRenderState renderState
+        GeoRenderState renderState
     ) {
         super.addAdditionalStateData(animatable, relatedObject, renderState);
-        renderState.addGeckolibData(RECRUIT_DUTY, animatable.getRecruitDuty());
+        RecruitDuty duty = animatable == null ? RecruitDuty.SOLDIER : animatable.getRecruitDuty();
+        renderState.addGeckolibData(RECRUIT_DUTY, duty == null ? RecruitDuty.SOLDIER : duty);
     }
 
     @Override
     public Identifier getTextureResource(GeoRenderState renderState) {
         RecruitDuty duty = renderState.getOrDefaultGeckolibData(RECRUIT_DUTY, RecruitDuty.SOLDIER);
-        String textureId = RecruitVisualProfileCatalog.textureId(this.visualId, duty);
-        return Identifier.fromNamespaceAndPath(
-                GalacticWars.MODID,
-                "textures/entity/" + textureId + ".png");
+        return RecruitVisualProfileCatalog.textureResource(this.entityType, duty);
     }
 }

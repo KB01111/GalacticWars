@@ -513,13 +513,14 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
                     string(json, "home_type", "housing"));
             requireRegistered(BuiltInRegistries.ENTITY_TYPE, definition.entityTypeId(),
                     "civilian entity type for " + definition.id());
-            if (definitions.putIfAbsent(definition.entityTypeId(), definition) != null
-                    || !representedFactions.add(faction)) {
-                throw new IllegalArgumentException("Duplicate civilian archetype for " + faction);
+            if (definitions.putIfAbsent(definition.entityTypeId(), definition) != null) {
+                throw new IllegalArgumentException("Duplicate civilian archetype entity type "
+                        + definition.entityTypeId());
             }
+            representedFactions.add(faction);
         }
         if (representedFactions.size() != factions.size()) {
-            throw new IllegalArgumentException("Every faction requires one civilian archetype");
+            throw new IllegalArgumentException("Every faction requires at least one civilian archetype");
         }
         return Map.copyOf(definitions);
     }

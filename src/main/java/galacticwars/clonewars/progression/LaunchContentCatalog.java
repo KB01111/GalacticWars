@@ -22,13 +22,20 @@ public final class LaunchContentCatalog {
         return LaunchContentRuntime.current().units();
     }
 
+    /** All validated subjects that can complete an embodied recruit contract. */
+    public static Map<String, List<String>> recruitSubjects() {
+        return units();
+    }
+
     public static List<String> planets() { return data().planetIds(); }
     public static List<String> vehicles() { return data().vehicleIds(); }
     public static Set<String> forceAbilities() { return data().forceAbilityIds(); }
     public static List<String> quests() { return data().questIds(); }
     public static Map<String, LaunchContentDefinitions.TradeDefinition> trades() { return data().trades(); }
     public static Set<String> questUnlocks(String id) { return data().questUnlocks(id); }
-    public static List<String> questObjectives(String id) { return data().questObjectives(id); }
+    public static List<LaunchContentDefinitions.QuestObjectiveDefinition> questObjectives(String id) {
+        return data().questObjectives(id);
+    }
     public static int questRewardCredits(String id) { return data().questRewardCredits(id); }
     public static int regionRewardCredits(String id) { return data().regionRewardCredits(id); }
 }

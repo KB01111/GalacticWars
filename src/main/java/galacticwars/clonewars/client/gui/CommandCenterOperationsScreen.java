@@ -45,9 +45,6 @@ public final class CommandCenterOperationsScreen extends Screen
             "overview", "campaign", "construction", "squads",
             "workforce", "kingdom", "diplomacy", "storage"
     };
-    private static final String[] VEHICLES = {
-            "barc_speeder", "at_rt", "stap", "aat", "laat_gunship"
-    };
     private static final int TAB_HEIGHT = 20;
     private static final int ROW_GAP = 2;
     private static final int TEXT = 0xFFE7EEF5;
@@ -149,18 +146,12 @@ public final class CommandCenterOperationsScreen extends Screen
                 CommandCenterOperationsMenu.NAVIGATION, state.navigationAvailability()));
         actions.add(action("screen.galacticwars.operations.player_class",
                 CommandCenterOperationsMenu.PLAYER_CLASS, true));
-        for (int index = 0; index < VEHICLES.length; index++) {
-            String vehicleId = VEHICLES[index];
-            Optional<VehicleFabricationSummary> fabrication = state.vehicleFabrication().stream()
-                    .filter(value -> value.vehicleId().equals(vehicleId))
-                    .findFirst();
-            actions.add(action("screen.galacticwars.operations.fabricate." + VEHICLES[index],
+        for (int index = 0; index < state.vehicleFabrication().size(); index++) {
+            VehicleFabricationSummary fabrication = state.vehicleFabrication().get(index);
+            actions.add(action("screen.galacticwars.operations.fabricate." + fabrication.vehicleId(),
                     CommandCenterOperationsMenu.FABRICATE_FIRST + index,
-                    fabrication.map(VehicleFabricationSummary::availability)
-                            .orElseGet(() -> ActionAvailability.rejected("unknown_vehicle")),
-                    fabrication.map(value -> fabricationTooltip(
-                            value, state.treasuryCredits()))
-                            .orElseGet(() -> reasonTooltip("unknown_vehicle"))));
+                    fabrication.availability(),
+                    fabricationTooltip(fabrication, state.treasuryCredits())));
         }
         addActionGrid(bodyTop + 86, actions);
     }
@@ -530,7 +521,9 @@ public final class CommandCenterOperationsScreen extends Screen
             return;
         }
         GalacticNetwork.CHANNEL.sendToServer(new MenuActionPayload(
-                UUID.randomUUID(), menu.containerId, actionId, primary, secondary));
+                UUID.randomUUID(), menu.containerId, actionId, primary, secondary,
+                menu.dashboardState().contentGeneration(),
+                menu.dashboardState().settlementRevision()));
     }
 
     @Override
@@ -615,7 +608,8 @@ public final class CommandCenterOperationsScreen extends Screen
         for (var objective : quest.objectives()) {
             if (line > 5) break;
             drawLine(graphics, line++, Component.literal(
-                    (objective.complete() ? "[x] " : "[ ] ") + humanize(objective.objectiveId())),
+                    (objective.complete() ? "[x] " : "[ ] ") + humanize(objective.objectiveId())
+                            + " " + objective.currentCount() + "/" + objective.requiredCount()),
                     objective.complete() ? GOOD : MUTED);
         }
         state.nextObjective().ifPresent(objective -> drawCentered(

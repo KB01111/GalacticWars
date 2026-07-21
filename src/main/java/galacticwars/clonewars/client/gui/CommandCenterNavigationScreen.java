@@ -1,6 +1,7 @@
 package galacticwars.clonewars.client.gui;
 
 import galacticwars.clonewars.menu.CommandCenterNavigationMenu;
+import galacticwars.clonewars.world.PlanetTravelService;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -36,7 +37,7 @@ public final class CommandCenterNavigationScreen extends Screen implements MenuA
             String destinationId = destination.destinationId();
             int buttonId = index;
             Button destinationButton = Button.builder(
-                            CommandCenterNavigationMenu.destinationName(destinationId),
+                            destinationLabel(destination),
                             button -> this.selectDestination(buttonId))
                     .bounds(x, firstY + index * (BUTTON_HEIGHT + GAP), BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build();
@@ -44,6 +45,10 @@ public final class CommandCenterNavigationScreen extends Screen implements MenuA
             if (!destination.available()) {
                 destinationButton.setTooltip(Tooltip.create(Component.translatable(
                         "message.galacticwars.travel." + destination.reason())));
+            } else if (!PlanetTravelService.HOME_DESTINATION_ID.equals(destinationId)) {
+                destinationButton.setTooltip(Tooltip.create(Component.translatable(
+                        "screen.galacticwars.navigation.arrival_profile",
+                        Component.translatable("arrival.galacticwars." + destination.arrivalProfile()))));
             }
             this.addRenderableWidget(destinationButton);
         }
@@ -54,6 +59,19 @@ public final class CommandCenterNavigationScreen extends Screen implements MenuA
             this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, buttonId);
             this.status = Component.translatable("screen.galacticwars.navigation.request_sent");
         }
+    }
+
+    private static Component destinationLabel(
+            galacticwars.clonewars.world.PlanetTravelService.NavigationDestination destination
+    ) {
+        Component name = CommandCenterNavigationMenu.destinationName(destination.destinationId());
+        if (galacticwars.clonewars.world.PlanetTravelService.HOME_DESTINATION_ID.equals(
+                destination.destinationId())) {
+            return name;
+        }
+        return Component.translatable(
+                "screen.galacticwars.navigation.destination_with_theme",
+                name, Component.translatable("theme.galacticwars." + destination.theme()));
     }
 
     @Override

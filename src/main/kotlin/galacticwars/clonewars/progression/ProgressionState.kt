@@ -15,6 +15,7 @@ class ProgressionState(
     processedEventIds: Set<UUID>,
     eventTotals: Map<ProgressionEventType, Int>,
     eventSubjects: Map<ProgressionEventType, Set<String>>,
+    eventSubjectTotals: Map<ProgressionEventType, Map<String, Int>>,
     unlocks: Set<String>,
 ) {
     val schemaVersion: Int = schemaVersion
@@ -28,6 +29,8 @@ class ProgressionState(
     )
     val eventTotals: Map<ProgressionEventType, Int> = immutableMap(eventTotals, "eventTotals")
     val eventSubjects: Map<ProgressionEventType, Set<String>> = immutableSubjectMap(eventSubjects)
+    val eventSubjectTotals: Map<ProgressionEventType, Map<String, Int>> =
+        immutableSubjectTotals(eventSubjectTotals)
     val unlocks: Set<String> = immutableSet(unlocks, "unlocks")
 
     init {
@@ -35,7 +38,29 @@ class ProgressionState(
             "Unsupported progression schema $schemaVersion"
         }
         require(credits >= 0) { "credits cannot be negative" }
+        require(eventTotals.values.all { it >= 0 }) { "event totals cannot be negative" }
     }
+
+    constructor(
+        schemaVersion: Int,
+        playerId: UUID,
+        factionId: String?,
+        credits: Int,
+        processedEventIds: Set<UUID>,
+        eventTotals: Map<ProgressionEventType, Int>,
+        eventSubjects: Map<ProgressionEventType, Set<String>>,
+        unlocks: Set<String>,
+    ) : this(
+        schemaVersion,
+        playerId,
+        factionId,
+        credits,
+        processedEventIds,
+        eventTotals,
+        eventSubjects,
+        subjectTotalsFromSubjects(eventSubjects),
+        unlocks,
+    )
 
     fun schemaVersion(): Int = schemaVersion
 
@@ -50,6 +75,8 @@ class ProgressionState(
     fun eventTotals(): Map<ProgressionEventType, Int> = eventTotals
 
     fun eventSubjects(): Map<ProgressionEventType, Set<String>> = eventSubjects
+
+    fun eventSubjectTotals(): Map<ProgressionEventType, Map<String, Int>> = eventSubjectTotals
 
     fun unlocks(): Set<String> = unlocks
 
@@ -69,6 +96,7 @@ class ProgressionState(
             processedEventIds,
             eventTotals,
             eventSubjects,
+            eventSubjectTotals,
             unlocks,
         )
     }
@@ -80,8 +108,24 @@ class ProgressionState(
 
     fun hasSubjectPath(type: ProgressionEventType, subjectPath: String): Boolean =
         eventSubjects[type].orEmpty().any { subject ->
-            subject.substringAfter(':', subject) == subjectPath
+            subjectsMatch(subject, subjectPath)
         }
+
+    fun subjectTotal(type: ProgressionEventType, allowedSubjects: Set<String>): Int {
+        if (allowedSubjects.isEmpty()) {
+            return total(type)
+        }
+        var total = 0L
+        for ((subject, count) in eventSubjectTotals[type].orEmpty()) {
+            if (allowedSubjects.any { allowed -> subjectsMatch(subject, allowed) }) {
+                total += count.toLong()
+                if (total >= Int.MAX_VALUE) {
+                    return Int.MAX_VALUE
+                }
+            }
+        }
+        return total.toInt()
+    }
 
     fun apply(event: ProgressionEvent, faction: String, addedUnlocks: Set<String>): ProgressionState {
         if (playerId != event.playerId) {
@@ -112,6 +156,13 @@ class ProgressionState(
         values.add(event.subjectId)
         subjects[event.type] = values
 
+        val subjectTotals = LinkedHashMap(eventSubjectTotals)
+        val totalsForType = LinkedHashMap(subjectTotals[event.type].orEmpty())
+        totalsForType.merge(event.subjectId, maxOf(1, event.amount)) { current, increment ->
+            Math.addExact(current, increment)
+        }
+        subjectTotals[event.type] = totalsForType
+
         val updatedUnlocks = LinkedHashSet(unlocks)
         updatedUnlocks.addAll(addedUnlocks)
         return ProgressionState(
@@ -122,6 +173,7 @@ class ProgressionState(
             ids,
             totals,
             subjects,
+            subjectTotals,
             updatedUnlocks,
         )
     }
@@ -135,6 +187,7 @@ class ProgressionState(
         processedEventIds == other.processedEventIds &&
         eventTotals == other.eventTotals &&
         eventSubjects == other.eventSubjects &&
+        eventSubjectTotals == other.eventSubjectTotals &&
         unlocks == other.unlocks
 
     override fun hashCode(): Int {
@@ -145,16 +198,17 @@ class ProgressionState(
         result = 31 * result + processedEventIds.hashCode()
         result = 31 * result + eventTotals.hashCode()
         result = 31 * result + eventSubjects.hashCode()
+        result = 31 * result + eventSubjectTotals.hashCode()
         return 31 * result + unlocks.hashCode()
     }
 
     override fun toString(): String = "ProgressionState[" +
         "schemaVersion=$schemaVersion, playerId=$playerId, factionId=$factionId, credits=$credits, " +
         "processedEventIds=$processedEventIds, eventTotals=$eventTotals, " +
-        "eventSubjects=$eventSubjects, unlocks=$unlocks]"
+        "eventSubjects=$eventSubjects, eventSubjectTotals=$eventSubjectTotals, unlocks=$unlocks]"
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 3
+        const val CURRENT_SCHEMA_VERSION: Int = 4
         const val MAX_PROCESSED_EVENT_IDS: Int = 512
         /**
          * Server-side history bound, deliberately separate from the attachment protocol's
@@ -170,6 +224,7 @@ class ProgressionState(
             "",
             0,
             emptySet(),
+            emptyMap(),
             emptyMap(),
             emptyMap(),
             setOf("intro_quest"),
@@ -224,6 +279,59 @@ class ProgressionState(
                 )
             }
             return Collections.unmodifiableMap(copy)
+        }
+
+        private fun immutableSubjectTotals(
+            source: Map<ProgressionEventType, Map<String, Int>>,
+        ): Map<ProgressionEventType, Map<String, Int>> {
+            val copy = LinkedHashMap<ProgressionEventType, Map<String, Int>>(source.size)
+            source.forEach { (type, totals) ->
+                val normalizedType = Objects.requireNonNull(type, "eventSubjectTotals type")
+                val limit = if (normalizedType == ProgressionEventType.DELIVERY_COMPLETED) {
+                    MAX_RECENT_DELIVERY_SUBJECTS
+                } else {
+                    MAX_AUTHORITATIVE_SUBJECTS_PER_TYPE
+                }
+                val skip = maxOf(0, totals.size - limit)
+                val normalized = LinkedHashMap<String, Int>(minOf(totals.size, limit))
+                totals.entries.forEachIndexed { index, (subject, count) ->
+                    if (index >= skip) {
+                        val normalizedSubject = Objects.requireNonNull(subject, "eventSubjectTotals subject")
+                        val normalizedCount = Objects.requireNonNull(count, "eventSubjectTotals count")
+                        require(normalizedSubject.isNotBlank()) { "event subject cannot be blank" }
+                        require(normalizedCount > 0) { "event subject count must be positive" }
+                        normalized[normalizedSubject] = normalizedCount
+                    }
+                }
+                copy[normalizedType] = Collections.unmodifiableMap(normalized)
+            }
+            return Collections.unmodifiableMap(copy)
+        }
+
+        private fun subjectTotalsFromSubjects(
+            subjects: Map<ProgressionEventType, Set<String>>,
+        ): Map<ProgressionEventType, Map<String, Int>> = subjects.mapValues { (_, values) ->
+            values.associateWith { 1 }
+        }
+
+        private fun subjectsMatch(recorded: String, required: String): Boolean {
+            if (recorded == required) {
+                return true
+            }
+            val recordedPath = modSubjectPath(recorded) ?: return false
+            val requiredPath = modSubjectPath(required) ?: return false
+            return recordedPath == requiredPath
+        }
+
+        private fun modSubjectPath(subject: String): String? {
+            val separator = subject.indexOf(':')
+            if (separator < 0) {
+                return subject
+            }
+            if (separator != subject.lastIndexOf(':') || subject.substring(0, separator) != "galacticwars") {
+                return null
+            }
+            return subject.substring(separator + 1).takeIf(String::isNotEmpty)
         }
     }
 }

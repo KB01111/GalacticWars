@@ -18,10 +18,11 @@ public final class ProgressionIntegrityPolicyTest {
                 valid(ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic", 1),
                 valid(ProgressionEventType.RECRUIT_HIRED, "clone_trooper", 1),
                 valid(ProgressionEventType.RECRUIT_HIRED, "phase_i_clone_trooper", 1),
+                valid(ProgressionEventType.RECRUIT_HIRED, "republic_civilian", 1),
                 valid(ProgressionEventType.DELIVERY_COMPLETED, courier, 1),
                 valid(ProgressionEventType.PLANET_VISITED, "tatooine", 1),
                 valid(ProgressionEventType.VEHICLE_ACQUIRED, "barc_speeder", 1),
-                valid(ProgressionEventType.FORCE_ABILITY_UNLOCKED, "light_push", 1),
+                valid(ProgressionEventType.FORCE_ABILITY_USED, "light_push", 1),
                 valid(ProgressionEventType.QUEST_ADVANCED, "republic_chapter_1", 1),
                 valid(ProgressionEventType.CAMPAIGN_COMPLETED, "republic_campaign", 1),
                 valid(ProgressionEventType.TRADE_COMPLETED, "republic_quartermaster", 1),
@@ -30,8 +31,7 @@ public final class ProgressionIntegrityPolicyTest {
                 "miner", "builder", "cook", "merchant", "courier")) {
             valid.add(valid(ProgressionEventType.PROFESSION_ASSIGNED, profession, 1));
         }
-        for (String building : List.of("command_center", "forward_base", "barracks", "supply_depot",
-                "moisture_farm", "salvage_yard", "mine")) {
+        for (String building : List.of("command_center", "forward_base", "supply_depot")) {
             valid.add(valid(ProgressionEventType.BUILDING_COMPLETED, "galacticwars:" + building, 1));
         }
         for (EventCase test : valid) {
@@ -50,7 +50,7 @@ public final class ProgressionIntegrityPolicyTest {
                 invalid(ProgressionEventType.BUILDING_COMPLETED, "galacticwars:death_star", "unknown_building"),
                 invalid(ProgressionEventType.PLANET_VISITED, "alderaan", "unknown_planet"),
                 invalid(ProgressionEventType.VEHICLE_ACQUIRED, "x_wing", "unknown_vehicle"),
-                invalid(ProgressionEventType.FORCE_ABILITY_UNLOCKED, "force_win", "unknown_force_ability"),
+                invalid(ProgressionEventType.FORCE_ABILITY_USED, "force_win", "unknown_force_ability"),
                 invalid(ProgressionEventType.QUEST_ADVANCED, "republic_chapter_99", "unknown_quest"),
                 invalid(ProgressionEventType.CAMPAIGN_COMPLETED, "invented_campaign", "unknown_campaign"),
                 invalid(ProgressionEventType.TRADE_COMPLETED, "free_credits", "unknown_trade"),
@@ -71,7 +71,9 @@ public final class ProgressionIntegrityPolicyTest {
         var force = new LaunchContentDefinitions.ForceAbilityDefinition(
                 "light_push", "light", 20, 60, "republic_chapter_1", true);
         var quest = new LaunchContentDefinitions.QuestDefinition(
-                "republic_chapter_1", List.of("faction_pledged"), 40, Set.of("workforce"));
+                "republic_chapter_1", List.of(new LaunchContentDefinitions.QuestObjectiveDefinition(
+                        "faction_pledged", "faction_pledged",
+                        Set.of("galacticwars:republic"), 1)), 40, Set.of("workforce"));
         var trade = new LaunchContentDefinitions.TradeDefinition(
                 "republic_quartermaster", "republic", 12, "galacticwars:energy_cell", 8,
                 "faction_intro");
@@ -81,7 +83,8 @@ public final class ProgressionIntegrityPolicyTest {
                         Map.of(planet.id(), planet), Map.of(vehicle.id(), vehicle), Map.of(force.id(), force),
                         Map.of(quest.id(), quest), Map.of(trade.id(), trade), Map.of(region.id(), region)),
                 List.of("galacticwars:republic"),
-                Map.of("republic", List.of("clone_trooper", "phase_i_clone_trooper")));
+                Map.of("republic", List.of(
+                        "clone_trooper", "phase_i_clone_trooper", "republic_civilian")));
     }
 
     private static void assertValidation(

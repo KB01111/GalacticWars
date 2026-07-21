@@ -10,7 +10,9 @@ import java.util.UUID;
 public final class GalacticProgressionCoordinatorTest {
     public static void main(String[] args) {
         installContent();
-        assertTrue(!GalacticProgressionCoordinator.objectiveComplete(null, "clone_trooper"),
+        var cloneObjective = objective("clone_trooper", ProgressionEventType.RECRUIT_HIRED,
+                "clone_trooper", "phase_i_clone_trooper");
+        assertTrue(!GalacticProgressionCoordinator.objectiveComplete(null, cloneObjective),
                 "an uninitialized player progression state cannot complete an objective");
         UUID player = UUID.randomUUID();
         ProgressionState state = ProgressionState.create(player);
@@ -65,8 +67,17 @@ public final class GalacticProgressionCoordinatorTest {
                 "another faction's quest cannot be advanced");
         state = accepted(state, event(player, ProgressionEventType.RECRUIT_HIRED,
                 "galacticwars:phase_i_clone_trooper", 1));
-        assertTrue(GalacticProgressionCoordinator.objectiveComplete(state, "clone_trooper"),
+        assertTrue(GalacticProgressionCoordinator.objectiveComplete(state, cloneObjective),
                 "a Phase I clone satisfies the generic Clone Trooper campaign objective");
+        var twoCloneObjective = new LaunchContentDefinitions.QuestObjectiveDefinition(
+                "clone_fireteam", "recruit_hired",
+                Set.of("clone_trooper", "phase_i_clone_trooper"), 2);
+        assertTrue(!GalacticProgressionCoordinator.objectiveComplete(state, twoCloneObjective),
+                "a counted objective must not treat one matching subject as two events");
+        state = accepted(state, event(player, ProgressionEventType.RECRUIT_HIRED,
+                "galacticwars:clone_trooper", 1));
+        assertTrue(GalacticProgressionCoordinator.objectiveComplete(state, twoCloneObjective),
+                "a counted objective aggregates all declared matching subjects");
         state = accepted(state, event(player, ProgressionEventType.QUEST_ADVANCED, "republic_chapter_1", 1));
         assertEquals(40, state.pendingCreditRewards(), "chapter 1 physical reward pending");
         state = accepted(state, courierEvent(player));
@@ -111,19 +122,45 @@ public final class GalacticProgressionCoordinatorTest {
                 "coruscant", planet("coruscant", "republic"));
         Map<String, LaunchContentDefinitions.QuestDefinition> quests = Map.of(
                 "republic_chapter_1", quest("republic_chapter_1",
-                        List.of("faction_pledged", "command_center", "clone_trooper"), 40,
+                        List.of(
+                                objective("faction_pledged", ProgressionEventType.FACTION_PLEDGED,
+                                        "galacticwars:republic"),
+                                objective("command_center", ProgressionEventType.BUILDING_COMPLETED,
+                                        "command_center"),
+                                objective("clone_trooper", ProgressionEventType.RECRUIT_HIRED,
+                                        "clone_trooper", "phase_i_clone_trooper")), 40,
                         Set.of("workforce")),
                 "republic_chapter_2", quest("republic_chapter_2",
-                        List.of("delivery_completed", "forward_base", "kamino"), 70,
+                        List.of(
+                                objective("delivery_completed", ProgressionEventType.DELIVERY_COMPLETED),
+                                objective("forward_base", ProgressionEventType.BUILDING_COMPLETED,
+                                        "forward_base"),
+                                objective("kamino", ProgressionEventType.PLANET_VISITED, "kamino")), 70,
                         Set.of("barc_speeder", "force_path")),
                 "nightsister_chapter_1", quest("nightsister_chapter_1",
-                        List.of("faction_pledged", "command_center", "nightsister_acolyte"), 40,
+                        List.of(
+                                objective("faction_pledged", ProgressionEventType.FACTION_PLEDGED,
+                                        "galacticwars:nightsister"),
+                                objective("command_center", ProgressionEventType.BUILDING_COMPLETED,
+                                        "command_center"),
+                                objective("nightsister_acolyte", ProgressionEventType.RECRUIT_HIRED,
+                                        "nightsister_acolyte")), 40,
                         Set.of("workforce")),
                 "mandalorian_chapter_1", quest("mandalorian_chapter_1",
-                        List.of("faction_pledged", "command_center", "mandalorian_warrior"), 40,
+                        List.of(
+                                objective("faction_pledged", ProgressionEventType.FACTION_PLEDGED,
+                                        "galacticwars:mandalorian"),
+                                objective("command_center", ProgressionEventType.BUILDING_COMPLETED,
+                                        "command_center"),
+                                objective("mandalorian_warrior", ProgressionEventType.RECRUIT_HIRED,
+                                        "mandalorian_warrior")), 40,
                         Set.of("workforce")),
                 "mandalorian_chapter_2", quest("mandalorian_chapter_2",
-                        List.of("delivery_completed", "beskar_ingot", "tatooine"), 75,
+                        List.of(
+                                objective("delivery_completed", ProgressionEventType.DELIVERY_COMPLETED),
+                                objective("beskar_ingot", ProgressionEventType.TRADE_COMPLETED,
+                                        "mandalorian_armorer"),
+                                objective("tatooine", ProgressionEventType.PLANET_VISITED, "tatooine")), 75,
                         Set.of("vehicle_crafting")));
         Map<String, LaunchContentDefinitions.TradeDefinition> trades = Map.of(
                 "mandalorian_armorer", new LaunchContentDefinitions.TradeDefinition(
@@ -144,9 +181,19 @@ public final class GalacticProgressionCoordinatorTest {
     }
 
     private static LaunchContentDefinitions.QuestDefinition quest(
-            String id, List<String> objectives, int credits, Set<String> unlocks
+            String id,
+            List<LaunchContentDefinitions.QuestObjectiveDefinition> objectives,
+            int credits,
+            Set<String> unlocks
     ) {
         return new LaunchContentDefinitions.QuestDefinition(id, objectives, credits, unlocks);
+    }
+
+    private static LaunchContentDefinitions.QuestObjectiveDefinition objective(
+            String id, ProgressionEventType eventType, String... subjects
+    ) {
+        return new LaunchContentDefinitions.QuestObjectiveDefinition(
+                id, eventType.name().toLowerCase(java.util.Locale.ROOT), Set.of(subjects), 1);
     }
 
     private static ProgressionEvent event(UUID player, ProgressionEventType type, String subject, int amount) {

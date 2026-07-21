@@ -10,7 +10,9 @@ import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.kingdom.KingdomRecord;
 import galacticwars.clonewars.kingdom.KingdomActionId;
 import galacticwars.clonewars.kingdom.KingdomGameplayAction;
+import galacticwars.clonewars.kingdom.KingdomGameplayResult;
 import galacticwars.clonewars.kingdom.KingdomGameplayRuntimeService;
+import galacticwars.clonewars.kingdom.KingdomGameplayTransactionService;
 import galacticwars.clonewars.kingdom.KingdomPermission;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.registry.ModBlockEntityTypes;
@@ -85,17 +87,34 @@ public final class CommandCenterBlockEntity extends BaseContainerBlockEntity {
             return false;
         }
         if (ownerId == null) {
+            if (!(this.level instanceof ServerLevel serverLevel)) {
+                return false;
+            }
+            KingdomGameplayAction action = new KingdomGameplayAction(
+                    KingdomActionId.of("command_center_claim", player.getUUID(),
+                            serverLevel.dimension().identifier(), this.worldPosition.asLong()),
+                    player.getUUID(), ProgressionEventType.BUILDING_COMPLETED,
+                    "command_center", 1);
+            ProgressionSavedData progression = ProgressionSavedData.get(serverLevel);
+            KingdomGameplayResult evaluation = KingdomGameplayTransactionService.evaluate(
+                    progression.state(player.getUUID()), action);
+            if (!evaluation.accepted()) {
+                return false;
+            }
+            long previousUpkeepTime = this.lastUpkeepGameTime;
+            boolean previousClockState = this.upkeepClockInitialized;
             ownerId = player.getUUID();
-            this.lastUpkeepGameTime = this.level == null ? 0L : this.level.getGameTime();
+            this.lastUpkeepGameTime = serverLevel.getGameTime();
             this.upkeepClockInitialized = true;
-            if (this.level instanceof ServerLevel serverLevel) {
-                KingdomGameplayRuntimeService.applyProgression(
-                        ProgressionSavedData.get(serverLevel),
-                        new KingdomGameplayAction(
-                                KingdomActionId.of("command_center_claim", player.getUUID(),
-                                        serverLevel.dimension().identifier(), this.worldPosition.asLong()),
-                                player.getUUID(), ProgressionEventType.BUILDING_COMPLETED,
-                                "command_center", 1));
+            if (evaluation.changed()) {
+                KingdomGameplayResult committed = KingdomGameplayRuntimeService.applyProgression(
+                        progression, action);
+                if (!committed.accepted() || !committed.changed()) {
+                    ownerId = null;
+                    this.lastUpkeepGameTime = previousUpkeepTime;
+                    this.upkeepClockInitialized = previousClockState;
+                    return false;
+                }
             }
             this.setChangedAndSync();
         }

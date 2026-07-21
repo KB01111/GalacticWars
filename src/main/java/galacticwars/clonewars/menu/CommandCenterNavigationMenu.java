@@ -17,6 +17,7 @@ import java.util.List;
 public final class CommandCenterNavigationMenu extends AbstractContainerMenu {
     public static final int MAX_DESTINATION_IDS = 32;
     public static final int MAX_REASON_BYTES = 64;
+    public static final int MAX_METADATA_BYTES = 64;
     private final List<NavigationDestination> destinations;
 
     public CommandCenterNavigationMenu(int containerId, Inventory inventory, FriendlyByteBuf extraData) {
@@ -102,7 +103,10 @@ public final class CommandCenterNavigationMenu extends AbstractContainerMenu {
             String id = buffer.readUtf(LaunchContentDefinitions.MAX_SERIALIZED_PLANET_ID_BYTES);
             boolean available = buffer.readBoolean();
             String reason = buffer.readUtf(MAX_REASON_BYTES);
-            destinations.add(new NavigationDestination(id, available, reason));
+            String theme = buffer.readUtf(MAX_METADATA_BYTES);
+            String arrivalProfile = buffer.readUtf(MAX_METADATA_BYTES);
+            destinations.add(new NavigationDestination(
+                    id, available, reason, theme, arrivalProfile));
         }
         return List.copyOf(destinations);
     }

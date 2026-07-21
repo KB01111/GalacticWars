@@ -17,22 +17,29 @@ public final class GameplayCatalogPayloadValidationTest {
                 List.of(requirement),
                 List.of("Suppressive Fire", "Rally"));
         var vehicle = new GameplayCatalogPayload.VehicleEntry("laat_gunship", 180, 2400);
-        var payload = new GameplayCatalogPayload(4L, List.of(unitClass), List.of(vehicle));
+        var blueprint = new GameplayCatalogPayload.BlueprintEntry(
+                "galacticwars:forward_base", "Forward Base", 37);
+        String contentHash = "a".repeat(64);
+        var payload = new GameplayCatalogPayload(
+                4L, contentHash, List.of(unitClass), List.of(vehicle), List.of(blueprint));
 
         if (payload.generation() != 4L
                 || !payload.classes().getFirst().classId().equals("galacticwars:clone_trooper")
-                || payload.vehicles().getFirst().fuelCapacity() != 2400) {
+                || payload.vehicles().getFirst().fuelCapacity() != 2400
+                || payload.blueprints().getFirst().placementCount() != 37) {
             throw new AssertionError("valid gameplay catalog payload did not retain its projection");
         }
-        expectFailure(() -> new GameplayCatalogPayload(-1L, List.of(), List.of()),
+        expectFailure(() -> new GameplayCatalogPayload(-1L, "", List.of(), List.of(), List.of()),
                 "negative generation");
+        expectFailure(() -> new GameplayCatalogPayload(1L, "not-a-sha256", List.of(), List.of(), List.of()),
+                "invalid content hash");
         expectFailure(() -> new GameplayCatalogPayload(
-                        1L, List.of(unitClass, unitClass), List.of()),
+                        1L, contentHash, List.of(unitClass, unitClass), List.of(), List.of()),
                 "duplicate class id");
         expectFailure(() -> new GameplayCatalogPayload(
-                        1L,
+                        1L, contentHash,
                         Collections.nCopies(GameplayCatalogPayload.MAX_CLASSES + 1, unitClass),
-                        List.of()),
+                        List.of(), List.of()),
                 "class count bound");
         expectFailure(() -> new GameplayCatalogPayload.ClassEntry(
                         "galacticwars:invalid",
@@ -48,6 +55,10 @@ public final class GameplayCatalogPayloadValidationTest {
         expectFailure(() -> new GameplayCatalogPayload.VehicleEntry(
                         "laat_gunship", GameplayCatalogPayload.MAX_VEHICLE_STAT + 1, 1),
                 "vehicle maximum bound");
+        expectFailure(() -> new GameplayCatalogPayload.BlueprintEntry(
+                        "galacticwars:forward_base", "Forward Base",
+                        GameplayCatalogPayload.MAX_BLUEPRINT_PLACEMENTS + 1),
+                "blueprint placement bound");
 
         try {
             payload.classes().add(unitClass);

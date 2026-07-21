@@ -1,15 +1,21 @@
 package galacticwars.clonewars.force;
 
 import galacticwars.clonewars.Config;
+import galacticwars.clonewars.GalacticWars;
+import galacticwars.clonewars.data.CoreContentBindings;
 import galacticwars.clonewars.data.LaunchContentDefinitions;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.faction.FactionRelation;
 import galacticwars.clonewars.progression.ForceAbilityRuntimeService;
 import galacticwars.clonewars.progression.ForceSavedData;
+import galacticwars.clonewars.progression.ForceRuntimeState;
+import galacticwars.clonewars.progression.GalacticSystemsService;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
+import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionEventType;
+import galacticwars.clonewars.progression.ProgressionState;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.UUID;
@@ -32,27 +38,80 @@ public final class ForceWorldEffectService {
 
     public static boolean activate(ServerPlayer player, UUID activationId, int slot) {
         if (slot < 0 || slot > 2 || !(player.level() instanceof ServerLevel level)) return false;
-        var progression = ProgressionSavedData.get(level).state(player.getUUID());
+        ProgressionSavedData progressionData = ProgressionSavedData.get(level);
+        ProgressionState progression = progressionData.state(player.getUUID());
         String faction = path(progression.factionId());
         String abilityId = abilityFor(faction, slot);
-        LaunchContentDefinitions.ForceAbilityDefinition ability =
-                LaunchContentCatalog.data().forceAbilities().get(abilityId);
+        LaunchContentDefinitions content = LaunchContentCatalog.data();
+        LaunchContentDefinitions.ForceAbilityDefinition ability = content.forceAbilities().get(abilityId);
         if (ability == null) return fail(player, "unknown_force_ability");
         LivingEntity target = requiresTarget(ability.effect()) ? target(player, ability.range()) : null;
         if (requiresTarget(ability.effect()) && target == null) return fail(player, "force_target_required");
         boolean targetsPlayer = target instanceof Player;
-        ForceAbilityRuntimeService.ActivationDecision decision = ForceSavedData.get(level).activate(
-                progression, activationId, abilityId, level.getGameTime(), targetsPlayer,
-                Config.ALLOW_FORCE_PVP.getAsBoolean());
-        sendSnapshot(player, decision.state(), faction, level.getGameTime());
-        if (!decision.accepted()) return fail(player, decision.reason());
-        if (decision.reason().equals("duplicate_activation")) return true;
+        ForceSavedData forceData = ForceSavedData.get(level);
+        ForceRuntimeState forceBefore = forceData.state(player.getUUID());
+        boolean forceWasStored = forceData.hasStoredState(player.getUUID());
+        ForceAbilityRuntimeService.ActivationDecision decision = ForceAbilityRuntimeService.activate(
+                progression, forceBefore, activationId, abilityId, level.getGameTime(), targetsPlayer,
+                Config.ALLOW_FORCE_PVP.getAsBoolean(), content);
+        if (!decision.accepted()) {
+            sendSnapshot(player, decision.state(), faction, level.getGameTime());
+            return fail(player, decision.reason());
+        }
+        if (decision.reason().equals("duplicate_activation")) {
+            sendSnapshot(player, decision.state(), faction, level.getGameTime());
+            return true;
+        }
         UUID progressionId = UUID.nameUUIDFromBytes(("force:first-use:" + player.getUUID()
                 + ":" + abilityId).getBytes(StandardCharsets.UTF_8));
-        ProgressionSavedData.get(level).apply(new ProgressionEvent(
-                progressionId, player.getUUID(), ProgressionEventType.FORCE_ABILITY_UNLOCKED,
-                abilityId, 1));
-        apply(player, target, ability);
+        GalacticSystemsService.SystemDecision progressionEvaluation =
+                GalacticSystemsService.useForceAbility(
+                        progression, progressionId, abilityId, content);
+        if (!progressionEvaluation.accepted()) {
+            return fail(player, progressionEvaluation.reason());
+        }
+        ProgressionEvent progressionEvent = new ProgressionEvent(
+                progressionId, player.getUUID(), ProgressionEventType.FORCE_ABILITY_USED,
+                abilityId, 1);
+        boolean progressionWasStored = progressionData.hasStoredState(player.getUUID());
+        ProgressionState progressionAfter = progression;
+        boolean progressionCommitted = false;
+        boolean forceCommitted = false;
+        try {
+            if (progressionEvaluation.changed()) {
+                ProgressionDecision committed = progressionData.commitEvaluated(
+                        progressionEvent,
+                        progression,
+                        new ProgressionDecision(
+                                true, true, progressionEvaluation.reason(),
+                                progressionEvaluation.state()));
+                if (!committed.accepted()
+                        || (!committed.changed() && !committed.state().processed(progressionId))) {
+                    throw new IllegalStateException("Force progression state changed during activation");
+                }
+                progressionAfter = committed.state();
+                progressionCommitted = true;
+            }
+            if (!forceData.commitEvaluated(player.getUUID(), forceBefore, decision)) {
+                throw new IllegalStateException("Force runtime state changed during activation");
+            }
+            forceCommitted = true;
+            apply(player, target, ability);
+        } catch (RuntimeException failure) {
+            if (forceCommitted) {
+                forceData.restoreAfterFailedTransaction(
+                        player.getUUID(), decision.state(), forceBefore, forceWasStored);
+            }
+            if (progressionCommitted) {
+                progressionData.restoreAfterFailedTransaction(
+                        player.getUUID(), progressionAfter, progression, progressionWasStored);
+            }
+            sendSnapshot(player, forceData.state(player.getUUID()), faction, level.getGameTime());
+            GalacticWars.LOGGER.error("Force activation transaction failed for {} using {}",
+                    player.getGameProfile().name(), abilityId, failure);
+            return fail(player, "transaction_failed");
+        }
+        sendSnapshot(player, decision.state(), faction, level.getGameTime());
         level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(),
                 SoundSource.PLAYERS, 0.8F, ability.path().equals("dark") ? 0.7F : 1.2F);
         player.sendOverlayMessage(Component.translatable(
@@ -67,15 +126,12 @@ public final class ForceWorldEffectService {
         if (!GalacticNetwork.canPlayerReceive(player, ForceHudPayload.TYPE)) {
             return;
         }
-        String[] abilities = faction.equals("republic")
-                ? new String[]{"light_push", "light_pull", "light_leap"}
-                : faction.equals("nightsister")
-                ? new String[]{"dark_push", "dark_dash", "dark_choke"}
-                : new String[]{"", "", ""};
+        var abilities = CoreContentBindings.forceSlots(forcePath(faction));
         int[] cooldowns = new int[3];
-        for (int index = 0; index < abilities.length; index++) {
+        for (int index = 0; index < Math.min(abilities.size(), cooldowns.length); index++) {
             cooldowns[index] = (int) Math.max(0L,
-                    Math.min(Integer.MAX_VALUE, state.cooldownEnds().getOrDefault(abilities[index], 0L) - gameTime));
+                    Math.min(Integer.MAX_VALUE,
+                            state.cooldownEnds().getOrDefault(abilities.get(index), 0L) - gameTime));
         }
         GalacticNetwork.CHANNEL.sendToPlayer(() -> player,
                 new ForceHudPayload(state.energy(), cooldowns[0], cooldowns[1], cooldowns[2]));
@@ -157,13 +213,12 @@ public final class ForceWorldEffectService {
     }
 
     private static String abilityFor(String faction, int slot) {
-        if (faction.equals("republic")) {
-            return new String[]{"light_push", "light_pull", "light_leap"}[slot];
-        }
-        if (faction.equals("nightsister")) {
-            return new String[]{"dark_push", "dark_dash", "dark_choke"}[slot];
-        }
-        return "";
+        var abilities = CoreContentBindings.forceSlots(forcePath(faction));
+        return slot >= 0 && slot < abilities.size() ? abilities.get(slot) : "";
+    }
+
+    private static String forcePath(String faction) {
+        return faction.equals("republic") ? "light" : faction.equals("nightsister") ? "dark" : "";
     }
 
     private static String path(String id) {

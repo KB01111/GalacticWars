@@ -76,7 +76,13 @@ public final class GameplayDataRoadmapTest {
     private static void reloadIsAtomicAndLegacyMandalorianIdIsAliased() throws Exception {
         String manager = Files.readString(Path.of(
                 "src/main/java/galacticwars/clonewars/data/GameplayDataManager.java"));
-        assertContains(manager, "snapshot = result.snapshot().orElseThrow()", "atomic snapshot swap");
+        String runtime = Files.readString(Path.of(
+                "src/main/kotlin/galacticwars/clonewars/data/LaunchContentRuntime.kt"));
+        assertContains(manager, "LaunchContentRuntime.installAccepted(",
+                "reload delegates to the shared atomic content publication");
+        assertContains(runtime, "@Volatile", "runtime publication is visible across threads");
+        assertContains(runtime, "Publishes every production view of an accepted datapack reload",
+                "full runtime snapshot is swapped atomically");
         assertContains(manager, "retaining the previous valid snapshot", "last-good reload fallback logging");
         assertContains(manager, "mandalorian_rider", "legacy Mandalorian alias");
         assertContains(manager, "mandalorian_warrior", "Mandalorian alias target");

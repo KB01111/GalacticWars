@@ -259,21 +259,6 @@ public record SettlementRecord(
         return this;
     }
 
-    /**
-     * Compatibility entry point for older callers. Reward arguments are ignored so callers cannot mint
-     * authoritative rewards; completion still requires a stored, fully progressed built-in project.
-     */
-    @Deprecated
-    public SettlementRecord withCompletedProject(
-            BuildProject project,
-            int housingReward,
-            String worksiteType,
-            int worksiteCapacity
-    ) {
-        KingdomBaseBlueprint definition = KingdomBaseBlueprint.byId(project.blueprintId()).orElse(null);
-        return definition == null ? this : withCompletedProject(project, definition);
-    }
-
     public Optional<WorksiteRecord> assignedWorksite(UUID recruitId) {
         return worksites.stream().filter(worksite -> worksite.assignmentIds().contains(recruitId)).findFirst();
     }

@@ -1,10 +1,12 @@
 package galacticwars.clonewars.conquest;
 
+import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.data.LaunchContentDefinitions;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.faction.FactionRelation;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.progression.GalacticSystemsService;
+import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
@@ -93,21 +95,53 @@ public final class ConquestCaptureService {
         UUID eventId = UUID.nameUUIDFromBytes(("conquest:" + region.id() + ":"
                 + player.getUUID() + ":" + captured.revision()).getBytes(StandardCharsets.UTF_8));
         ProgressionSavedData progression = ProgressionSavedData.get(level);
+        var progressionBefore = progression.state(player.getUUID());
+        boolean progressionWasStored = progression.hasStoredState(player.getUUID());
         GalacticSystemsService.SystemDecision gate = GalacticSystemsService.captureRegion(
-                progression.state(player.getUUID()), eventId, region.id());
+                progressionBefore, eventId, region.id());
         if (!gate.accepted()) {
             ConquestControlState held = progressed.withProgress(
                     captureAuthority, Math.max(0, region.captureTicks() - 20));
             data.put(held);
             return CaptureResult.rejected(gate.reason(), held.progress(), held.controllingFaction());
         }
-        var committed = progression.apply(new ProgressionEvent(
-                eventId, player.getUUID(), ProgressionEventType.REGION_CAPTURED, region.id(), 1));
-        if (!committed.accepted()) {
-            return CaptureResult.rejected(
-                    committed.reason(), progressed.progress(), progressed.controllingFaction());
+        if (!gate.changed()) {
+            data.put(captured);
+            return CaptureResult.accepted(true, "captured", captured);
         }
-        data.put(captured);
+        ProgressionEvent event = new ProgressionEvent(
+                eventId, player.getUUID(), ProgressionEventType.REGION_CAPTURED, region.id(), 1);
+        ProgressionDecision committed;
+        try {
+            committed = progression.commitEvaluated(event, progressionBefore,
+                    new ProgressionDecision(true, true, gate.reason(), gate.state()));
+        } catch (RuntimeException failure) {
+            ConquestControlState held = progressed.withProgress(
+                    captureAuthority, Math.max(0, region.captureTicks() - 20));
+            data.put(held);
+            return CaptureResult.rejected("transaction_failed", held.progress(), held.controllingFaction());
+        }
+        if (!committed.accepted()) {
+            ConquestControlState held = progressed.withProgress(
+                    captureAuthority, Math.max(0, region.captureTicks() - 20));
+            data.put(held);
+            return CaptureResult.rejected(
+                    committed.reason(), held.progress(), held.controllingFaction());
+        }
+        try {
+            data.put(captured);
+        } catch (RuntimeException failure) {
+            boolean restored = !committed.changed()
+                    || progression.restoreAfterFailedTransaction(
+                            player.getUUID(), committed.state(), progressionBefore,
+                            progressionWasStored);
+            GalacticWars.LOGGER.error(
+                    "Conquest capture transaction failed for player {} in region {}",
+                    player.getUUID(), region.id(), failure);
+            return CaptureResult.rejected(
+                    restored ? "transaction_failed" : "reconciliation_required",
+                    progressed.progress(), progressed.controllingFaction());
+        }
         return CaptureResult.accepted(true, "captured", captured);
     }
 

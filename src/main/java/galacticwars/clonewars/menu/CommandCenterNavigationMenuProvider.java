@@ -42,6 +42,8 @@ public final class CommandCenterNavigationMenuProvider implements ExtendedMenuPr
                     LaunchContentDefinitions.MAX_SERIALIZED_PLANET_ID_BYTES);
             buffer.writeBoolean(destination.available());
             buffer.writeUtf(destination.reason(), CommandCenterNavigationMenu.MAX_REASON_BYTES);
+            buffer.writeUtf(destination.theme(), CommandCenterNavigationMenu.MAX_METADATA_BYTES);
+            buffer.writeUtf(destination.arrivalProfile(), CommandCenterNavigationMenu.MAX_METADATA_BYTES);
         });
     }
 }

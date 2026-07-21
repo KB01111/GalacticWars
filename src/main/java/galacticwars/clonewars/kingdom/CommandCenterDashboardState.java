@@ -1,6 +1,7 @@
 package galacticwars.clonewars.kingdom;
 
 import galacticwars.clonewars.army.ArmyGroupRecord;
+import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.progression.GalacticProgressionCoordinator;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.progression.ProgressionEventType;
@@ -24,6 +25,8 @@ import java.util.UUID;
  */
 public record CommandCenterDashboardState(
         long generatedGameTime,
+        long contentGeneration,
+        int settlementRevision,
         boolean kingdomAvailable,
         UUID actorId,
         UUID kingdomId,
@@ -63,8 +66,8 @@ public record CommandCenterDashboardState(
     private static final UUID NO_KINGDOM = new UUID(0L, 0L);
 
     public CommandCenterDashboardState {
-        if (generatedGameTime < 0L) {
-            throw new IllegalArgumentException("generatedGameTime cannot be negative");
+        if (generatedGameTime < 0L || contentGeneration < 0L || settlementRevision < 0) {
+            throw new IllegalArgumentException("dashboard revisions cannot be negative");
         }
         actorId = Objects.requireNonNull(actorId, "actorId");
         kingdomId = Objects.requireNonNullElse(kingdomId, NO_KINGDOM);
@@ -103,7 +106,8 @@ public record CommandCenterDashboardState(
     public static CommandCenterDashboardState empty(UUID actorId, long gameTime) {
         Objects.requireNonNull(actorId, "actorId");
         return new CommandCenterDashboardState(
-                Math.max(0L, gameTime), false, actorId, NO_KINGDOM, "", "visitor",
+                Math.max(0L, gameTime), GameplayDataManager.generation(), 0,
+                false, actorId, NO_KINGDOM, "", "visitor",
                 0, 0, true, ActionAvailability.rejected("kingdom_unavailable"), List.of(),
                 0, 0, 0, 0, false, false, 0, 0, 0,
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
@@ -237,7 +241,8 @@ public record CommandCenterDashboardState(
                 .toList();
 
         return new CommandCenterDashboardState(
-                gameTime, true, actorId, kingdom.id(), kingdom.factionId(), role,
+                gameTime, GameplayDataManager.generation(), settlement.revision(),
+                true, actorId, kingdom.id(), kingdom.factionId(), role,
                 Math.max(0, treasuryCredits), progression.pendingCreditRewards(), upkeepPaid,
                 navigationAvailability, vehicleFabrication,
                 settlement.recruitIds().size(), settlement.housingCapacity(), kingdom.settlements().size(),
@@ -273,9 +278,10 @@ public record CommandCenterDashboardState(
                         LaunchContentCatalog.questUnlocks(questId).stream().sorted().toList(),
                         LaunchContentCatalog.questObjectives(questId).stream()
                                 .map(objective -> new ObjectiveSummary(
-                                        objective,
-                                        GalacticProgressionCoordinator.objectiveComplete(
-                                                progression, objective)))
+                                        objective.id(),
+                                        GalacticProgressionCoordinator.objectiveProgress(
+                                                progression, objective),
+                                        objective.requiredCount()))
                                 .toList()))
                 .toList();
     }
@@ -527,7 +533,7 @@ public record CommandCenterDashboardState(
         }
 
         private static BuildSummary from(BuildProject project) {
-            int total = KingdomBaseBlueprint.byId(project.blueprintId())
+            int total = GameplayDataManager.snapshot().blueprint(project.blueprintId())
                     .map(blueprint -> blueprint.placements().size())
                     .orElse(project.completedPlacements().size());
             return new BuildSummary(
@@ -631,9 +637,16 @@ public record CommandCenterDashboardState(
         }
     }
 
-    public record ObjectiveSummary(String objectiveId, boolean complete) {
+    public record ObjectiveSummary(String objectiveId, int currentCount, int requiredCount) {
         public ObjectiveSummary {
             objectiveId = normalize(objectiveId);
+            if (currentCount < 0 || requiredCount < 1) {
+                throw new IllegalArgumentException("objective progress is outside the supported range");
+            }
+        }
+
+        public boolean complete() {
+            return currentCount >= requiredCount;
         }
     }
 

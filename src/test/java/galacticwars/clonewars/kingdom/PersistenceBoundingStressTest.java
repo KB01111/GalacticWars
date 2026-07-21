@@ -46,6 +46,13 @@ public final class PersistenceBoundingStressTest {
         require(pledge.accepted() && pledge.changed(), "faction pledge must initialize campaign state");
         require(savedData.pendingCreditRewards(playerId) == 40,
                 "eligible campaign quest must award exactly once before delivery churn");
+        for (int trade = 0; trade < 2; trade++) {
+            ProgressionDecision tradeDecision = savedData.apply(new ProgressionEvent(
+                    new UUID(1L, 10L + trade), playerId,
+                    ProgressionEventType.TRADE_COMPLETED, "republic_quartermaster", 1));
+            require(tradeDecision.accepted() && tradeDecision.changed(),
+                    "repeated authoritative subjects must retain occurrence counts");
+        }
 
         ProgressionEvent firstDelivery = null;
         ProgressionEvent lastDelivery = null;
@@ -91,6 +98,10 @@ public final class PersistenceBoundingStressTest {
                         && reloadedState.processedEventIds().size()
                                 == ProgressionState.MAX_PROCESSED_EVENT_IDS,
                 "bounded aggregate and replay history must survive codec round trip");
+        require(reloadedState.subjectTotal(
+                        ProgressionEventType.TRADE_COMPLETED,
+                        Set.of("republic_quartermaster")) == 2,
+                "per-subject objective counts must survive codec round trip");
 
         ProgressionDecision duplicate = reloaded.apply(lastDelivery);
         require(duplicate.accepted() && !duplicate.changed()
@@ -285,9 +296,16 @@ public final class PersistenceBoundingStressTest {
                 new LaunchContentDefinitions(
                         Map.of(), Map.of(), Map.of(),
                         Map.of("republic_chapter_1", new LaunchContentDefinitions.QuestDefinition(
-                                "republic_chapter_1", List.of("faction_pledged"), 40,
+                                "republic_chapter_1", List.of(
+                                        new LaunchContentDefinitions.QuestObjectiveDefinition(
+                                                "faction_pledged", "faction_pledged",
+                                                Set.of("galacticwars:republic"), 1)), 40,
                                 Set.of("workforce"))),
-                        Map.of(), Map.of()),
+                        Map.of("republic_quartermaster",
+                                new LaunchContentDefinitions.TradeDefinition(
+                                        "republic_quartermaster", "republic", 12,
+                                        "galacticwars:energy_cell", 8, "faction_intro")),
+                        Map.of()),
                 List.of("galacticwars:republic"), Map.of());
     }
 

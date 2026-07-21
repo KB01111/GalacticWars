@@ -1,5 +1,8 @@
 package galacticwars.clonewars.vehicle;
 
+import galacticwars.clonewars.GalacticWars;
+import galacticwars.clonewars.progression.GalacticProgressionCoordinator;
+import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
@@ -11,6 +14,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.phys.Vec3;
 
@@ -34,6 +38,10 @@ public final class VehicleDeploymentKitItem extends Item {
             return context.getLevel().isClientSide() ? InteractionResult.SUCCESS : InteractionResult.FAIL;
         }
         var player = context.getPlayer();
+        ItemStack deploymentKit = context.getItemInHand();
+        if (!player.hasInfiniteMaterials() && (deploymentKit.isEmpty() || !deploymentKit.is(this))) {
+            return InteractionResult.FAIL;
+        }
         ProgressionSavedData progression = ProgressionSavedData.get(level);
         var state = progression.state(player.getUUID());
         var definition = galacticwars.clonewars.progression.LaunchContentCatalog.data().vehicles().get(vehicleId);
@@ -48,12 +56,28 @@ public final class VehicleDeploymentKitItem extends Item {
         vehicle.setPos(Vec3.atCenterOf(context.getClickedPos().relative(context.getClickedFace())));
         vehicle.setYRot(player.getYRot());
         vehicle.deploy(player.getUUID(), state.factionId());
-        if (!level.addFreshEntity(vehicle)) return InteractionResult.FAIL;
         UUID eventId = UUID.nameUUIDFromBytes(("vehicle:deployed:" + vehicle.getUUID())
                 .getBytes(StandardCharsets.UTF_8));
-        progression.apply(new ProgressionEvent(eventId, player.getUUID(),
-                ProgressionEventType.VEHICLE_ACQUIRED, vehicleId, 1));
-        if (!player.hasInfiniteMaterials()) context.getItemInHand().shrink(1);
+        ProgressionEvent event = new ProgressionEvent(
+                eventId, player.getUUID(), ProgressionEventType.VEHICLE_ACQUIRED, vehicleId, 1);
+        ProgressionDecision evaluated = GalacticProgressionCoordinator.apply(state, event);
+        if (!evaluated.accepted() || !evaluated.changed()) {
+            return InteractionResult.FAIL;
+        }
+        if (!level.addFreshEntity(vehicle)) return InteractionResult.FAIL;
+        try {
+            ProgressionDecision committed = progression.commitEvaluated(event, state, evaluated);
+            if (!committed.accepted() || !committed.changed()) {
+                vehicle.discard();
+                return InteractionResult.FAIL;
+            }
+        } catch (RuntimeException failure) {
+            vehicle.discard();
+            GalacticWars.LOGGER.error("Vehicle deployment transaction failed for {}",
+                    player.getGameProfile().name(), failure);
+            return InteractionResult.FAIL;
+        }
+        if (!player.hasInfiniteMaterials()) deploymentKit.shrink(1);
         return InteractionResult.SUCCESS;
     }
 

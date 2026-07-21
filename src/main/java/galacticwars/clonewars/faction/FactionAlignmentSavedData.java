@@ -64,6 +64,29 @@ public final class FactionAlignmentSavedData extends SavedData {
         return alignments.getOrDefault(playerId, FactionAlignment.empty(playerId));
     }
 
+    public boolean hasStoredAlignment(UUID playerId) {
+        return alignments.containsKey(playerId);
+    }
+
+    /** Compare-and-restore compensation for a failed server-tick gameplay transaction. */
+    public boolean restoreAfterFailedTransaction(
+            UUID playerId,
+            FactionAlignment expectedCurrent,
+            FactionAlignment previous,
+            boolean previousWasStored
+    ) {
+        if (!alignment(playerId).equals(expectedCurrent) || !previous.playerId().equals(playerId)) {
+            return false;
+        }
+        if (previousWasStored) {
+            alignments.put(playerId, previous);
+        } else {
+            alignments.remove(playerId);
+        }
+        this.setDirty();
+        return true;
+    }
+
     public FactionAlignmentUpdateResult applyPledge(
             UUID playerId,
             FactionDefinition faction,
@@ -81,8 +104,6 @@ public final class FactionAlignmentSavedData extends SavedData {
         LinkedHashMap<FactionId, Integer> clampedScores = new LinkedHashMap<>();
         raw.alignment().scores().forEach((id, score) -> clampedScores.put(id, clamp(score)));
         FactionAlignment updated = new FactionAlignment(playerId, clampedScores);
-        alignments.put(playerId, updated);
-        this.setDirty();
 
         ArrayList<FactionAlignmentChange> changes = new ArrayList<>();
         for (FactionAlignmentChange change : raw.changes()) {
@@ -93,6 +114,8 @@ public final class FactionAlignmentSavedData extends SavedData {
                         change.factionId(), before, after - before, after, change.reasonCode()));
             }
         }
+        alignments.put(playerId, updated);
+        this.setDirty();
         return new FactionAlignmentUpdateResult(updated, List.copyOf(changes));
     }
 

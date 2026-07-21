@@ -41,6 +41,8 @@ public final class CommandCenterDashboardCodec {
 
     public static void write(FriendlyByteBuf buffer, CommandCenterDashboardState state) {
         buffer.writeVarLong(state.generatedGameTime());
+        buffer.writeVarLong(state.contentGeneration());
+        buffer.writeVarInt(state.settlementRevision());
         buffer.writeBoolean(state.kingdomAvailable());
         buffer.writeUUID(state.actorId());
         buffer.writeUUID(state.kingdomId());
@@ -87,6 +89,8 @@ public final class CommandCenterDashboardCodec {
     public static CommandCenterDashboardState read(FriendlyByteBuf buffer) {
         return new CommandCenterDashboardState(
                 buffer.readVarLong(),
+                nonNegative(buffer.readVarLong(), "contentGeneration"),
+                nonNegative(buffer.readVarInt(), "settlementRevision"),
                 buffer.readBoolean(),
                 buffer.readUUID(),
                 buffer.readUUID(),
@@ -355,11 +359,12 @@ public final class CommandCenterDashboardCodec {
 
     private static void writeObjective(FriendlyByteBuf buffer, ObjectiveSummary value) {
         writeString(buffer, value.objectiveId());
-        buffer.writeBoolean(value.complete());
+        buffer.writeVarInt(value.currentCount());
+        buffer.writeVarInt(value.requiredCount());
     }
 
     private static ObjectiveSummary readObjective(FriendlyByteBuf buffer) {
-        return new ObjectiveSummary(readString(buffer), buffer.readBoolean());
+        return new ObjectiveSummary(readString(buffer), buffer.readVarInt(), buffer.readVarInt());
     }
 
     private static void writeMember(FriendlyByteBuf buffer, MemberSummary value) {

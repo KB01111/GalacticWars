@@ -34,15 +34,15 @@ public final class GalacticSystemsService {
                 ProgressionEventType.VEHICLE_ACQUIRED, vehicleId, 1));
     }
 
-    public static SystemDecision unlockForceAbility(
+    public static SystemDecision useForceAbility(
             ProgressionState state,
             UUID eventId,
             String abilityId
     ) {
-        return unlockForceAbility(state, eventId, abilityId, LaunchContentCatalog.data());
+        return useForceAbility(state, eventId, abilityId, LaunchContentCatalog.data());
     }
 
-    static SystemDecision unlockForceAbility(
+    public static SystemDecision useForceAbility(
             ProgressionState state,
             UUID eventId,
             String abilityId,
@@ -70,7 +70,7 @@ public final class GalacticSystemsService {
             return SystemDecision.rejected("force_path_unavailable", state);
         }
         return apply(state, new ProgressionEvent(eventId, state.playerId(),
-                ProgressionEventType.FORCE_ABILITY_UNLOCKED, abilityId, 1));
+                ProgressionEventType.FORCE_ABILITY_USED, abilityId, 1));
     }
 
     public static SystemDecision captureRegion(

@@ -41,11 +41,11 @@ public final class GalacticSystemsIntegrationTest {
         assertTrue(state.unlocks().contains("vehicle_control"), "vehicle acquisition connects to controls");
 
         state = event(state, ProgressionEventType.TRADE_COMPLETED, "republic_quartermaster", 1);
-        GalacticSystemsService.SystemDecision force = GalacticSystemsService.unlockForceAbility(
+        GalacticSystemsService.SystemDecision force = GalacticSystemsService.useForceAbility(
                 state, UUID.randomUUID(), "light_push", CONTENT);
         assertTrue(force.accepted() && force.changed()
-                        && force.state().hasSubject(ProgressionEventType.FORCE_ABILITY_UNLOCKED, "light_push"),
-                "chapter-unlocked Force ability is connected to progression");
+                        && force.state().hasSubject(ProgressionEventType.FORCE_ABILITY_USED, "light_push"),
+                "using a chapter-unlocked Force ability is connected to progression");
         state = force.state();
 
         GalacticSystemsService.SystemDecision conquest = GalacticSystemsService.captureRegion(
@@ -96,17 +96,37 @@ public final class GalacticSystemsIntegrationTest {
         Map<String, LaunchContentDefinitions.QuestDefinition> quests = Map.of(
                 "republic_chapter_1", new LaunchContentDefinitions.QuestDefinition(
                         "republic_chapter_1",
-                        List.of("faction_pledged", "command_center", "clone_trooper"),
+                        List.of(
+                                objective("faction_pledged", ProgressionEventType.FACTION_PLEDGED,
+                                        "galacticwars:republic"),
+                                objective("command_center", ProgressionEventType.BUILDING_COMPLETED,
+                                        "command_center"),
+                                objective("clone_trooper", ProgressionEventType.RECRUIT_HIRED,
+                                        "clone_trooper")),
                         40, Set.of("workforce")),
                 "republic_chapter_2", new LaunchContentDefinitions.QuestDefinition(
                         "republic_chapter_2",
-                        List.of("delivery_completed", "forward_base", "kamino"),
+                        List.of(
+                                objective("delivery_completed", ProgressionEventType.DELIVERY_COMPLETED),
+                                objective("forward_base", ProgressionEventType.BUILDING_COMPLETED,
+                                        "forward_base"),
+                                objective("kamino", ProgressionEventType.PLANET_VISITED, "kamino")),
                         70, Set.of("barc_speeder", "force_path")),
                 "republic_chapter_3", new LaunchContentDefinitions.QuestDefinition(
                         "republic_chapter_3",
-                        List.of("vehicle_acquired", "trade_completed", "region_captured"),
+                        List.of(
+                                objective("vehicle_acquired", ProgressionEventType.VEHICLE_ACQUIRED),
+                                objective("trade_completed", ProgressionEventType.TRADE_COMPLETED),
+                                objective("region_captured", ProgressionEventType.REGION_CAPTURED)),
                         120, Set.of("conquest", "vehicle_mastery")));
         return new LaunchContentDefinitions(planets, vehicles, force, quests, trades, regions);
+    }
+
+    private static LaunchContentDefinitions.QuestObjectiveDefinition objective(
+            String id, ProgressionEventType eventType, String... subjects
+    ) {
+        return new LaunchContentDefinitions.QuestObjectiveDefinition(
+                id, eventType.name().toLowerCase(java.util.Locale.ROOT), Set.of(subjects), 1);
     }
 
     private static void assertTrue(boolean value, String message) {

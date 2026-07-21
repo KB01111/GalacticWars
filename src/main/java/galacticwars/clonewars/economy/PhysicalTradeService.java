@@ -6,6 +6,7 @@ import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.faction.FactionRelation;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
+import galacticwars.clonewars.progression.GalacticProgressionCoordinator;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionEvent;
@@ -75,6 +76,9 @@ public final class PhysicalTradeService {
                 && kingdoms.relation(playerKingdom.id(), merchantKingdom.id()).embargo()) {
             return TradePreview.rejected(trade, "trade_embargoed");
         }
+        if (trade.stockTier() > 1 && !state.unlocks().contains("veteran_trades")) {
+            return TradePreview.rejected(trade, "veteran_trade_locked");
+        }
         if (!state.unlocks().contains(trade.requiredUnlock())) {
             return TradePreview.rejected(trade, "trade_locked");
         }
@@ -122,7 +126,8 @@ public final class PhysicalTradeService {
             return TradeResult.rejected("server_only");
         }
         ProgressionSavedData progression = ProgressionSavedData.get(level);
-        if (progression.state(player.getUUID()).processed(eventId)) {
+        ProgressionState before = progression.state(player.getUUID());
+        if (before.processed(eventId)) {
             return TradeResult.duplicate();
         }
 
@@ -137,12 +142,27 @@ public final class PhysicalTradeService {
         if (resultItem == null) {
             return TradeResult.rejected("unknown_trade_item");
         }
+        ProgressionEvent event = new ProgressionEvent(
+                eventId, player.getUUID(), ProgressionEventType.TRADE_COMPLETED,
+                preview.tradeId(), 1);
+        ProgressionDecision evaluated = GalacticProgressionCoordinator.apply(before, event);
+        if (!evaluated.accepted()) {
+            return TradeResult.rejected(evaluated.reason());
+        }
+        if (!evaluated.changed()) {
+            return TradeResult.duplicate();
+        }
         if (!CreditTransactionService.withdrawPlayer(player, preview.creditPrice())) {
             return TradeResult.rejected("insufficient_credits");
         }
 
-        ProgressionDecision completion = progression.apply(new ProgressionEvent(
-                eventId, player.getUUID(), ProgressionEventType.TRADE_COMPLETED, preview.tradeId(), 1));
+        ProgressionDecision completion;
+        try {
+            completion = progression.commitEvaluated(event, before, evaluated);
+        } catch (RuntimeException failure) {
+            CreditTransactionService.refundPlayer(player, preview.creditPrice());
+            return TradeResult.rejected("transaction_failed");
+        }
         if (!completion.accepted() || !completion.changed()) {
             CreditTransactionService.refundPlayer(player, preview.creditPrice());
             return completion.accepted()
@@ -163,8 +183,10 @@ public final class PhysicalTradeService {
         return switch (reason == null ? "" : reason) {
             case "available", "accepted", "unknown_trade", "server_only", "merchant_unavailable",
                     "hostile_merchant", "trade_embargoed", "trade_locked",
-                    "regional_control_required", "unknown_trade_item", "insufficient_credits",
-                    "offer_changed", "duplicate_event" -> "reason.galacticwars.trade." + reason;
+                    "veteran_trade_locked", "regional_control_required",
+                    "unknown_trade_item", "insufficient_credits",
+                    "offer_changed", "duplicate_event", "transaction_failed" ->
+                    "reason.galacticwars.trade." + reason;
             default -> "reason.galacticwars.trade.unavailable";
         };
     }

@@ -542,6 +542,46 @@ public final class KingdomSavedData extends SavedData {
         return Optional.of(relocated);
     }
 
+    /**
+     * Removes only a just-created, otherwise untouched kingdom while compensating a failed
+     * faction-pledge transaction. Established kingdoms can never be removed through this path.
+     */
+    public boolean rollbackFreshKingdom(UUID ownerId, UUID expectedKingdomId) {
+        KingdomRecord kingdom = kingdomsByOwner.get(ownerId);
+        if (kingdom == null || !kingdom.id().equals(expectedKingdomId)
+                || kingdom.members().size() != 1
+                || !kingdom.members().getFirst().playerId().equals(ownerId)
+                || kingdom.settlements().size() != 1
+                || !kingdom.settlement().recruitIds().isEmpty()
+                || armyGroupsById.values().stream().anyMatch(group -> group.kingdomId().equals(kingdom.id()))
+                || diplomacyByPair.values().stream().anyMatch(relation ->
+                        relation.firstKingdomId().equals(kingdom.id())
+                                || relation.secondKingdomId().equals(kingdom.id()))
+                || siegesById.values().stream().anyMatch(siege ->
+                        siege.attackerKingdomId().equals(kingdom.id())
+                                || siege.defenderKingdomId().equals(kingdom.id()))) {
+            return false;
+        }
+        kingdomsByOwner.remove(ownerId, kingdom);
+        kingdomsById.remove(kingdom.id(), kingdom);
+        inactiveHallOwners.remove(ownerId);
+        kingdom.members().forEach(member -> kingdomIdsByMember.remove(member.playerId(), kingdom.id()));
+        kingdom.settlements().forEach(settlement -> {
+            kingdomIdsBySettlement.remove(settlement.id(), kingdom.id());
+            supplyLedgersBySettlement.remove(settlement.id());
+            settlement.recruitIds().forEach(recruitId ->
+                    kingdomIdsByRecruit.remove(recruitId, kingdom.id()));
+        });
+        kingdom.claims().forEach(claim -> claim.chunks().forEach(chunk ->
+                claimsByChunk.remove(new ClaimKey(claim.dimensionId(), chunk.x(), chunk.z()), claim)));
+        invitesById.values().removeIf(invite -> invite.kingdomId().equals(kingdom.id()));
+        proposalsById.values().removeIf(proposal ->
+                proposal.proposerKingdomId().equals(kingdom.id())
+                        || proposal.targetKingdomId().equals(kingdom.id()));
+        this.setDirty();
+        return true;
+    }
+
     public boolean deactivateHall(UUID ownerId, String dimensionId, BlockPos hallPos) {
         KingdomRecord kingdom = kingdomsByOwner.get(ownerId);
         if (kingdom == null || inactiveHallOwners.contains(ownerId)) {

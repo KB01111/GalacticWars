@@ -114,6 +114,9 @@ public final class CommandCenterDashboardStateTest {
                         + " from " + galacticwars.clonewars.progression.LaunchContentCatalog.quests());
         require(dashboard.activeQuest().isPresent(), "campaign should expose the active chapter");
         require(dashboard.nextObjective().isPresent(), "campaign should expose the next objective");
+        require(dashboard.nextObjective().orElseThrow().currentCount() == 0
+                        && dashboard.nextObjective().orElseThrow().requiredCount() == 2,
+                "campaign should expose authoritative counted objective progress");
 
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         try {
@@ -138,17 +141,32 @@ public final class CommandCenterDashboardStateTest {
     private static void installCampaign() {
         Map<String, LaunchContentDefinitions.QuestDefinition> quests = Map.of(
                 "republic_chapter_1", new LaunchContentDefinitions.QuestDefinition(
-                        "republic_chapter_1", List.of("faction_pledged", "command_center"),
+                        "republic_chapter_1", List.of(
+                                objective("faction_pledged", "faction_pledged", "galacticwars:republic"),
+                                new LaunchContentDefinitions.QuestObjectiveDefinition(
+                                        "command_center", "building_completed",
+                                        Set.of("command_center"), 2)),
                         40, Set.of("workforce")),
                 "republic_chapter_2", new LaunchContentDefinitions.QuestDefinition(
-                        "republic_chapter_2", List.of("delivery_completed", "forward_base"),
+                        "republic_chapter_2", List.of(
+                                objective("delivery_completed", "delivery_completed"),
+                                objective("forward_base", "building_completed", "forward_base")),
                         70, Set.of("planet_travel")),
                 "republic_chapter_3", new LaunchContentDefinitions.QuestDefinition(
-                        "republic_chapter_3", List.of("vehicle_acquired", "region_captured"),
+                        "republic_chapter_3", List.of(
+                                objective("vehicle_acquired", "vehicle_acquired"),
+                                objective("region_captured", "region_captured")),
                         120, Set.of("conquest")));
         LaunchContentRuntime.install(
                 new LaunchContentDefinitions(Map.of(), Map.of(), Map.of(), quests, Map.of(), Map.of()),
                 List.of("galacticwars:republic"), Map.of());
+    }
+
+    private static LaunchContentDefinitions.QuestObjectiveDefinition objective(
+            String id, String event, String... subjects
+    ) {
+        return new LaunchContentDefinitions.QuestObjectiveDefinition(
+                id, event, Set.of(subjects), 1);
     }
 
     private static void require(boolean condition, String message) {

@@ -14,7 +14,9 @@ public record MenuActionPayload(
         int containerId,
         int actionId,
         Optional<UUID> primaryTargetId,
-        Optional<UUID> secondaryTargetId
+        Optional<UUID> secondaryTargetId,
+        long expectedContentGeneration,
+        int expectedSettlementRevision
 ) implements CustomPacketPayload {
     public static final Type<MenuActionPayload> TYPE = new Type<>(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "menu_action"));
@@ -25,16 +27,30 @@ public record MenuActionPayload(
                 buffer.writeVarInt(payload.actionId());
                 writeOptionalUuid(buffer, payload.primaryTargetId());
                 writeOptionalUuid(buffer, payload.secondaryTargetId());
+                buffer.writeVarLong(payload.expectedContentGeneration());
+                buffer.writeVarInt(payload.expectedSettlementRevision());
             }, buffer -> new MenuActionPayload(
                     buffer.readUUID(), buffer.readVarInt(), buffer.readVarInt(),
-                    readOptionalUuid(buffer), readOptionalUuid(buffer)));
+                    readOptionalUuid(buffer), readOptionalUuid(buffer),
+                    buffer.readVarLong(), buffer.readVarInt()));
 
     public MenuActionPayload(UUID replayId, int containerId, int actionId) {
-        this(replayId, containerId, actionId, Optional.empty(), Optional.empty());
+        this(replayId, containerId, actionId, Optional.empty(), Optional.empty(), -1L, -1);
+    }
+
+    public MenuActionPayload(
+            UUID replayId,
+            int containerId,
+            int actionId,
+            Optional<UUID> primaryTargetId,
+            Optional<UUID> secondaryTargetId
+    ) {
+        this(replayId, containerId, actionId, primaryTargetId, secondaryTargetId, -1L, -1);
     }
 
     public MenuActionPayload {
-        if (replayId == null || containerId < 0 || actionId < 0 || actionId > 255) {
+        if (replayId == null || containerId < 0 || actionId < 0 || actionId > 255
+                || expectedContentGeneration < -1L || expectedSettlementRevision < -1) {
             throw new IllegalArgumentException("invalid menu action payload");
         }
         primaryTargetId = primaryTargetId == null ? Optional.empty() : primaryTargetId;

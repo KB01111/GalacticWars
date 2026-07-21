@@ -52,10 +52,11 @@ public final class GameplayCatalogSync {
     }
 
     private static synchronized GameplayCatalogPayload currentPayload() {
-        long generation = GameplayDataManager.generation();
+        GameplayDataManager.CurrentContent content = GameplayDataManager.currentContent();
+        long generation = content.state().generation();
         if (cachedPayload == null || cachedGeneration != generation) {
             cachedPayload = GameplayCatalogPayload.fromSnapshot(
-                    GameplayDataManager.snapshot(), generation);
+                    content.snapshot(), generation, content.state().contentHash());
             cachedGeneration = generation;
         }
         return cachedPayload;

@@ -43,10 +43,18 @@ public final class RecruitLoadoutScreen extends AbstractContainerScreen<RecruitL
                 this.topPos + this.imageHeight,
                 PANEL_COLOR);
         this.drawBorder(graphics);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        graphics.fill(0, 0, this.width, this.height, SCREEN_SHADE);
+        graphics.fill(
+                this.leftPos,
+                this.topPos,
+                this.leftPos + this.imageWidth,
+                this.topPos + this.imageHeight,
+                PANEL_COLOR);
+        this.drawBorder(graphics);
         for (Slot slot : this.menu.slots) {
             this.drawSlotFrame(graphics, slot);
         }
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override

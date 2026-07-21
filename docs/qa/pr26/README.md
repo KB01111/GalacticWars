@@ -1,7 +1,7 @@
 # PR #26 client visual QA
 
-Date: 2026-07-21  
-Client: Minecraft NeoForge 26.2, singleplayer creative test world  
+Date: 2026-07-21
+Client: Minecraft NeoForge 26.2, singleplayer creative test world
 Branch: `codex/curated-npc-droid-assets`
 
 The QA scenes were created with runtime-only functions under generated `build/`

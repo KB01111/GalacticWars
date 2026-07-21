@@ -26,7 +26,9 @@ import galacticwars.clonewars.classes.ClassAbilityEffectRegistry;
 import galacticwars.clonewars.classes.ClassProgressCodecs;
 import galacticwars.clonewars.classes.ClassProgressState;
 import galacticwars.clonewars.classes.UnitClassDefinition;
+import galacticwars.clonewars.client.ClientGameplayCatalog;
 import galacticwars.clonewars.data.GameplayDataManager;
+import galacticwars.clonewars.data.GameplayDataSnapshot;
 import galacticwars.clonewars.entity.ai.RecruitBrain;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
 import galacticwars.clonewars.faction.FactionAlignment;
@@ -40,7 +42,9 @@ import galacticwars.clonewars.kingdom.KingdomRecord;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.kingdom.KingdomActionId;
 import galacticwars.clonewars.kingdom.KingdomGameplayAction;
+import galacticwars.clonewars.kingdom.KingdomGameplayResult;
 import galacticwars.clonewars.kingdom.KingdomGameplayRuntimeService;
+import galacticwars.clonewars.kingdom.KingdomGameplayTransactionService;
 import galacticwars.clonewars.kingdom.BuildProject;
 import galacticwars.clonewars.kingdom.CommanderPolicy;
 import galacticwars.clonewars.kingdom.RecruitmentCampaign;
@@ -229,7 +233,7 @@ public class GalacticRecruitEntity extends TamableAnimal
     private int starterBaseCompletedBlocks;
     private int buildRotationSteps;
     private @Nullable UUID activeBuildProjectId;
-    private String selectedBlueprintId = KingdomBaseBlueprint.starterKeep().id();
+    private String selectedBlueprintId = KingdomBaseBlueprint.STARTER_KEEP_ID;
     private int workRadius = DEFAULT_WORK_RADIUS;
     private @Nullable UUID kingdomId;
     private @Nullable UUID settlementId;
@@ -312,7 +316,7 @@ public class GalacticRecruitEntity extends TamableAnimal
         entityData.define(DATA_WORKER_PHASE, WorkerPhase.ACQUIRE_ORDER.id());
         entityData.define(DATA_WORKER_REASON, "ready");
         entityData.define(DATA_ACTIVE_WORK_TARGET, Optional.empty());
-        entityData.define(DATA_SELECTED_BLUEPRINT, KingdomBaseBlueprint.starterKeep().id());
+        entityData.define(DATA_SELECTED_BLUEPRINT, KingdomBaseBlueprint.STARTER_KEEP_ID);
     }
 
     @Override
@@ -431,11 +435,11 @@ public class GalacticRecruitEntity extends TamableAnimal
         this.starterBaseCompletedBlocks = dataVersion >= 2
                 ? Math.max(0, input.getIntOr("StarterBaseCompletedBlocks", 0))
                 : 0;
-        this.selectedBlueprintId = KingdomBaseBlueprint.byId(input.getStringOr(
-                        "SelectedBlueprint",
-                        KingdomBaseBlueprint.starterKeep().id()))
-                .orElseGet(KingdomBaseBlueprint::starterKeep)
-                .id();
+        String savedBlueprintId = GameplayDataSnapshot.normalizeBlueprintId(input.getStringOr(
+                "SelectedBlueprint", KingdomBaseBlueprint.STARTER_KEEP_ID));
+        this.selectedBlueprintId = savedBlueprintId.isBlank()
+                ? KingdomBaseBlueprint.STARTER_KEEP_ID
+                : savedBlueprintId;
         this.entityData.set(DATA_SELECTED_BLUEPRINT, this.selectedBlueprintId);
         this.kingdomId = input.read("KingdomId", UUIDUtil.CODEC).orElse(null);
         this.settlementId = input.read("SettlementId", UUIDUtil.CODEC).orElse(null);
@@ -1274,20 +1278,22 @@ public class GalacticRecruitEntity extends TamableAnimal
                 displayedStorageCount));
         lines.add(Component.translatable(
                 "screen.galacticwars.recruit.status.blueprint",
-                Component.literal(this.selectedBlueprint().displayName())));
+                Component.literal(this.selectedBlueprintDisplayName())));
         if (displayedBaseTarget != null) {
             lines.add(Component.translatable(
                     "screen.galacticwars.recruit.status.base_progress",
                     displayedBaseProgress,
-                    this.selectedBlueprint().placements().size()));
-            this.planKingdomWorkOrder().ifPresent(order -> lines.add(Component.translatable(
-                    "screen.galacticwars.recruit.status.kingdom_order",
-                    Component.translatable("screen.galacticwars.recruit.kingdom_order."
-                            + order.type().name().toLowerCase()),
-                    order.profession() == null
-                            ? Component.translatable("screen.galacticwars.recruit.status.none")
-                            : Component.translatable(order.profession().translationKey()),
-                    order.itemId().isBlank() ? Component.literal("-") : Component.literal(order.itemId()))));
+                    this.selectedBlueprintPlacementCount()));
+            if (!this.level().isClientSide()) {
+                this.planKingdomWorkOrder().ifPresent(order -> lines.add(Component.translatable(
+                        "screen.galacticwars.recruit.status.kingdom_order",
+                        Component.translatable("screen.galacticwars.recruit.kingdom_order."
+                                + order.type().name().toLowerCase()),
+                        order.profession() == null
+                                ? Component.translatable("screen.galacticwars.recruit.status.none")
+                                : Component.translatable(order.profession().translationKey()),
+                        order.itemId().isBlank() ? Component.literal("-") : Component.literal(order.itemId()))));
+            }
         }
         return List.copyOf(lines);
     }
@@ -2165,22 +2171,53 @@ public class GalacticRecruitEntity extends TamableAnimal
                 return false;
             }
         }
+        boolean courierCompletion = current.type() == WorkOrderType.COURIER
+                && (long) current.completedQuantity() + amount >= current.quantity();
+        ProgressionSavedData progression = null;
+        galacticwars.clonewars.progression.ProgressionState progressionBefore = null;
+        galacticwars.clonewars.progression.ProgressionState progressionAfter = null;
+        boolean progressionWasStored = false;
+        KingdomGameplayAction completionAction = null;
+        boolean progressionCommitted = false;
+        if (courierCompletion) {
+            completionAction = new KingdomGameplayAction(
+                    KingdomActionId.of("delivery_complete", current.id()),
+                    ownerId, ProgressionEventType.DELIVERY_COMPLETED,
+                    "courier/" + current.id(), 1);
+            progression = ProgressionSavedData.get(serverLevel);
+            progressionBefore = progression.state(ownerId);
+            progressionWasStored = progression.hasStoredState(ownerId);
+            KingdomGameplayResult evaluation = KingdomGameplayTransactionService.evaluate(
+                    progressionBefore, completionAction);
+            if (!evaluation.accepted()) {
+                return false;
+            }
+            if (evaluation.changed()) {
+                KingdomGameplayResult committed = KingdomGameplayRuntimeService.applyProgression(
+                        progression, completionAction);
+                if (!committed.accepted() || !committed.changed()) {
+                    return false;
+                }
+                progressionAfter = progression.state(ownerId);
+                progressionCommitted = true;
+            }
+        }
         WorkOrder progressed = data.progressWorkOrder(
                 ownerId, current.id(), current.revision(), amount).orElse(null);
         if (progressed == null) {
+            if (progressionCommitted) {
+                progression.restoreAfterFailedTransaction(
+                        ownerId, progressionAfter, progressionBefore, progressionWasStored);
+            }
             return false;
         }
         if (progressed.state() == WorkOrderState.COMPLETED) {
             this.grantClassExperience(10L);
-            if (progressed.type() == WorkOrderType.COURIER) {
-                KingdomGameplayRuntimeService.applyProgression(
-                        ProgressionSavedData.get(serverLevel),
-                        new KingdomGameplayAction(
-                                KingdomActionId.of("delivery_complete", progressed.id()),
-                                ownerId, ProgressionEventType.DELIVERY_COMPLETED,
-                                "courier/" + progressed.id(), 1));
-            }
             this.workOrderId = null;
+        } else if (progressionCommitted) {
+            progression.restoreAfterFailedTransaction(
+                    ownerId, progressionAfter, progressionBefore, progressionWasStored);
+            return false;
         }
         return true;
     }
@@ -2996,19 +3033,40 @@ public class GalacticRecruitEntity extends TamableAnimal
             this.blockWorker("work_order_persistence_failed");
             return;
         }
-        boolean success = KingdomSavedData.get(serverLevel).completeBuildProject(
-                this.getOwnerReference().getUUID(), project, blueprint);
-        if (!success) {
-            this.blockWorker("kingdom_link_missing");
+        UUID ownerId = this.getOwnerReference().getUUID();
+        KingdomGameplayAction completionAction = new KingdomGameplayAction(
+                KingdomActionId.of("build_project_complete", project.id()),
+                ownerId, ProgressionEventType.BUILDING_COMPLETED,
+                KingdomBaseBlueprint.path(blueprint.id()), 1);
+        ProgressionSavedData progression = ProgressionSavedData.get(serverLevel);
+        var progressionBefore = progression.state(ownerId);
+        boolean progressionWasStored = progression.hasStoredState(ownerId);
+        KingdomGameplayResult evaluation = KingdomGameplayTransactionService.evaluate(
+                progressionBefore, completionAction);
+        if (!evaluation.accepted()) {
+            this.blockWorker("progression_rejected");
             return;
         }
-        UUID ownerId = this.getOwnerReference().getUUID();
-        KingdomGameplayRuntimeService.applyProgression(
-                ProgressionSavedData.get(serverLevel),
-                new KingdomGameplayAction(
-                        KingdomActionId.of("build_project_complete", project.id()),
-                        ownerId, ProgressionEventType.BUILDING_COMPLETED,
-                        KingdomBaseBlueprint.path(blueprint.id()), 1));
+        var progressionAfter = progressionBefore;
+        if (evaluation.changed()) {
+            KingdomGameplayResult committed = KingdomGameplayRuntimeService.applyProgression(
+                    progression, completionAction);
+            if (!committed.accepted() || !committed.changed()) {
+                this.blockWorker("progression_commit_failed");
+                return;
+            }
+            progressionAfter = progression.state(ownerId);
+        }
+        boolean success = KingdomSavedData.get(serverLevel).completeBuildProject(
+                ownerId, project, blueprint);
+        if (!success) {
+            boolean progressionRestored = !evaluation.changed()
+                    || progression.restoreAfterFailedTransaction(
+                            ownerId, progressionAfter, progressionBefore, progressionWasStored);
+            this.blockWorker(progressionRestored
+                    ? "kingdom_link_missing" : "progression_reconciliation_required");
+            return;
+        }
         KingdomSavedData.get(serverLevel).reserveWorksite(
                 this.getOwnerReference().getUUID(), this.getUUID(), WorkerProfession.BUILDER);
         this.workerCooldownTicks = this.factionProductionCooldownTicks(100);
@@ -3685,6 +3743,17 @@ public class GalacticRecruitEntity extends TamableAnimal
                     : Component.translatable(translationKey));
             return false;
         }
+        ProgressionSavedData progression = ProgressionSavedData.get(serverLevel);
+        KingdomGameplayAction hireAction = new KingdomGameplayAction(
+                KingdomActionId.of("recruit_hired", this.getUUID()),
+                player.getUUID(), ProgressionEventType.RECRUIT_HIRED,
+                this.recruitUnitId().substring(this.recruitUnitId().indexOf(':') + 1), 1);
+        KingdomGameplayResult hireEvaluation = KingdomGameplayTransactionService.evaluate(
+                progression.state(player.getUUID()), hireAction);
+        if (!hireEvaluation.accepted() || !hireEvaluation.changed()) {
+            sendFeedback(player, Component.translatable("message.galacticwars.recruit.data_missing"));
+            return false;
+        }
         if (!kingdomData.registerRecruit(
                 player.getUUID(), this.getUUID(),
                 civilianContract ? NpcServiceBranch.CIVILIAN : NpcServiceBranch.MILITARY)) {
@@ -3698,6 +3767,15 @@ public class GalacticRecruitEntity extends TamableAnimal
             return false;
         }
         if (!RecruitmentPaymentService.withdrawCredits(player, hireCost)) {
+            kingdomData.unregisterRecruit(player.getUUID(), this.getUUID());
+            sendFeedback(player, Component.translatable(
+                    "message.galacticwars.recruit.payment_changed"));
+            return false;
+        }
+        KingdomGameplayResult hireProgress = KingdomGameplayRuntimeService.applyProgression(
+                progression, hireAction);
+        if (!hireProgress.accepted() || !hireProgress.changed()) {
+            RecruitmentPaymentService.refundCredits(player, hireCost);
             kingdomData.unregisterRecruit(player.getUUID(), this.getUUID());
             sendFeedback(player, Component.translatable(
                     "message.galacticwars.recruit.payment_changed"));
@@ -3731,12 +3809,6 @@ public class GalacticRecruitEntity extends TamableAnimal
         this.setTarget(null);
         this.navigation.stop();
         this.level().broadcastEntityEvent(this, (byte) 7);
-        KingdomGameplayRuntimeService.applyProgression(
-                ProgressionSavedData.get(serverLevel),
-                new KingdomGameplayAction(
-                        KingdomActionId.of("recruit_hired", this.getUUID()),
-                        player.getUUID(), ProgressionEventType.RECRUIT_HIRED,
-                        this.recruitUnitId().substring(this.recruitUnitId().indexOf(':') + 1), 1));
         sendFeedback(player, Component.translatable("message.galacticwars.recruit.hired"));
         return true;
     }
@@ -3758,6 +3830,17 @@ public class GalacticRecruitEntity extends TamableAnimal
         }
         WorkerProfession previousProfession = this.getWorkerProfession().orElse(null);
         KingdomSavedData kingdomData = KingdomSavedData.get(serverLevel);
+        ProgressionSavedData progression = ProgressionSavedData.get(serverLevel);
+        KingdomGameplayAction professionAction = new KingdomGameplayAction(
+                KingdomActionId.of("profession_assigned", this.getUUID(), profession.id()),
+                player.getUUID(), ProgressionEventType.PROFESSION_ASSIGNED,
+                profession.id(), 1);
+        KingdomGameplayResult professionEvaluation = KingdomGameplayTransactionService.evaluate(
+                progression.state(player.getUUID()), professionAction);
+        if (!professionEvaluation.accepted()) {
+            sendFeedback(player, Component.translatable("message.galacticwars.recruit.data_missing"));
+            return false;
+        }
         Optional<UUID> preferredProject = profession == WorkerProfession.BUILDER
                 ? Optional.ofNullable(this.activeBuildProjectId)
                 : Optional.empty();
@@ -3778,6 +3861,15 @@ public class GalacticRecruitEntity extends TamableAnimal
             return false;
         }
         if (previousProfession == profession) {
+            if (professionEvaluation.changed()) {
+                KingdomGameplayResult reconciliation = KingdomGameplayRuntimeService.applyProgression(
+                        progression, professionAction);
+                if (!reconciliation.accepted()) {
+                    sendFeedback(player, Component.translatable(
+                            "message.galacticwars.recruit.data_missing"));
+                    return false;
+                }
+            }
             this.reconcileWorkerAuthority(serverLevel);
             this.resumeWorkAfterProfessionAssignment();
             sendFeedback(player, Component.translatable(
@@ -3801,15 +3893,19 @@ public class GalacticRecruitEntity extends TamableAnimal
                     "message.galacticwars.recruit.payment_changed"));
             return false;
         }
+        KingdomGameplayResult professionProgress = KingdomGameplayRuntimeService.applyProgression(
+                progression, professionAction);
+        if (!professionProgress.accepted()) {
+            RecruitmentPaymentService.refundCredits(player, cost);
+            this.restorePreviousAssignment(
+                    kingdomData, player.getUUID(), previousProfession, previousArmyGroupId);
+            sendFeedback(player, Component.translatable(
+                    "message.galacticwars.recruit.payment_changed"));
+            return false;
+        }
         this.setWorkerProfession(profession);
         this.reconcileWorkerAuthority(serverLevel);
         this.resumeWorkAfterProfessionAssignment();
-        KingdomGameplayRuntimeService.applyProgression(
-                ProgressionSavedData.get(serverLevel),
-                new KingdomGameplayAction(
-                        KingdomActionId.of("profession_assigned", this.getUUID(), profession.id()),
-                        player.getUUID(), ProgressionEventType.PROFESSION_ASSIGNED,
-                        profession.id(), 1));
         sendFeedback(player, Component.translatable(
                 "message.galacticwars.recruit.profession.contract",
                 Component.translatable(profession.translationKey()),
@@ -3910,7 +4006,9 @@ public class GalacticRecruitEntity extends TamableAnimal
         }
         List<KingdomBaseBlueprint> blueprints = List.copyOf(GameplayDataManager.snapshot().blueprints().values());
         if (blueprints.isEmpty()) {
-            blueprints = KingdomBaseBlueprint.all();
+            player.sendSystemMessage(Component.translatable(
+                    "message.galacticwars.faction_selection.data_missing"));
+            return false;
         }
         int currentIndex = Math.max(0, blueprints.indexOf(current));
         KingdomBaseBlueprint next = blueprints.get((currentIndex + 1) % blueprints.size());
@@ -4006,12 +4104,37 @@ public class GalacticRecruitEntity extends TamableAnimal
     }
 
     private KingdomBaseBlueprint selectedBlueprint() {
-        String blueprintId = this.level().isClientSide()
-                ? this.entityData.get(DATA_SELECTED_BLUEPRINT)
-                : this.selectedBlueprintId;
-        return GameplayDataManager.snapshot().blueprint(blueprintId)
-                .or(() -> KingdomBaseBlueprint.byId(blueprintId))
-                .orElseGet(KingdomBaseBlueprint::starterKeep);
+        if (this.level().isClientSide()) {
+            throw new IllegalStateException("Full gameplay blueprints are server-owned");
+        }
+        String blueprintId = this.selectedBlueprintId;
+        GameplayDataSnapshot content = GameplayDataManager.snapshot();
+        var loaded = content.blueprint(blueprintId)
+                .or(() -> content.blueprint(KingdomBaseBlueprint.STARTER_KEEP_ID));
+        if (loaded.isPresent()) {
+            return loaded.orElseThrow();
+        }
+        throw new IllegalStateException("No validated gameplay blueprint is available for " + blueprintId);
+    }
+
+    private String selectedBlueprintDisplayName() {
+        if (!this.level().isClientSide()) {
+            return this.selectedBlueprint().displayName();
+        }
+        String blueprintId = this.entityData.get(DATA_SELECTED_BLUEPRINT);
+        return ClientGameplayCatalog.snapshot().blueprint(blueprintId)
+                .map(galacticwars.clonewars.network.GameplayCatalogPayload.BlueprintEntry::displayName)
+                .orElse(blueprintId.isBlank() ? "unknown" : blueprintId);
+    }
+
+    private int selectedBlueprintPlacementCount() {
+        if (!this.level().isClientSide()) {
+            return this.selectedBlueprint().placements().size();
+        }
+        String blueprintId = this.entityData.get(DATA_SELECTED_BLUEPRINT);
+        return ClientGameplayCatalog.snapshot().blueprint(blueprintId)
+                .map(galacticwars.clonewars.network.GameplayCatalogPayload.BlueprintEntry::placementCount)
+                .orElse(Math.max(0, this.entityData.get(DATA_BASE_PROGRESS)));
     }
 
     private boolean tryPromoteCommander(ServerPlayer player) {
@@ -4245,6 +4368,17 @@ public class GalacticRecruitEntity extends TamableAnimal
         recruit.armyGroupId = this.armyGroupId;
         recruit.setRecruitDuty(RecruitDuty.SOLDIER);
         recruit.setRecruitCommand(RecruitmentAction.FOLLOW_OWNER);
+        ProgressionSavedData progression = ProgressionSavedData.get(level);
+        KingdomGameplayAction hireAction = new KingdomGameplayAction(
+                KingdomActionId.of("recruit_hired", recruit.getUUID()),
+                kingdom.ownerId(), ProgressionEventType.RECRUIT_HIRED,
+                recruit.recruitUnitId().substring(recruit.recruitUnitId().indexOf(':') + 1), 1);
+        KingdomGameplayResult evaluation = KingdomGameplayTransactionService.evaluate(
+                progression.state(kingdom.ownerId()), hireAction);
+        if (!evaluation.accepted() || !evaluation.changed()) {
+            this.cancelCommanderCampaign(level, current, hall, campaign, "progression_rejected");
+            return;
+        }
         if (!level.addFreshEntity(recruit)) {
             this.cancelCommanderCampaign(level, current, hall, campaign, "spawn_rejected");
             return;
@@ -4252,6 +4386,14 @@ public class GalacticRecruitEntity extends TamableAnimal
         if (!data.registerRecruit(kingdom.ownerId(), recruit.getUUID())) {
             recruit.discard();
             this.cancelCommanderCampaign(level, current, hall, campaign, "housing_changed");
+            return;
+        }
+        KingdomGameplayResult committed = KingdomGameplayRuntimeService.applyProgression(
+                progression, hireAction);
+        if (!committed.accepted() || !committed.changed()) {
+            data.unregisterRecruit(kingdom.ownerId(), recruit.getUUID());
+            recruit.discard();
+            this.cancelCommanderCampaign(level, current, hall, campaign, "progression_commit_failed");
             return;
         }
         data.addRecruitToArmy(kingdom.ownerId(), recruit.getUUID());

@@ -23,11 +23,15 @@ public final class ClientGameplayCatalog {
         Objects.requireNonNull(payload, "payload");
         LinkedHashMap<String, GameplayCatalogPayload.VehicleEntry> vehicles = new LinkedHashMap<>();
         payload.vehicles().forEach(vehicle -> vehicles.put(vehicle.vehicleId(), vehicle));
+        LinkedHashMap<String, GameplayCatalogPayload.BlueprintEntry> blueprints = new LinkedHashMap<>();
+        payload.blueprints().forEach(blueprint -> blueprints.put(blueprint.blueprintId(), blueprint));
         SNAPSHOT.set(new Snapshot(
                 REVISIONS.incrementAndGet(),
                 payload.generation(),
+                payload.contentHash(),
                 payload.classes(),
-                vehicles));
+                vehicles,
+                blueprints));
     }
 
     public static Snapshot snapshot() {
@@ -41,16 +45,22 @@ public final class ClientGameplayCatalog {
     public record Snapshot(
             long revision,
             long serverGeneration,
+            String serverContentHash,
             List<GameplayCatalogPayload.ClassEntry> classes,
-            Map<String, GameplayCatalogPayload.VehicleEntry> vehicles
+            Map<String, GameplayCatalogPayload.VehicleEntry> vehicles,
+            Map<String, GameplayCatalogPayload.BlueprintEntry> blueprints
     ) {
         public Snapshot {
             if (revision < 0L || serverGeneration < -1L) {
                 throw new IllegalArgumentException("invalid client gameplay catalog revision");
             }
+            serverContentHash = Objects.requireNonNull(
+                    serverContentHash, "serverContentHash");
             classes = List.copyOf(Objects.requireNonNull(classes, "classes"));
             vehicles = Collections.unmodifiableMap(new LinkedHashMap<>(
                     Objects.requireNonNull(vehicles, "vehicles")));
+            blueprints = Collections.unmodifiableMap(new LinkedHashMap<>(
+                    Objects.requireNonNull(blueprints, "blueprints")));
         }
 
         public Optional<GameplayCatalogPayload.VehicleEntry> vehicle(String vehicleId) {
@@ -60,8 +70,15 @@ public final class ClientGameplayCatalog {
             return Optional.ofNullable(vehicles.get(vehicleId));
         }
 
+        public Optional<GameplayCatalogPayload.BlueprintEntry> blueprint(String blueprintId) {
+            if (blueprintId == null || blueprintId.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.ofNullable(blueprints.get(blueprintId));
+        }
+
         private static Snapshot empty() {
-            return new Snapshot(0L, -1L, List.of(), Map.of());
+            return new Snapshot(0L, -1L, "", List.of(), Map.of(), Map.of());
         }
     }
 }

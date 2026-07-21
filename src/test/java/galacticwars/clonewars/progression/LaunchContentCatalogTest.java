@@ -8,7 +8,8 @@ import java.util.Set;
 public final class LaunchContentCatalogTest {
     public static void main(String[] args) {
         var quest = new LaunchContentDefinitions.QuestDefinition(
-                "republic_chapter_2", List.of("delivery_completed"), 70,
+                "republic_chapter_2", List.of(new LaunchContentDefinitions.QuestObjectiveDefinition(
+                        "delivery_completed", "delivery_completed", Set.of(), 1)), 70,
                 Set.of("barc_speeder", "force_path"));
         var definitions = new LaunchContentDefinitions(
                 Map.of(), Map.of(), Map.of(), Map.of(quest.id(), quest), Map.of(), Map.of());
@@ -22,7 +23,9 @@ public final class LaunchContentCatalogTest {
                 "broken", "neutral", 20, 60, "republic_chapter_2", true),
                 "unknown Force path rejected");
         assertNullQuestCollectionRejected(null, Set.of(), "objectives for quest broken");
-        assertNullQuestCollectionRejected(List.of("command_center"), null, "unlocks for quest broken");
+        assertNullQuestCollectionRejected(List.of(new LaunchContentDefinitions.QuestObjectiveDefinition(
+                "command_center", "building_completed", Set.of("command_center"), 1)),
+                null, "unlocks for quest broken");
         assertThrows(() -> new LaunchContentDefinitions.PlanetDefinition(
                 "a".repeat(LaunchContentDefinitions.MAX_SERIALIZED_PLANET_ID_BYTES + 1),
                 "galacticwars:test", "arrival", "theme", "republic"),
@@ -53,7 +56,7 @@ public final class LaunchContentCatalogTest {
     }
 
     private static void assertNullQuestCollectionRejected(
-            List<String> objectives,
+            List<LaunchContentDefinitions.QuestObjectiveDefinition> objectives,
             Set<String> unlocks,
             String expectedMessage
     ) {

@@ -53,6 +53,7 @@ import galacticwars.clonewars.conquest.ConquestSavedData;
 import galacticwars.clonewars.entity.RecruitSpawnEggItem;
 import galacticwars.clonewars.entity.RecruitLifecycleService;
 import galacticwars.clonewars.faction.FactionAlignmentSavedData;
+import galacticwars.clonewars.faction.FactionBalanceService;
 import galacticwars.clonewars.faction.FactionId;
 import galacticwars.clonewars.faction.FactionRelation;
 import galacticwars.clonewars.force.ForceWorldEffectService;
@@ -578,7 +579,7 @@ public final class ModGameTests {
                 || snapshot.launchContent().vehicles().size() != 5
                 || snapshot.launchContent().forceAbilities().size() != 6
                 || snapshot.launchContent().quests().size() != 15
-                || snapshot.launchContent().trades().size() != 5
+                || snapshot.launchContent().trades().size() != 10
                 || snapshot.launchContent().conquestRegions().size() != 4
                 || snapshot.launchContent().forceAbilities().values().stream()
                         .anyMatch(ability -> !ability.enabled())
@@ -732,7 +733,14 @@ public final class ModGameTests {
         }
         FactionSelectionMenu menu = new FactionSelectionMenu(0, owner.getInventory(), hall.getBlockPos());
         int separatistButton = menu.factionIds().indexOf("galacticwars:separatist");
-        if (separatistButton < 0 || !menu.clickMenuButton(owner, separatistButton)) {
+        if (separatistButton < 0 || menu.clickMenuButton(owner, separatistButton)
+                || KingdomSavedData.get(helper.getLevel()).kingdomForOwner(owner.getUUID()).isPresent()
+                || !ProgressionSavedData.get(helper.getLevel()).state(owner.getUUID()).factionId().isEmpty()) {
+            helper.fail("Faction selection changed state without the matching identity chip");
+            return;
+        }
+        owner.getInventory().add(new ItemStack(ModItems.SEPARATIST_FACTION_TOKEN.get()));
+        if (!menu.clickMenuButton(owner, separatistButton)) {
             helper.fail("Server rejected the Separatist faction selection");
             return;
         }
@@ -745,7 +753,9 @@ public final class ModGameTests {
                 || !kingdom.factionId().equals("galacticwars:separatist")
                 || !hall.factionId().equals("galacticwars:separatist")
                 || !pledged.equals("galacticwars:separatist")
-                || alignment <= 0) {
+                || alignment <= 0
+                || owner.getInventory().getNonEquipmentItems().stream()
+                        .anyMatch(stack -> stack.is(ModItems.SEPARATIST_FACTION_TOKEN.get()))) {
             helper.fail("Faction selection did not atomically bind kingdom, Hall, progression, and alignment");
             return;
         }
@@ -938,6 +948,9 @@ public final class ModGameTests {
 
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("republic"), 100);
+        applyCampaignSetupEvent(
+                ProgressionSavedData.get(helper.getLevel()), owner,
+                ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");
         GalacticRecruitEntity commander = helper.spawn(
                 ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(2, 1, 2));
         GalacticRecruitEntity member = helper.spawn(
@@ -2030,7 +2043,8 @@ public final class ModGameTests {
                 || !codecRoundTrips(
                         new galacticwars.clonewars.network.MenuActionPayload(
                                 UUID.randomUUID(), 7, 255,
-                                Optional.of(UUID.randomUUID()), Optional.of(UUID.randomUUID())),
+                                Optional.of(UUID.randomUUID()), Optional.of(UUID.randomUUID()),
+                                GameplayDataManager.generation(), 12),
                         galacticwars.clonewars.network.MenuActionPayload.STREAM_CODEC)
                 || !codecRoundTrips(
                         new galacticwars.clonewars.network.ForceHudPayload(81, 4, 17, 0),
@@ -2068,7 +2082,8 @@ public final class ModGameTests {
         UUID memberId = UUID.randomUUID();
         UUID foreignKingdomId = UUID.randomUUID();
         return new CommandCenterDashboardState(
-                Math.max(0L, gameTime), true, actorId, kingdomId, "galacticwars:republic", "owner",
+                Math.max(0L, gameTime), GameplayDataManager.generation(), 7,
+                true, actorId, kingdomId, "galacticwars:republic", "owner",
                 120, 40, true,
                 CommandCenterDashboardState.ActionAvailability.accepted(),
                 List.of(new CommandCenterDashboardState.VehicleFabricationSummary(
@@ -2108,7 +2123,7 @@ public final class ModGameTests {
                 List.of(new CommandCenterDashboardState.QuestSummary(
                         "galacticwars:republic_chapter_1", false, 40, List.of("workforce"),
                         List.of(new CommandCenterDashboardState.ObjectiveSummary(
-                                "command_center", true)))),
+                                "command_center", 1, 1)))),
                 List.of(new CommandCenterDashboardState.NearbyPlayerSummary(
                         UUID.randomUUID(), "Nearby Player", 6)),
                 List.of(new CommandCenterDashboardState.MemberSummary(actorId, "owner")),
@@ -2651,6 +2666,18 @@ public final class ModGameTests {
             return;
         }
 
+        int observedRevision = staleMenu.dashboardState().settlementRevision();
+        UUID revisionProbe = UUID.randomUUID();
+        if (!data.registerRecruit(owner.getUUID(), revisionProbe, NpcServiceBranch.MILITARY)
+                || staleMenu.handleReplayAction(
+                        owner, UUID.randomUUID(), CommandCenterOperationsMenu.INVITE_NEAREST,
+                        Optional.of(candidate.getUUID()), Optional.empty(),
+                        staleMenu.dashboardState().contentGeneration(), observedRevision)) {
+            helper.fail("Command Center accepted an action from a stale settlement revision");
+            return;
+        }
+        data.unregisterRecruit(owner.getUUID(), revisionProbe);
+
         candidate.setPos(hallPos.getX() + 32.5D, hallPos.getY(), hallPos.getZ() + 0.5D);
         if (staleMenu.handleReplayAction(
                 owner, UUID.randomUUID(), CommandCenterOperationsMenu.INVITE_NEAREST,
@@ -2734,6 +2761,8 @@ public final class ModGameTests {
         boolean lightReplay = ForceWorldEffectService.activate(light, lightPushId, 0);
         boolean lightCooldown = !ForceWorldEffectService.activate(
                 light, UUID.randomUUID(), 0);
+        int recordedLightPushUses = progression.state(light.getUUID()).subjectTotal(
+                ProgressionEventType.FORCE_ABILITY_USED, Set.of("light_push"));
         Vec3 lightLook = light.getLookAngle().normalize();
         double targetDot = pushed.getEyePosition().subtract(light.getEyePosition())
                 .normalize().dot(lightLook);
@@ -2742,12 +2771,14 @@ public final class ModGameTests {
                         light.getBoundingBox().inflate(16.0D));
         if (!lightPush || !lightReplay || !lightCooldown || lightAfterPush != 80
                 || force.state(light.getUUID()).energy() != 80
+                || recordedLightPushUses != 1
                 || ally.getDeltaMovement().lengthSqr() > 0.0001D
                 || pushed.getDeltaMovement().z <= 0.1D) {
             helper.fail("Light Push did not protect allied NPCs or enforce replay/cooldown state: "
                     + "accepted=" + lightPush + ", replay=" + lightReplay
                     + ", cooldown=" + lightCooldown + ", energy="
-                    + force.state(light.getUUID()).energy() + ", ally="
+                    + force.state(light.getUUID()).energy() + ", progressionUses="
+                    + recordedLightPushUses + ", ally="
                     + ally.getDeltaMovement() + ", target=" + pushed.getDeltaMovement()
                     + ", preflight=" + lightPreflight.reason()
                     + ", lineOfSight=" + light.hasLineOfSight(pushed)
@@ -2911,6 +2942,17 @@ public final class ModGameTests {
                 applyCampaignSetupEvent(progression, player, ProgressionEventType.RECRUIT_HIRED,
                         path.chapterThreeRecruit());
             }
+            if (path.faction().equals("galacticwars:republic")) {
+                applyCampaignSetupEvent(
+                        progression, player, ProgressionEventType.FORCE_ABILITY_USED, "light_push");
+                applyCampaignSetupEvent(
+                        progression, player, ProgressionEventType.FORCE_ABILITY_USED, "light_pull");
+            } else if (path.faction().equals("galacticwars:nightsister")) {
+                applyCampaignSetupEvent(
+                        progression, player, ProgressionEventType.FORCE_ABILITY_USED, "dark_push");
+                applyCampaignSetupEvent(
+                        progression, player, ProgressionEventType.FORCE_ABILITY_USED, "dark_dash");
+            }
             String factionPath = path.faction().substring(path.faction().indexOf(':') + 1);
             ProgressionState state = progression.state(player.getUUID());
             if (!state.hasSubject(
@@ -2955,8 +2997,10 @@ public final class ModGameTests {
                 chapterTwoPlanet.equals("coruscant") ? "coruscant_district" : "kamino_platform");
         ProgressionState state = progression.state(player.getUUID());
         String factionPath = faction.substring(faction.indexOf(':') + 1);
-        if (!state.hasSubject(ProgressionEventType.QUEST_ADVANCED, factionPath + "_chapter_3")) {
-            throw new IllegalStateException("Force test campaign did not unlock Chapter 3: " + state);
+        if (!state.hasSubject(ProgressionEventType.QUEST_ADVANCED, factionPath + "_chapter_2")
+                || state.hasSubject(ProgressionEventType.QUEST_ADVANCED, factionPath + "_chapter_3")) {
+            throw new IllegalStateException(
+                    "Force test campaign did not stop at its embodied training gate: " + state);
         }
     }
 
@@ -3105,6 +3149,9 @@ public final class ModGameTests {
         }
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("republic"), 100);
+        applyCampaignSetupEvent(
+                ProgressionSavedData.get(helper.getLevel()), owner,
+                ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");
         GalacticRecruitEntity worker = helper.spawn(
                 ModEntityTypes.CLONE_TROOPER.get(), new BlockPos(3, 1, 1));
         worker.setNoAi(true);
@@ -3190,6 +3237,9 @@ public final class ModGameTests {
                 helper.getLevel().dimension().identifier().toString(), hallPos).orElseThrow();
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("republic"), 100);
+        applyCampaignSetupEvent(
+                ProgressionSavedData.get(helper.getLevel()), owner,
+                ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");
         if (!recruit.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE)) {
             helper.fail("Blueprint projector builder could not be hired");
             return;
@@ -3584,6 +3634,10 @@ public final class ModGameTests {
                 progression, owner, ProgressionEventType.PLANET_VISITED, "kamino");
         applyCampaignSetupEvent(
                 progression, owner, ProgressionEventType.BUILDING_COMPLETED, "supply_depot");
+        applyCampaignSetupEvent(
+                progression, owner, ProgressionEventType.FORCE_ABILITY_USED, "light_push");
+        applyCampaignSetupEvent(
+                progression, owner, ProgressionEventType.FORCE_ABILITY_USED, "light_pull");
         ProgressionState chapterTwo = progression.state(owner.getUUID());
         if (!chapterTwo.hasSubject(ProgressionEventType.QUEST_ADVANCED, "republic_chapter_2")
                 || !chapterTwo.unlocks().contains("vehicle_crafting")) {
@@ -3599,11 +3653,27 @@ public final class ModGameTests {
         CommandCenterOperationsMenu fabricationMenu = (CommandCenterOperationsMenu)
                 new CommandCenterOperationsMenuProvider(hallPos)
                         .createMenu(20, owner.getInventory(), owner);
+        int barcFabricationIndex = -1;
+        for (int index = 0;
+                index < fabricationMenu.dashboardState().vehicleFabrication().size();
+                index++) {
+            if (fabricationMenu.dashboardState().vehicleFabrication().get(index)
+                    .vehicleId().equals("barc_speeder")) {
+                barcFabricationIndex = index;
+                break;
+            }
+        }
+        if (barcFabricationIndex < 0) {
+            helper.fail("Command Center did not expose the BARC fabrication option");
+            return;
+        }
+        int barcFabricationButton = CommandCenterOperationsMenu.FABRICATE_FIRST
+                + barcFabricationIndex;
         UUID fabricationId = UUID.randomUUID();
         boolean fabricated = fabricationMenu.handleReplayAction(
-                owner, fabricationId, CommandCenterOperationsMenu.FABRICATE_FIRST);
+                owner, fabricationId, barcFabricationButton);
         boolean fabricationReplayRejected = !fabricationMenu.handleReplayAction(
-                owner, fabricationId, CommandCenterOperationsMenu.FABRICATE_FIRST);
+                owner, fabricationId, barcFabricationButton);
         int kitSlot = findPlayerItemSlot(owner, ModItems.BARC_SPEEDER_DEPLOYMENT_KIT.get());
         if (!fabricated || !fabricationReplayRejected || kitSlot < 0
                 || CreditTransactionService.containerBalance(hall) != 0
@@ -4185,6 +4255,7 @@ public final class ModGameTests {
             helper.fail("Player class fixture could not claim its physical Command Center");
             return;
         }
+        player.getInventory().add(new ItemStack(ModItems.REPUBLIC_FACTION_TOKEN.get()));
         FactionSelectionMenu factionMenu = new FactionSelectionMenu(
                 70, player.getInventory(), hallPos);
         int republic = factionMenu.factionIds().indexOf("galacticwars:republic");
@@ -4609,6 +4680,43 @@ public final class ModGameTests {
             return;
         }
 
+        PhysicalTradeService.TradePreview veteranLocked = PhysicalTradeService.preview(
+                huttPlayer, "tatooine_hutt_salvage");
+        if (veteranLocked.eligible()
+                || !veteranLocked.reason().equals("veteran_trade_locked")) {
+            helper.fail("Tier-two stock ignored the veteran-trade progression gate: "
+                    + veteranLocked);
+            return;
+        }
+        ProgressionDecision captured = progression.apply(new ProgressionEvent(
+                UUID.randomUUID(), huttPlayer.getUUID(), ProgressionEventType.REGION_CAPTURED,
+                "tatooine_spaceport", 1));
+        PhysicalTradeService.TradePreview controlRequired = PhysicalTradeService.preview(
+                huttPlayer, "tatooine_hutt_salvage");
+        if (!captured.accepted() || !captured.state().unlocks().contains("veteran_trades")
+                || controlRequired.eligible()
+                || !controlRequired.reason().equals("regional_control_required")) {
+            helper.fail("Captured-region progression did not gate veteran stock correctly: "
+                    + controlRequired);
+            return;
+        }
+        ConquestSavedData.get(helper.getLevel()).put(new ConquestControlState(
+                "tatooine_spaceport", helper.getLevel().dimension().identifier().toString(),
+                0, 1, 0, "galacticwars:hutt_cartel", "", "", 0, 3L));
+        huttPlayer.getInventory().add(new ItemStack(ModItems.CREDIT_CHIP.get(), 68));
+        PhysicalTradeService.TradePreview veteranAvailable = PhysicalTradeService.preview(
+                huttPlayer, "tatooine_hutt_salvage");
+        int expectedVeteranPrice = FactionBalanceService.tradeCreditPrice(
+                "galacticwars:hutt_cartel",
+                LaunchContentCatalog.trades().get("tatooine_hutt_salvage").price());
+        if (!veteranAvailable.eligible()
+                || veteranAvailable.creditPrice() != expectedVeteranPrice
+                || veteranAvailable.itemCount() != 4) {
+            helper.fail("Valid regional control did not expose veteran physical stock: "
+                    + veteranAvailable);
+            return;
+        }
+
         ServerPlayer embargoedPlayer = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
         ServerPlayer merchantOwner = makeConnectedMockPlayer(helper, GameType.CREATIVE);
         progression.apply(new ProgressionEvent(
@@ -4967,8 +5075,11 @@ public final class ModGameTests {
         boolean registered = data.kingdomForOwner(owner.getUUID()).orElseThrow()
                 .settlement().containsRecruit(recruit.getUUID());
         ProgressionState phaseIProgress = progression.state(owner.getUUID());
+        var cloneObjective = LaunchContentCatalog.questObjectives("republic_chapter_1").stream()
+                .filter(objective -> objective.id().equals("clone_trooper"))
+                .findFirst().orElseThrow();
         boolean objectiveCompatible = GalacticProgressionCoordinator.objectiveComplete(
-                phaseIProgress, "clone_trooper");
+                phaseIProgress, cloneObjective);
         if (!hired || !owned || remainingCredits != 28 || !registered
                 || !phaseIProgress.hasSubjectPath(
                 ProgressionEventType.RECRUIT_HIRED, "phase_i_clone_trooper")
@@ -5222,6 +5333,9 @@ public final class ModGameTests {
                 hallPos).orElseThrow();
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("republic"), 100);
+        applyCampaignSetupEvent(
+                ProgressionSavedData.get(helper.getLevel()), owner,
+                ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");
         owner.getInventory().add(new ItemStack(galacticwars.clonewars.registry.ModItems.CREDIT_CHIP.get(), 45));
         boolean hired = recruit.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE);
         boolean assignedFarmer = recruit.handleMenuButton(owner, RecruitCommandMenu.BUTTON_ASSIGN_FARMER);
@@ -5292,6 +5406,9 @@ public final class ModGameTests {
                 helper.getLevel().dimension().identifier().toString(), hallPos).orElseThrow();
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("republic"), 100);
+        applyCampaignSetupEvent(
+                ProgressionSavedData.get(helper.getLevel()), owner,
+                ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");
         if (!recruit.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE)) {
             helper.fail("Enabled worker loop recruit could not be hired");
         }
@@ -5489,6 +5606,9 @@ public final class ModGameTests {
         putContainerItem(hall, new ItemStack(ModItems.CREDIT_CHIP.get(), 32));
         FactionAlignmentSavedData.get(helper.getLevel()).setScore(
                 owner.getUUID(), FactionId.of("republic"), 100);
+        applyCampaignSetupEvent(
+                ProgressionSavedData.get(helper.getLevel()), owner,
+                ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");
         if (!recruit.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE)) {
             helper.fail("Specialist worker loop recruit could not be hired");
             return;

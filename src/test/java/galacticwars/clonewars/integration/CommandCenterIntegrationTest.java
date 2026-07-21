@@ -22,12 +22,16 @@ public final class CommandCenterIntegrationTest {
     private static void hallRequiresExplicitFactionSelection() throws IOException {
         String block = read("src/main/java/galacticwars/clonewars/settlement/CommandCenterBlock.java");
         String menu = read("src/main/java/galacticwars/clonewars/menu/FactionSelectionMenu.java");
+        String pledge = read("src/main/java/galacticwars/clonewars/faction/FactionPledgeService.java");
         String menus = read("src/main/java/galacticwars/clonewars/registry/ModMenuTypes.java");
         String client = read("src/main/java/galacticwars/clonewars/GalacticWarsClient.java");
         assertContains(block, "FactionSelectionMenuProvider", "placement-time faction picker");
-        assertContains(menu, "ProgressionEventType.FACTION_PLEDGED", "server-authoritative pledge");
-        assertContains(menu, "activateHall", "selected faction kingdom activation");
-        assertContains(menu, "FactionAlignmentSavedData", "selected faction alignment");
+        assertContains(menu, "FactionPledgeService.pledge", "shared server-authoritative pledge");
+        assertContains(pledge, "ProgressionEventType.FACTION_PLEDGED", "pledge progression event");
+        assertContains(pledge, "activateHall", "selected faction kingdom activation");
+        assertContains(pledge, "FactionAlignmentSavedData", "selected faction alignment");
+        assertContains(pledge, "rollbackFreshKingdom", "kingdom compensation");
+        assertContains(pledge, "restoreAfterFailedTransaction", "state compensation");
         String provider = read("src/main/java/galacticwars/clonewars/menu/FactionSelectionMenuProvider.java");
         assertContains(provider, "buffer.writeUtf(id, 128)", "bounded faction id encoding");
         String claims = read("src/main/java/galacticwars/clonewars/kingdom/KingdomSavedData.java");
@@ -74,7 +78,7 @@ public final class CommandCenterIntegrationTest {
         assertContains(screen, "objectiveInstruction", "actionable campaign objective guidance");
         assertContains(screen, "new MenuActionPayload(", "targeted operation dispatch");
         assertContains(screen, "KingdomPermissionPolicy.allows", "role-aware client controls");
-        assertContains(screen, "VehicleFabricationSummary::availability",
+        assertContains(screen, "fabrication.availability()",
                 "server-authored fabrication button availability");
         assertContains(screen, "Tooltip.create", "localized disabled action feedback");
         assertContains(fabrication, "hall.canUse(player, KingdomPermission.USE_STORAGE)",

@@ -1,5 +1,7 @@
 package galacticwars.clonewars.progression
 
+import galacticwars.clonewars.data.GameplayDataManager
+import galacticwars.clonewars.workforce.WorkerProfession
 import java.util.UUID
 import kotlin.jvm.JvmRecord
 
@@ -15,26 +17,10 @@ object ProgressionIntegrityPolicy {
     private const val MOD_NAMESPACE = "galacticwars"
     private const val CAMPAIGN_RECHECK_SUBJECT = "eligible_quests"
 
-    private val buildingSubjects = setOf(
+    private val coreBuildingSubjects = setOf(
         "command_center",
         "forward_base",
-        "barracks",
         "supply_depot",
-        "moisture_farm",
-        "salvage_yard",
-        "mine",
-    )
-
-    private val professionSubjects = setOf(
-        "farmer",
-        "lumberjack",
-        "fisherman",
-        "animal_farmer",
-        "miner",
-        "builder",
-        "cook",
-        "merchant",
-        "courier",
     )
 
     @JvmStatic
@@ -55,22 +41,25 @@ object ProgressionIntegrityPolicy {
                 matchesCatalogSubject(event.subjectId, LaunchContentCatalog.factions())
             ProgressionEventType.RECRUIT_HIRED -> matchesCatalogSubject(
                 event.subjectId,
-                LaunchContentCatalog.units().values.flatten(),
+                LaunchContentCatalog.recruitSubjects().values.flatten(),
             )
             ProgressionEventType.PROFESSION_ASSIGNED -> matchesFixedSubject(
                 event.subjectId,
-                professionSubjects,
+                WorkerProfession.entries.map(WorkerProfession::id).toSet(),
             )
             ProgressionEventType.DELIVERY_COMPLETED -> isCourierSubject(event.subjectId)
             ProgressionEventType.BUILDING_COMPLETED -> matchesFixedSubject(
                 event.subjectId,
-                buildingSubjects,
+                buildSet {
+                    addAll(coreBuildingSubjects)
+                    addAll(GameplayDataManager.snapshot().blueprints().keys.map(::subjectPath))
+                },
             )
             ProgressionEventType.PLANET_VISITED ->
                 matchesCatalogSubject(event.subjectId, definitions.planets().keys)
             ProgressionEventType.VEHICLE_ACQUIRED ->
                 matchesCatalogSubject(event.subjectId, definitions.vehicles().keys)
-            ProgressionEventType.FORCE_ABILITY_UNLOCKED ->
+            ProgressionEventType.FORCE_ABILITY_USED ->
                 matchesCatalogSubject(event.subjectId, definitions.forceAbilities().keys)
             ProgressionEventType.QUEST_ADVANCED ->
                 matchesCatalogSubject(event.subjectId, definitions.quests().keys)
@@ -136,6 +125,8 @@ object ProgressionIntegrityPolicy {
         return subjectId.substring(separator + 1).takeIf(String::isNotEmpty)
     }
 
+    private fun subjectPath(subjectId: String): String = subjectId.substringAfter(':', subjectId)
+
     private fun rejectionReason(type: ProgressionEventType): String = when (type) {
         ProgressionEventType.CAMPAIGN_RECHECK -> "invalid_campaign_recheck"
         ProgressionEventType.FACTION_PLEDGED -> "unknown_faction"
@@ -146,7 +137,7 @@ object ProgressionIntegrityPolicy {
         ProgressionEventType.BUILDING_COMPLETED -> "unknown_building"
         ProgressionEventType.PLANET_VISITED -> "unknown_planet"
         ProgressionEventType.VEHICLE_ACQUIRED -> "unknown_vehicle"
-        ProgressionEventType.FORCE_ABILITY_UNLOCKED -> "unknown_force_ability"
+        ProgressionEventType.FORCE_ABILITY_USED -> "unknown_force_ability"
         ProgressionEventType.QUEST_ADVANCED -> "unknown_quest"
         ProgressionEventType.CAMPAIGN_COMPLETED -> "unknown_campaign"
         ProgressionEventType.TRADE_COMPLETED -> "unknown_trade"

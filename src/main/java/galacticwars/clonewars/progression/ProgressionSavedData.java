@@ -23,6 +23,9 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class ProgressionSavedData extends SavedData {
+    private static final Codec<Map<String, Map<String, Integer>>> EVENT_SUBJECT_TOTALS_CODEC =
+            Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(Codec.STRING, Codec.INT));
+
     private static final Codec<PlayerState> PLAYER_CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UUIDUtil.CODEC.fieldOf("player_id").forGetter(PlayerState::playerId),
             Codec.STRING.optionalFieldOf("faction_id", "").forGetter(PlayerState::factionId),
@@ -30,6 +33,8 @@ public final class ProgressionSavedData extends SavedData {
             UUIDUtil.CODEC.listOf().optionalFieldOf("processed_events", List.of()).forGetter(PlayerState::processedEvents),
             Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("event_totals", Map.of()).forGetter(PlayerState::eventTotals),
             Codec.unboundedMap(Codec.STRING, Codec.STRING.listOf()).optionalFieldOf("event_subjects", Map.of()).forGetter(PlayerState::eventSubjects),
+            EVENT_SUBJECT_TOTALS_CODEC.optionalFieldOf("event_subject_totals", Map.of())
+                    .forGetter(PlayerState::eventSubjectTotals),
             Codec.STRING.listOf().optionalFieldOf("unlocks", List.of()).forGetter(PlayerState::unlocks)
     ).apply(instance, PlayerState::new));
 
@@ -59,6 +64,21 @@ public final class ProgressionSavedData extends SavedData {
             HashMap<ProgressionEventType, Set<String>> subjects = new HashMap<>();
             player.eventSubjects().forEach((key, values) ->
                     subjects.put(type(key), new LinkedHashSet<>(values)));
+            HashMap<ProgressionEventType, Map<String, Integer>> subjectTotals = new HashMap<>();
+            subjects.forEach((eventType, values) -> {
+                LinkedHashMap<String, Integer> migrated = new LinkedHashMap<>();
+                values.forEach(subject -> migrated.put(subject, 1));
+                subjectTotals.put(eventType, migrated);
+            });
+            player.eventSubjectTotals().forEach((key, values) -> {
+                LinkedHashMap<String, Integer> parsed = new LinkedHashMap<>();
+                values.forEach((subject, count) -> {
+                    if (subject != null && !subject.isBlank() && count != null && count > 0) {
+                        parsed.put(subject, count);
+                    }
+                });
+                subjectTotals.put(type(key), parsed);
+            });
             states.put(player.playerId(), new ProgressionState(
                     ProgressionState.CURRENT_SCHEMA_VERSION,
                     player.playerId(),
@@ -67,6 +87,7 @@ public final class ProgressionSavedData extends SavedData {
                     new LinkedHashSet<>(player.processedEvents()),
                     totals,
                     subjects,
+                    subjectTotals,
                     Set.copyOf(player.unlocks())));
         }
     }
@@ -77,6 +98,32 @@ public final class ProgressionSavedData extends SavedData {
 
     public ProgressionState state(UUID playerId) {
         return states.getOrDefault(playerId, ProgressionState.create(playerId));
+    }
+
+    public boolean hasStoredState(UUID playerId) {
+        return states.containsKey(playerId);
+    }
+
+    /**
+     * Compare-and-restore hook for a server-tick gameplay transaction that failed after
+     * progression committed. It refuses to overwrite intervening progression changes.
+     */
+    public boolean restoreAfterFailedTransaction(
+            UUID playerId,
+            ProgressionState expectedCurrent,
+            ProgressionState previous,
+            boolean previousWasStored
+    ) {
+        if (!state(playerId).equals(expectedCurrent) || !previous.playerId().equals(playerId)) {
+            return false;
+        }
+        if (previousWasStored) {
+            states.put(playerId, previous);
+        } else {
+            states.remove(playerId);
+        }
+        this.setDirty();
+        return true;
     }
 
     public ProgressionDecision apply(ProgressionEvent event) {
@@ -103,7 +150,6 @@ public final class ProgressionSavedData extends SavedData {
                 || !evaluated.state().processed(event.id())) {
             throw new IllegalArgumentException("invalid evaluated progression decision");
         }
-        states.put(event.playerId(), evaluated.state());
         ProgressionState completed = CampaignRuntimeService.completeEligibleQuests(evaluated.state());
         states.put(event.playerId(), completed);
         this.setDirty();
@@ -135,9 +181,12 @@ public final class ProgressionSavedData extends SavedData {
             LinkedHashMap<String, List<String>> subjects = new LinkedHashMap<>();
             state.eventSubjects().forEach((type, values) ->
                     subjects.put(key(type), List.copyOf(values)));
+            LinkedHashMap<String, Map<String, Integer>> subjectTotals = new LinkedHashMap<>();
+            state.eventSubjectTotals().forEach((type, values) ->
+                    subjectTotals.put(key(type), Map.copyOf(values)));
             players.add(new PlayerState(
                     state.playerId(), state.factionId(), state.credits(),
-                    List.copyOf(state.processedEventIds()), totals, subjects,
+                    List.copyOf(state.processedEventIds()), totals, subjects, subjectTotals,
                     state.unlocks().stream().sorted().toList()));
         }
         return List.copyOf(players);
@@ -148,6 +197,9 @@ public final class ProgressionSavedData extends SavedData {
     }
 
     private static ProgressionEventType type(String value) {
+        if (value.equalsIgnoreCase("force_ability_unlocked")) {
+            return ProgressionEventType.FORCE_ABILITY_USED;
+        }
         return ProgressionEventType.valueOf(value.toUpperCase(Locale.ROOT));
     }
 
@@ -158,12 +210,17 @@ public final class ProgressionSavedData extends SavedData {
             List<UUID> processedEvents,
             Map<String, Integer> eventTotals,
             Map<String, List<String>> eventSubjects,
+            Map<String, Map<String, Integer>> eventSubjectTotals,
             List<String> unlocks
     ) {
         private PlayerState {
             processedEvents = List.copyOf(processedEvents);
             eventTotals = Map.copyOf(eventTotals);
             eventSubjects = Map.copyOf(eventSubjects);
+            LinkedHashMap<String, Map<String, Integer>> copiedSubjectTotals = new LinkedHashMap<>();
+            eventSubjectTotals.forEach((type, values) ->
+                    copiedSubjectTotals.put(type, Map.copyOf(values)));
+            eventSubjectTotals = Map.copyOf(copiedSubjectTotals);
             unlocks = List.copyOf(unlocks);
         }
     }

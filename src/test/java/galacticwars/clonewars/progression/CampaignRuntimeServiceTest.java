@@ -13,7 +13,13 @@ public final class CampaignRuntimeServiceTest {
                 Map.of(), Map.of(), Map.of(), Map.of(
                         "republic_chapter_1", new LaunchContentDefinitions.QuestDefinition(
                                 "republic_chapter_1",
-                                List.of("faction_pledged", "command_center", "clone_trooper"),
+                                List.of(
+                                        objective("faction_pledged", ProgressionEventType.FACTION_PLEDGED,
+                                                "galacticwars:republic"),
+                                        objective("command_center", ProgressionEventType.BUILDING_COMPLETED,
+                                                "command_center"),
+                                        objective("clone_trooper", ProgressionEventType.RECRUIT_HIRED,
+                                                "clone_trooper")),
                                 40, Set.of("workforce"))), Map.of(), Map.of()),
                 List.of("galacticwars:republic"), Map.of("republic", List.of("clone_trooper")));
         UUID player = UUID.randomUUID();
@@ -34,6 +40,13 @@ public final class CampaignRuntimeServiceTest {
                         && replay.state().pendingCreditRewards() == 40,
                 "event and deterministic quest reward are replay safe");
         System.out.println("CampaignRuntimeServiceTest passed");
+    }
+
+    private static LaunchContentDefinitions.QuestObjectiveDefinition objective(
+            String id, ProgressionEventType eventType, String... subjects
+    ) {
+        return new LaunchContentDefinitions.QuestObjectiveDefinition(
+                id, eventType.name().toLowerCase(java.util.Locale.ROOT), Set.of(subjects), 1);
     }
 
     private static ProgressionState record(

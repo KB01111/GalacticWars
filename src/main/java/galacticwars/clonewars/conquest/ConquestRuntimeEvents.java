@@ -75,7 +75,7 @@ public final class ConquestRuntimeEvents {
         if (!ensureBeaconPresent(level, beacon)) {
             return;
         }
-        spawnControlPatrol(level, state, beacon);
+        spawnControlPatrol(level, region, state, beacon);
         ConquestCaptureService.tick(level, region, beacon);
     }
 
@@ -114,7 +114,8 @@ public final class ConquestRuntimeEvents {
                     int z = region.landmarkZ() + dz * 16;
                     BlockPos horizontal = new BlockPos(x, level.getMinY(), z);
                     if (!level.hasChunkAt(horizontal)) continue;
-                    if (kingdoms.claimAt(dimension, new ChunkPos(x >> 4, z >> 4)).isPresent()) continue;
+                    if (!protectedAreaUnclaimed(
+                            kingdoms, dimension, x, z, region.protectedRadius())) continue;
                     int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                     BlockPos candidate = new BlockPos(x, y, z);
                     if (level.getBlockState(candidate).canBeReplaced()) return Optional.of(candidate);
@@ -125,24 +126,36 @@ public final class ConquestRuntimeEvents {
     }
 
     public static boolean arrivalClear(ServerLevel level, ServerPlayer player, BlockPos arrival) {
+        int dangerRadius = LaunchContentCatalog.data().conquestRegions().values().stream()
+                .filter(region -> {
+                    var planet = LaunchContentCatalog.data().planets().get(region.planetId());
+                    return planet != null
+                            && planet.dimensionId().equals(level.dimension().identifier().toString());
+                })
+                .mapToInt(region -> Math.max(24, region.protectedRadius() / 2))
+                .max()
+                .orElse(24);
         return level.getEntitiesOfClass(GalacticRecruitEntity.class,
-                        new net.minecraft.world.phys.AABB(arrival).inflate(24.0D),
+                        new net.minecraft.world.phys.AABB(arrival).inflate(dangerRadius),
                         recruit -> recruit.isAlive() && recruit.getServiceBranch() == NpcServiceBranch.MILITARY
                                 && recruit.factionRelationTo(player) == FactionRelation.ENEMY)
                 .isEmpty();
     }
 
     private static void spawnControlPatrol(
-            ServerLevel level, ConquestControlState state, BlockPos beacon
+            ServerLevel level,
+            LaunchContentDefinitions.ConquestRegionDefinition region,
+            ConquestControlState state,
+            BlockPos beacon
     ) {
         if (state.controllingFaction().isEmpty() || level.getGameTime() % 600L != 0L
                 || level.players().stream().noneMatch(player -> player.blockPosition().distSqr(beacon) <= 16384.0D)) {
             return;
         }
-        UUID patrolId = UUID.nameUUIDFromBytes(("conquest-patrol:" + state.regionId())
-                .getBytes(StandardCharsets.UTF_8));
+        UUID patrolId = patrolId(state.regionId(), state.controllingFaction());
+        int patrolRadius = Math.max(32, region.protectedRadius());
         int present = level.getEntitiesOfClass(GalacticRecruitEntity.class,
-                        new net.minecraft.world.phys.AABB(beacon).inflate(64.0D),
+                        new net.minecraft.world.phys.AABB(beacon).inflate(patrolRadius),
                         recruit -> patrolId.equals(recruit.getFactionOutpostId())).size();
         if (present >= 3) return;
         EntityType<GalacticRecruitEntity> type = patrolType(state.controllingFaction());
@@ -152,8 +165,30 @@ public final class ConquestRuntimeEvents {
         int offset = 3 + present * 2;
         recruit.setPos(beacon.getX() + offset + 0.5D, beacon.getY(), beacon.getZ() + 0.5D);
         recruit.initializeFromSpawnEgg();
-        recruit.initializeNaturalFactionNpc(patrolId, NpcServiceBranch.MILITARY, beacon, 48);
+        recruit.initializeNaturalFactionNpc(
+                patrolId, NpcServiceBranch.MILITARY, beacon, patrolRadius);
         level.addFreshEntity(recruit);
+    }
+
+    private static boolean protectedAreaUnclaimed(
+            KingdomSavedData kingdoms,
+            String dimensionId,
+            int centerX,
+            int centerZ,
+            int radius
+    ) {
+        int minimumChunkX = (centerX - radius) >> 4;
+        int maximumChunkX = (centerX + radius) >> 4;
+        int minimumChunkZ = (centerZ - radius) >> 4;
+        int maximumChunkZ = (centerZ + radius) >> 4;
+        for (int chunkX = minimumChunkX; chunkX <= maximumChunkX; chunkX++) {
+            for (int chunkZ = minimumChunkZ; chunkZ <= maximumChunkZ; chunkZ++) {
+                if (kingdoms.claimAt(dimensionId, new ChunkPos(chunkX, chunkZ)).isPresent()) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static EntityType<GalacticRecruitEntity> patrolType(String factionId) {
@@ -167,5 +202,10 @@ public final class ConquestRuntimeEvents {
             case "nightsister" -> ModEntityTypes.NIGHTSISTER_ACOLYTE.get();
             default -> null;
         };
+    }
+
+    static UUID patrolId(String regionId, String factionId) {
+        return UUID.nameUUIDFromBytes(("conquest-patrol:" + regionId + ":" + factionId)
+                .getBytes(StandardCharsets.UTF_8));
     }
 }

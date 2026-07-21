@@ -37,9 +37,14 @@ public final class PlanetTravelPolicyTest {
                 true, true, false, false, false, true, false).accepted(),
                 "authorized return home must remain available when outbound gates lapse");
         var available = new PlanetTravelService.NavigationDestination(
-                "tatooine", true, "accepted");
+                "tatooine", true, "accepted", "desert", "spaceport");
         assertTrue(available.available() && available.destinationId().equals("tatooine"),
                 "server navigation option should preserve accepted state");
+        assertTrue(available.theme().equals("desert")
+                        && available.arrivalProfile().equals("spaceport"),
+                "server navigation option should preserve destination metadata");
+        assertTrue(PlanetArrivalService.ArrivalProfile.byId("spaceport").offsetX() == 1,
+                "spaceport profile should use its registered approach");
         boolean mismatchRejected = false;
         try {
             new PlanetTravelService.NavigationDestination("tatooine", true, "upkeep_unpaid");

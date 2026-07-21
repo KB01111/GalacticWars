@@ -1,6 +1,8 @@
 package galacticwars.clonewars.progression;
 
+import galacticwars.clonewars.data.LaunchContentDefinitions;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -13,6 +15,9 @@ public final class GalacticProgressionCoordinator {
         Objects.requireNonNull(event, "event");
         if (!state.playerId().equals(event.playerId())) {
             return ProgressionDecision.rejected("wrong_player", state);
+        }
+        if (LaunchContentCatalog.factions().isEmpty()) {
+            return ProgressionDecision.rejected("content_unavailable", state);
         }
         if (state.processed(event.id())) {
             return ProgressionDecision.accepted(state, state);
@@ -42,11 +47,6 @@ public final class GalacticProgressionCoordinator {
                 && !LaunchContentCatalog.planets().contains(event.subjectId())) {
             return ProgressionDecision.rejected("unknown_planet", state);
         }
-        if (event.type() == ProgressionEventType.PLANET_VISITED
-                && !state.unlocks().contains("planet_travel")
-                && !event.subjectId().equals("coruscant")) {
-            return ProgressionDecision.rejected("planet_travel_locked", state);
-        }
         if (event.type() == ProgressionEventType.QUEST_ADVANCED) {
             ProgressionDecision questValidation = validateQuest(state, event, faction);
             if (questValidation != null) {
@@ -61,6 +61,8 @@ public final class GalacticProgressionCoordinator {
         }
         try {
             return ProgressionDecision.accepted(state, state.apply(event, faction, unlocks(state, event)));
+        } catch (ArithmeticException exception) {
+            return ProgressionDecision.rejected("progression_limit_reached", state);
         } catch (IllegalStateException exception) {
             return ProgressionDecision.rejected(exception.getMessage(), state);
         }
@@ -89,9 +91,11 @@ public final class GalacticProgressionCoordinator {
                 return ProgressionDecision.rejected("quest_prerequisite_missing", state);
             }
         }
-        for (String objective : LaunchContentCatalog.questObjectives(questId)) {
+        for (LaunchContentDefinitions.QuestObjectiveDefinition objective
+                : LaunchContentCatalog.questObjectives(questId)) {
             if (!objectiveComplete(state, objective)) {
-                return ProgressionDecision.rejected("quest_objective_missing:" + objective, state);
+                return ProgressionDecision.rejected(
+                        "quest_objective_missing:" + objective.id(), state);
             }
         }
         return null;
@@ -122,31 +126,28 @@ public final class GalacticProgressionCoordinator {
     }
 
     /** Shared authoritative predicate used by campaign commits and player-facing progress views. */
-    public static boolean objectiveComplete(ProgressionState state, String objective) {
-        if (state == null) {
-            return false;
+    public static boolean objectiveComplete(
+            ProgressionState state,
+            LaunchContentDefinitions.QuestObjectiveDefinition objective
+    ) {
+        return objective != null && objectiveProgress(state, objective) >= objective.requiredCount();
+    }
+
+    /** Returns the exact server-side contribution toward a typed quest objective. */
+    public static int objectiveProgress(
+            ProgressionState state,
+            LaunchContentDefinitions.QuestObjectiveDefinition objective
+    ) {
+        if (state == null || objective == null) {
+            return 0;
         }
-        return switch (objective) {
-            case "faction_pledged" -> !state.factionId().isEmpty();
-            case "command_center", "forward_base", "supply_depot" ->
-                    state.hasSubjectPath(ProgressionEventType.BUILDING_COMPLETED, objective);
-            case "tatooine", "geonosis", "kamino", "coruscant" ->
-                    state.hasSubjectPath(ProgressionEventType.PLANET_VISITED, objective);
-            case "clone_trooper" -> state.hasSubjectPath(
-                    ProgressionEventType.RECRUIT_HIRED, "clone_trooper")
-                    || state.hasSubjectPath(ProgressionEventType.RECRUIT_HIRED, "phase_i_clone_trooper");
-            case "b1_battle_droid", "mandalorian_warrior", "hutt_enforcer",
-                    "nightsister_acolyte", "mandalorian_marksman", "bounty_hunter", "smuggler" ->
-                    state.hasSubjectPath(ProgressionEventType.RECRUIT_HIRED, objective);
-            case "delivery_completed" -> state.total(ProgressionEventType.DELIVERY_COMPLETED) > 0;
-            case "vehicle_acquired" -> state.total(ProgressionEventType.VEHICLE_ACQUIRED) > 0;
-            case "trade_completed" -> state.total(ProgressionEventType.TRADE_COMPLETED) > 0;
-            case "region_captured" -> state.total(ProgressionEventType.REGION_CAPTURED) > 0;
-            case "force_ability_unlocked" -> state.total(ProgressionEventType.FORCE_ABILITY_UNLOCKED) > 0;
-            case "beskar_ingot" -> state.hasSubjectPath(
-                    ProgressionEventType.TRADE_COMPLETED, "mandalorian_armorer");
-            default -> false;
-        };
+        try {
+            ProgressionEventType eventType = ProgressionEventType.valueOf(
+                    objective.eventType().toUpperCase(Locale.ROOT));
+            return state.subjectTotal(eventType, objective.subjectIds());
+        } catch (IllegalArgumentException unknownEventType) {
+            return 0;
+        }
     }
 
     private static Set<String> unlocks(ProgressionState state, ProgressionEvent event) {

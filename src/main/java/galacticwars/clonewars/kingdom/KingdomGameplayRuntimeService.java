@@ -1,5 +1,6 @@
 package galacticwars.clonewars.kingdom;
 
+import galacticwars.clonewars.GalacticWars;
 import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionSavedData;
 import galacticwars.clonewars.progression.ProgressionState;
@@ -21,8 +22,14 @@ public final class KingdomGameplayRuntimeService {
         if (!evaluated.accepted() || !evaluated.changed()) {
             return KingdomGameplayResult.from(evaluated);
         }
-        ProgressionDecision committed = progression.commitEvaluated(
-                action.progressionEvent(), before, evaluated);
-        return KingdomGameplayResult.from(committed);
+        try {
+            ProgressionDecision committed = progression.commitEvaluated(
+                    action.progressionEvent(), before, evaluated);
+            return KingdomGameplayResult.from(committed);
+        } catch (RuntimeException failure) {
+            GalacticWars.LOGGER.error("Progression transaction {} failed for {}",
+                    action.id(), action.playerId(), failure);
+            return new KingdomGameplayResult(false, false, "transaction_failed", before);
+        }
     }
 }

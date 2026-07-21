@@ -23,16 +23,20 @@ import net.minecraft.resources.Identifier;
  */
 public record GameplayCatalogPayload(
         long generation,
+        String contentHash,
         List<ClassEntry> classes,
-        List<VehicleEntry> vehicles
+        List<VehicleEntry> vehicles,
+        List<BlueprintEntry> blueprints
 ) implements CustomPacketPayload {
     public static final int MAX_CLASSES = 128;
     public static final int MAX_VEHICLES = 64;
+    public static final int MAX_BLUEPRINTS = 128;
     public static final int MAX_ABILITIES_PER_CLASS = 8;
     public static final int MAX_REQUIREMENTS_PER_CLASS = 16;
     public static final int MAX_TEXT_BYTES = 192;
     public static final int MAX_REQUIREMENT_AMOUNT = 1_000_000;
     public static final int MAX_VEHICLE_STAT = 1_000_000;
+    public static final int MAX_BLUEPRINT_PLACEMENTS = 16_384;
     private static final Pattern IDENTIFIER = Pattern.compile("[a-z0-9_.:/-]+");
 
     public static final Type<GameplayCatalogPayload> TYPE = new Type<>(
@@ -41,27 +45,39 @@ public record GameplayCatalogPayload(
             StreamCodec.of(
                     (buffer, payload) -> {
                         buffer.writeVarLong(payload.generation());
+                        buffer.writeUtf(payload.contentHash(), 64);
                         writeList(buffer, payload.classes(), MAX_CLASSES, ClassEntry::write);
                         writeList(buffer, payload.vehicles(), MAX_VEHICLES, VehicleEntry::write);
+                        writeList(buffer, payload.blueprints(), MAX_BLUEPRINTS, BlueprintEntry::write);
                     },
                     buffer -> new GameplayCatalogPayload(
                             buffer.readVarLong(),
+                            buffer.readUtf(64),
                             readList(buffer, MAX_CLASSES, ClassEntry::read),
-                            readList(buffer, MAX_VEHICLES, VehicleEntry::read)));
+                            readList(buffer, MAX_VEHICLES, VehicleEntry::read),
+                            readList(buffer, MAX_BLUEPRINTS, BlueprintEntry::read)));
 
     public GameplayCatalogPayload {
         if (generation < 0L) {
             throw new IllegalArgumentException("gameplay catalog generation cannot be negative");
         }
+        contentHash = Objects.requireNonNull(contentHash, "contentHash").trim().toLowerCase(Locale.ROOT);
+        if ((generation == 0L && !contentHash.isEmpty())
+                || (generation > 0L && !contentHash.matches("[0-9a-f]{64}"))) {
+            throw new IllegalArgumentException("gameplay catalog content hash is invalid");
+        }
         classes = boundedCopy(classes, MAX_CLASSES, "classes");
         vehicles = boundedCopy(vehicles, MAX_VEHICLES, "vehicles");
+        blueprints = boundedCopy(blueprints, MAX_BLUEPRINTS, "blueprints");
         requireUnique(classes.stream().map(ClassEntry::classId).toList(), "class id");
         requireUnique(vehicles.stream().map(VehicleEntry::vehicleId).toList(), "vehicle id");
+        requireUnique(blueprints.stream().map(BlueprintEntry::blueprintId).toList(), "blueprint id");
     }
 
     public static GameplayCatalogPayload fromSnapshot(
             GameplayDataSnapshot snapshot,
-            long generation
+            long generation,
+            String contentHash
     ) {
         Objects.requireNonNull(snapshot, "snapshot");
         List<ClassEntry> classes = snapshot.unitClasses().values().stream()
@@ -91,7 +107,13 @@ public record GameplayCatalogPayload(
                 .map(definition -> new VehicleEntry(
                         definition.id(), definition.maxHealth(), definition.fuelCapacity()))
                 .toList();
-        return new GameplayCatalogPayload(generation, classes, vehicles);
+        List<BlueprintEntry> blueprints = snapshot.blueprints().values().stream()
+                .sorted(java.util.Comparator.comparing(
+                        galacticwars.clonewars.settlement.KingdomBaseBlueprint::id))
+                .map(definition -> new BlueprintEntry(
+                        definition.id(), definition.displayName(), definition.placements().size()))
+                .toList();
+        return new GameplayCatalogPayload(generation, contentHash, classes, vehicles, blueprints);
     }
 
     @Override
@@ -185,6 +207,26 @@ public record GameplayCatalogPayload(
 
         private static VehicleEntry read(RegistryFriendlyByteBuf buffer) {
             return new VehicleEntry(readText(buffer), buffer.readVarInt(), buffer.readVarInt());
+        }
+    }
+
+    public record BlueprintEntry(String blueprintId, String displayName, int placementCount) {
+        public BlueprintEntry {
+            blueprintId = identifier(blueprintId, "blueprintId");
+            displayName = display(displayName, "blueprint display name");
+            if (placementCount < 1 || placementCount > MAX_BLUEPRINT_PLACEMENTS) {
+                throw new IllegalArgumentException("blueprint placement count is outside the supported range");
+            }
+        }
+
+        private static void write(RegistryFriendlyByteBuf buffer, BlueprintEntry value) {
+            writeText(buffer, value.blueprintId());
+            writeText(buffer, value.displayName());
+            buffer.writeVarInt(value.placementCount());
+        }
+
+        private static BlueprintEntry read(RegistryFriendlyByteBuf buffer) {
+            return new BlueprintEntry(readText(buffer), readText(buffer), buffer.readVarInt());
         }
     }
 

@@ -196,6 +196,8 @@ public final class PlanetTravelGameTests {
                 || outboundGroup.snapshots().size() != 2
                 || !commander.isRemoved() || !member.isRemoved()
                 || !progression.state(owner.getUUID()).hasSubject(
+                        ProgressionEventType.PLANET_VISITED, "tatooine")
+                || !progression.state(passenger.getUUID()).hasSubject(
                         ProgressionEventType.PLANET_VISITED, "tatooine")) {
             helper.fail("Outbound transfer did not virtualize its squad or record its planet visit");
             return;

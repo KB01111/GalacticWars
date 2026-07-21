@@ -5,11 +5,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import galacticwars.clonewars.GalacticWars;
+import galacticwars.clonewars.progression.ProgressionEventType;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.resources.FileToIdConverter;
@@ -37,10 +39,24 @@ final class LaunchContentValidator {
         requireCount("planets", planets, 4);
         requireCount("vehicles", vehicles, 5);
         requireCount("force abilities", forceAbilities, 6);
-        requireCount("quests", quests, 15);
-        requireCount("trades", trades, 5);
+        requireMinimum("quests", quests, 15);
+        requireMinimum("trades", trades, factionIds.size() + regions.size());
         requireCount("conquest regions", regions, 4);
-        validateReferences(vehicles, forceAbilities, quests, trades);
+        validateReferences(vehicles, forceAbilities, quests, trades, regions);
+        for (String factionId : factionIds) {
+            if (trades.values().stream().noneMatch(trade ->
+                    trade.factionId().equals(factionId) && trade.stockTier() == 1)) {
+                throw new IllegalArgumentException(
+                        "Faction " + factionId + " requires a campaign-safe tier-one trade");
+            }
+        }
+        for (String regionId : regions.keySet()) {
+            if (trades.values().stream().noneMatch(trade ->
+                    trade.stockTier() > 1 && trade.regionalPrerequisite().equals(regionId))) {
+                throw new IllegalArgumentException(
+                        "Conquest region " + regionId + " requires a veteran trade");
+            }
+        }
         return new LaunchContentDefinitions(planets, vehicles, forceAbilities, quests, trades, regions);
     }
 
@@ -50,9 +66,30 @@ final class LaunchContentValidator {
             Map<String, LaunchContentDefinitions.QuestDefinition> quests,
             Map<String, LaunchContentDefinitions.TradeDefinition> trades
     ) {
+        validateReferences(vehicles, forceAbilities, quests, trades, Map.of());
+    }
+
+    static void validateReferences(
+            Map<String, LaunchContentDefinitions.VehicleDefinition> vehicles,
+            Map<String, LaunchContentDefinitions.ForceAbilityDefinition> forceAbilities,
+            Map<String, LaunchContentDefinitions.QuestDefinition> quests,
+            Map<String, LaunchContentDefinitions.TradeDefinition> trades,
+            Map<String, LaunchContentDefinitions.ConquestRegionDefinition> regions
+    ) {
         LinkedHashSet<String> knownUnlocks = new LinkedHashSet<>(RUNTIME_UNLOCKS);
         knownUnlocks.addAll(quests.keySet());
         quests.values().forEach(quest -> knownUnlocks.addAll(quest.unlocks()));
+        for (LaunchContentDefinitions.QuestDefinition quest : quests.values()) {
+            for (LaunchContentDefinitions.QuestObjectiveDefinition objective : quest.objectives()) {
+                try {
+                    ProgressionEventType.valueOf(objective.eventType().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException unknownType) {
+                    throw new IllegalArgumentException("Quest " + quest.id()
+                            + " objective " + objective.id()
+                            + " references unknown event type " + objective.eventType(), unknownType);
+                }
+            }
+        }
         for (LaunchContentDefinitions.ForceAbilityDefinition ability : forceAbilities.values()) {
             if (!quests.containsKey(ability.requiredQuest())) {
                 throw new IllegalArgumentException("Force ability " + ability.id() + " references unknown quest");
@@ -73,6 +110,19 @@ final class LaunchContentValidator {
         for (LaunchContentDefinitions.TradeDefinition trade : trades.values()) {
             if (!knownUnlocks.contains(trade.requiredUnlock())) {
                 throw new IllegalArgumentException("Trade " + trade.id() + " references unknown unlock");
+            }
+            if (trade.stockTier() == 1 && !trade.regionalPrerequisite().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Tier-one trade " + trade.id() + " cannot require regional control");
+            }
+            if (trade.stockTier() > 1 && trade.regionalPrerequisite().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Veteran trade " + trade.id() + " requires a conquest region");
+            }
+            if (!trade.regionalPrerequisite().isEmpty()
+                    && !regions.containsKey(trade.regionalPrerequisite())) {
+                throw new IllegalArgumentException("Trade " + trade.id()
+                        + " references unknown conquest region " + trade.regionalPrerequisite());
             }
         }
     }
@@ -121,9 +171,9 @@ final class LaunchContentValidator {
 
     private static Map<String, LaunchContentDefinitions.QuestDefinition> loadQuests(ResourceManager manager) throws IOException {
         LinkedHashMap<String, LaunchContentDefinitions.QuestDefinition> result = new LinkedHashMap<>();
-        for (JsonObject json : objects(manager, "quests", "quests")) {
+        for (JsonObject json : objects(manager, "quests", "quests", 2)) {
             var definition = new LaunchContentDefinitions.QuestDefinition(
-                    string(json, "id"), strings(json, "objectives"), integer(json, "reward_credits"),
+                    string(json, "id"), questObjectives(json), integer(json, "reward_credits"),
                     Set.copyOf(strings(json, "unlocks")));
             put(result, definition.id(), definition, "quest");
         }
@@ -161,6 +211,15 @@ final class LaunchContentValidator {
     }
 
     private static List<JsonObject> objects(ResourceManager manager, String directory, String array) throws IOException {
+        return objects(manager, directory, array, 1);
+    }
+
+    private static List<JsonObject> objects(
+            ResourceManager manager,
+            String directory,
+            String array,
+            int expectedSchemaVersion
+    ) throws IOException {
         FileToIdConverter converter = FileToIdConverter.json("galacticwars/" + directory);
         Map<Identifier, Resource> resources = converter.listMatchingResources(manager).entrySet().stream()
                 .filter(entry -> entry.getKey().getNamespace().equals(GalacticWars.MODID))
@@ -174,13 +233,40 @@ final class LaunchContentValidator {
         for (Map.Entry<Identifier, Resource> entry : resources.entrySet()) {
             try (BufferedReader reader = entry.getValue().openAsReader()) {
                 JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-                if (!root.has("schema_version") || root.get("schema_version").getAsInt() != 1) {
+                if (!root.has("schema_version")
+                        || root.get("schema_version").getAsInt() != expectedSchemaVersion) {
                     throw new IllegalArgumentException("Unsupported " + directory + " schema in " + entry.getKey());
                 }
                 JsonArray values = root.getAsJsonArray(array);
                 if (values == null) throw new IllegalArgumentException("Missing " + array + " in " + entry.getKey());
                 for (JsonElement value : values) result.add(value.getAsJsonObject());
             }
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<LaunchContentDefinitions.QuestObjectiveDefinition> questObjectives(
+            JsonObject quest
+    ) {
+        JsonArray values = quest.getAsJsonArray("objectives");
+        if (values == null || values.isEmpty()) {
+            throw new IllegalArgumentException("Missing objectives for quest " + string(quest, "id"));
+        }
+        java.util.ArrayList<LaunchContentDefinitions.QuestObjectiveDefinition> result =
+                new java.util.ArrayList<>();
+        for (JsonElement element : values) {
+            if (!element.isJsonObject()) {
+                throw new IllegalArgumentException(
+                        "Quest objectives must use schema-two object definitions");
+            }
+            JsonObject objective = element.getAsJsonObject();
+            result.add(new LaunchContentDefinitions.QuestObjectiveDefinition(
+                    string(objective, "id"),
+                    string(objective, "event"),
+                    objective.has("subjects")
+                            ? Set.copyOf(strings(objective, "subjects"))
+                            : Set.of(),
+                    objective.has("count") ? integer(objective, "count") : 1));
         }
         return List.copyOf(result);
     }
@@ -226,5 +312,12 @@ final class LaunchContentValidator {
 
     private static void requireCount(String label, Map<?, ?> values, int expected) {
         if (values.size() != expected) throw new IllegalArgumentException(label + " expected " + expected + " entries but found " + values.size());
+    }
+
+    private static void requireMinimum(String label, Map<?, ?> values, int minimum) {
+        if (values.size() < minimum) {
+            throw new IllegalArgumentException(label + " expected at least " + minimum
+                    + " entries but found " + values.size());
+        }
     }
 }

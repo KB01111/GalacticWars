@@ -1,12 +1,11 @@
 package galacticwars.clonewars.vehicle;
 
-import dev.architectury.registry.registries.RegistrySupplier;
+import galacticwars.clonewars.data.CoreContentBindings;
 import galacticwars.clonewars.economy.CreditTransactionService;
 import galacticwars.clonewars.kingdom.KingdomPermission;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.progression.ProgressionEventType;
 import galacticwars.clonewars.progression.ProgressionSavedData;
-import galacticwars.clonewars.registry.ModItems;
 import galacticwars.clonewars.settlement.CommandCenterBlockEntity;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,7 +35,7 @@ public final class VehicleFabricationService {
             return "insufficient_credits";
         }
         inputs.forEach((item, count) -> consume(hall, item, count));
-        ItemStack kit = new ItemStack(Objects.requireNonNull(kit(normalizedVehicleId)).get());
+        ItemStack kit = new ItemStack(Objects.requireNonNull(kit(normalizedVehicleId)));
         player.getInventory().add(kit);
         if (!kit.isEmpty()) player.spawnAtLocation(level, kit);
         return "accepted";
@@ -128,15 +127,14 @@ public final class VehicleFabricationService {
                 || state.hasSubject(ProgressionEventType.QUEST_ADVANCED, requirement);
     }
 
-    private static RegistrySupplier<? extends Item> kit(String id) {
-        return switch (id) {
-            case "barc_speeder" -> ModItems.BARC_SPEEDER_DEPLOYMENT_KIT;
-            case "at_rt" -> ModItems.AT_RT_DEPLOYMENT_KIT;
-            case "stap" -> ModItems.STAP_DEPLOYMENT_KIT;
-            case "aat" -> ModItems.AAT_DEPLOYMENT_KIT;
-            case "laat_gunship" -> ModItems.LAAT_GUNSHIP_DEPLOYMENT_KIT;
-            default -> null;
-        };
+    private static Item kit(String id) {
+        CoreContentBindings.VehicleBinding binding = CoreContentBindings.vehicles().get(id);
+        if (binding == null) {
+            return null;
+        }
+        Identifier itemId = Identifier.parse(binding.deploymentKitItemId());
+        Item item = BuiltInRegistries.ITEM.getValue(itemId);
+        return item != null && itemId.equals(BuiltInRegistries.ITEM.getKey(item)) ? item : null;
     }
 
     private static int count(CommandCenterBlockEntity hall, Item item) {

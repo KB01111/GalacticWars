@@ -1,23 +1,12 @@
 package galacticwars.clonewars.menu;
 
 import galacticwars.clonewars.data.GameplayDataManager;
-import galacticwars.clonewars.faction.FactionAlignmentSavedData;
 import galacticwars.clonewars.faction.FactionDefinition;
 import galacticwars.clonewars.faction.FactionId;
-import galacticwars.clonewars.kingdom.KingdomRecord;
-import galacticwars.clonewars.kingdom.KingdomSavedData;
-import galacticwars.clonewars.kingdom.KingdomActionId;
-import galacticwars.clonewars.kingdom.KingdomGameplayAction;
-import galacticwars.clonewars.kingdom.KingdomGameplayResult;
-import galacticwars.clonewars.kingdom.KingdomGameplayRuntimeService;
-import galacticwars.clonewars.progression.ProgressionEventType;
-import galacticwars.clonewars.progression.ProgressionSavedData;
-import galacticwars.clonewars.progression.ProgressionState;
+import galacticwars.clonewars.faction.FactionPledgeService;
 import galacticwars.clonewars.registry.ModMenuTypes;
 import galacticwars.clonewars.settlement.CommandCenterBlockEntity;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -76,70 +65,11 @@ public final class FactionSelectionMenu extends AbstractContainerMenu {
             return false;
         }
 
-        KingdomSavedData kingdoms = KingdomSavedData.get(level);
-        Optional<KingdomRecord> existing = kingdoms.kingdomForOwner(serverPlayer.getUUID());
-        ProgressionSavedData progression = ProgressionSavedData.get(level);
-        ProgressionState progressionState = progression.state(serverPlayer.getUUID());
-        String kingdomFaction = existing.map(KingdomRecord::factionId).orElse("");
-        String progressionFaction = progressionState.factionId();
-        if (!kingdomFaction.isEmpty() && !progressionFaction.isEmpty()
-                && !kingdomFaction.equals(progressionFaction)) {
-            serverPlayer.sendSystemMessage(Component.translatable(
-                    "message.galacticwars.faction_selection.data_conflict"));
+        FactionPledgeService.Result result = FactionPledgeService.pledge(
+                serverPlayer, commandCenter, factionId);
+        if (!result.accepted()) {
+            serverPlayer.sendSystemMessage(pledgeFailure(result.reason(), factionId));
             return false;
-        }
-        String lockedFaction = kingdomFaction.isEmpty() ? progressionFaction : kingdomFaction;
-        if (!lockedFaction.isEmpty() && !lockedFaction.equals(factionId)) {
-            serverPlayer.sendSystemMessage(Component.translatable(
-                    "message.galacticwars.faction_selection.locked",
-                    Component.translatable(factionTranslation(lockedFaction))));
-            return false;
-        }
-
-        if (existing.isPresent() && kingdoms.isHallActive(serverPlayer.getUUID())) {
-            var settlement = existing.orElseThrow().settlement();
-            boolean sameHall = settlement.dimensionId().equals(level.dimension().identifier().toString())
-                    && settlement.hallX() == commandCenterPos.getX()
-                    && settlement.hallY() == commandCenterPos.getY()
-                    && settlement.hallZ() == commandCenterPos.getZ();
-            if (!sameHall) {
-                serverPlayer.sendSystemMessage(Component.translatable(
-                        "message.galacticwars.command_center.duplicate"));
-                return false;
-            }
-        }
-
-        if (!kingdoms.canActivateHall(
-                serverPlayer.getUUID(), level.dimension().identifier().toString(), commandCenterPos)) {
-            serverPlayer.sendSystemMessage(Component.translatable(
-                    "message.galacticwars.command_center.claim_conflict"));
-            return false;
-        }
-
-        if (progressionFaction.isEmpty()) {
-            KingdomGameplayResult pledge = KingdomGameplayRuntimeService.applyProgression(
-                    progression, new KingdomGameplayAction(
-                            KingdomActionId.of("faction_pledge", serverPlayer.getUUID(), factionId),
-                            serverPlayer.getUUID(), ProgressionEventType.FACTION_PLEDGED, factionId, 1));
-            if (!pledge.accepted()) {
-                serverPlayer.sendSystemMessage(Component.literal(
-                        "Faction selection rejected: " + pledge.reason()));
-                return false;
-            }
-        }
-
-        Optional<KingdomRecord> kingdom = kingdoms.activateHall(
-                serverPlayer.getUUID(), factionId, level.dimension().identifier().toString(), commandCenterPos);
-        if (kingdom.isEmpty()) {
-            serverPlayer.sendSystemMessage(Component.translatable(
-                    "message.galacticwars.command_center.duplicate"));
-            return false;
-        }
-        commandCenter.setFaction(kingdom.orElseThrow().factionId());
-
-        if (progressionFaction.isEmpty()) {
-            FactionAlignmentSavedData.get(level).applyPledge(
-                    serverPlayer.getUUID(), faction, GameplayDataManager.snapshot().factions());
         }
 
         serverPlayer.sendSystemMessage(Component.translatable(
@@ -147,6 +77,15 @@ public final class FactionSelectionMenu extends AbstractContainerMenu {
                 Component.translatable(factionTranslation(factionId))));
         serverPlayer.closeContainer();
         return true;
+    }
+
+    private static Component pledgeFailure(String reason, String factionId) {
+        if (reason.equals("chip_required")) {
+            return Component.translatable(
+                    "message.galacticwars.faction_selection.chip_required",
+                    Component.translatable("item.galacticwars." + path(factionId) + "_identity_chip"));
+        }
+        return Component.translatable("message.galacticwars.faction_selection.rejected." + reason);
     }
 
     @Override
@@ -169,9 +108,7 @@ public final class FactionSelectionMenu extends AbstractContainerMenu {
     }
 
     public static String factionTranslation(String factionId) {
-        int separator = factionId.indexOf(':');
-        String path = separator < 0 ? factionId : factionId.substring(separator + 1);
-        return "faction.galacticwars." + path;
+        return "faction.galacticwars." + path(factionId);
     }
 
     public List<String> factionIds() {
@@ -188,5 +125,10 @@ public final class FactionSelectionMenu extends AbstractContainerMenu {
             ids.add(buffer.readUtf(128));
         }
         return List.copyOf(ids);
+    }
+
+    private static String path(String id) {
+        int separator = id.indexOf(':');
+        return separator < 0 ? id : id.substring(separator + 1);
     }
 }

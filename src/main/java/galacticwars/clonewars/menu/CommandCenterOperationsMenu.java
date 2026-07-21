@@ -92,8 +92,6 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
     public static final int TOGGLE_EMBARGO = 43;
     public static final int PREPARE_PROJECTOR_FIRST = 50;
     public static final int CANCEL_BUILD_PROJECT = 54;
-    private static final List<String> VEHICLES = List.of(
-            "barc_speeder", "at_rt", "stap", "aat", "laat_gunship");
     private static final double INVITE_RANGE_SQUARED = 16.0D * 16.0D;
     private final BlockPos hallPos;
     private final LinkedHashSet<UUID> processedActionIds = new LinkedHashSet<>();
@@ -135,15 +133,59 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
             Optional<UUID> primaryTargetId,
             Optional<UUID> secondaryTargetId
     ) {
+        return handleReplayAction(
+                player, replayId, buttonId, primaryTargetId, secondaryTargetId, -1L, -1);
+    }
+
+    public boolean handleReplayAction(
+            ServerPlayer player,
+            UUID replayId,
+            int buttonId,
+            Optional<UUID> primaryTargetId,
+            Optional<UUID> secondaryTargetId,
+            long expectedContentGeneration,
+            int expectedSettlementRevision
+    ) {
         if (!processedActionIds.add(replayId)) return false;
         while (processedActionIds.size() > 64) {
             processedActionIds.remove(processedActionIds.iterator().next());
+        }
+        String staleReason = staleReason(
+                player, expectedContentGeneration, expectedSettlementRevision);
+        if (!staleReason.isEmpty()) {
+            boolean result = report(player, false, staleReason);
+            if (player.containerMenu == this) {
+                refreshDashboard(player);
+            }
+            return result;
         }
         boolean result = executeAction(player, buttonId, primaryTargetId, secondaryTargetId);
         if (player.containerMenu == this) {
             refreshDashboard(player);
         }
         return result;
+    }
+
+    private String staleReason(
+            ServerPlayer player,
+            long expectedContentGeneration,
+            int expectedSettlementRevision
+    ) {
+        if (expectedContentGeneration >= 0L
+                && expectedContentGeneration != GameplayDataManager.generation()) {
+            return "content_changed";
+        }
+        if (expectedSettlementRevision < 0) {
+            return "";
+        }
+        if (!(player.level() instanceof ServerLevel level)
+                || !(level.getBlockEntity(hallPos) instanceof CommandCenterBlockEntity hall)
+                || hall.ownerId() == null) {
+            return "stale_state";
+        }
+        int currentRevision = KingdomSavedData.get(level).kingdomForOwner(hall.ownerId())
+                .map(kingdom -> kingdom.settlement().revision()).orElse(-1);
+        return currentRevision == expectedSettlementRevision ? "" : "stale_state";
     }
 
     private boolean executeAction(
@@ -176,9 +218,10 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
         } else if (buttonId == CLAIM_REWARDS) {
             success = ProgressionSavedData.get(level).claimCreditRewards(serverPlayer) > 0;
             if (!success) reason = "no_pending_rewards";
-        } else if (buttonId >= FABRICATE_FIRST && buttonId < FABRICATE_FIRST + VEHICLES.size()) {
+        } else if (buttonId >= FABRICATE_FIRST
+                && buttonId < FABRICATE_FIRST + vehicleIds().size()) {
             reason = VehicleFabricationService.fabricate(serverPlayer, hall,
-                    VEHICLES.get(buttonId - FABRICATE_FIRST));
+                    vehicleIds().get(buttonId - FABRICATE_FIRST));
             success = reason.equals("accepted");
         } else if (buttonId == MERGE_SQUADS) {
             var kingdom = data.kingdomForPlayer(player.getUUID()).orElse(null);
@@ -580,7 +623,7 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                         .or(() -> navigationOptions.stream().findFirst())
                         .map(option -> ActionAvailability.rejected(option.reason()))
                         .orElseGet(() -> ActionAvailability.rejected("destination_unavailable")));
-        List<VehicleFabricationSummary> fabrication = VEHICLES.stream().map(vehicleId -> {
+        List<VehicleFabricationSummary> fabrication = vehicleIds().stream().map(vehicleId -> {
             var assessment = VehicleFabricationService.assess(serverPlayer, hall, vehicleId);
             return new VehicleFabricationSummary(
                     assessment.vehicleId(),
@@ -607,6 +650,11 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                 hall.upkeepPaid(), navigationAvailability, fabrication,
                 data.kingdoms(), data.pendingInvites(), data.pendingDiplomacy(),
                 level.getGameTime());
+    }
+
+    private static List<String> vehicleIds() {
+        return GameplayDataManager.snapshot().launchContent().vehicleIds().stream()
+                .sorted().toList();
     }
 
     @Override
@@ -641,7 +689,7 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
     }
 
     private static boolean completedProjectStillExists(ServerLevel level, BuildProject project) {
-        var blueprint = KingdomBaseBlueprint.byId(project.blueprintId()).orElse(null);
+        var blueprint = GameplayDataManager.snapshot().blueprint(project.blueprintId()).orElse(null);
         if (blueprint == null) return false;
         for (int index = 0; index < blueprint.placements().size(); index++) {
             var placement = blueprint.rotatedPlacement(index, project.rotationSteps());

@@ -10,6 +10,7 @@ public final class ConquestCaptureServiceTest {
         sameKingdomCollaboratorsShareProgress();
         competingAttackersCannotInheritProgress();
         progressMathIsBoundedAndValidated();
+        controlChangesUseDistinctPatrolOwnership();
         System.out.println("ConquestCaptureServiceTest passed");
     }
 
@@ -50,6 +51,16 @@ public final class ConquestCaptureServiceTest {
         assertThrows(() -> ConquestCaptureService.advanceProgress(state(), "", 20, 200));
         assertThrows(() -> ConquestCaptureService.advanceProgress(state(), authority, -1, 200));
         assertThrows(() -> ConquestCaptureService.advanceProgress(state(), authority, 1, 0));
+    }
+
+    private static void controlChangesUseDistinctPatrolOwnership() {
+        UUID republic = ConquestRuntimeEvents.patrolId("test", "galacticwars:republic");
+        UUID republicReplay = ConquestRuntimeEvents.patrolId("test", "galacticwars:republic");
+        UUID separatist = ConquestRuntimeEvents.patrolId("test", "galacticwars:separatist");
+        assertEquals(republic, republicReplay, "stable patrol ownership");
+        if (republic.equals(separatist)) {
+            throw new AssertionError("control change reused the previous faction patrol identity");
+        }
     }
 
     private static ConquestControlState state() {

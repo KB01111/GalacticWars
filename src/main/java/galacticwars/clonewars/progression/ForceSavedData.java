@@ -56,16 +56,67 @@ public final class ForceSavedData extends SavedData {
         return states.getOrDefault(playerId, ForceRuntimeState.full());
     }
 
+    public boolean hasStoredState(UUID playerId) {
+        return states.containsKey(playerId);
+    }
+
+    public ForceAbilityRuntimeService.ActivationDecision evaluate(
+            ProgressionState progression, ForceRuntimeState expectedState,
+            UUID activationId, String abilityId, long gameTime,
+            boolean targetsPlayer, boolean allowForcePvp
+    ) {
+        if (!state(progression.playerId()).equals(expectedState)) {
+            throw new IllegalArgumentException("expected Force state is stale");
+        }
+        return ForceAbilityRuntimeService.activate(
+                progression, expectedState, activationId, abilityId,
+                gameTime, targetsPlayer, allowForcePvp);
+    }
+
+    public boolean commitEvaluated(
+            UUID playerId,
+            ForceRuntimeState expectedState,
+            ForceAbilityRuntimeService.ActivationDecision evaluated
+    ) {
+        if (!state(playerId).equals(expectedState)) {
+            return false;
+        }
+        if (!evaluated.accepted() || evaluated.state().equals(expectedState)) {
+            throw new IllegalArgumentException("invalid evaluated Force activation");
+        }
+        states.put(playerId, evaluated.state());
+        setDirty();
+        return true;
+    }
+
+    public boolean restoreAfterFailedTransaction(
+            UUID playerId,
+            ForceRuntimeState expectedCurrent,
+            ForceRuntimeState previous,
+            boolean previousWasStored
+    ) {
+        if (!state(playerId).equals(expectedCurrent)) {
+            return false;
+        }
+        if (previousWasStored) {
+            states.put(playerId, previous);
+        } else {
+            states.remove(playerId);
+        }
+        setDirty();
+        return true;
+    }
+
     public ForceAbilityRuntimeService.ActivationDecision activate(
             ProgressionState progression, UUID activationId, String abilityId,
             long gameTime, boolean targetsPlayer, boolean allowForcePvp
     ) {
         ForceRuntimeState before = state(progression.playerId());
-        ForceAbilityRuntimeService.ActivationDecision decision = ForceAbilityRuntimeService.activate(
-                progression, before, activationId, abilityId, gameTime, targetsPlayer, allowForcePvp);
-        if (decision.accepted() && decision.state() != before) {
-            states.put(progression.playerId(), decision.state());
-            setDirty();
+        ForceAbilityRuntimeService.ActivationDecision decision = evaluate(
+                progression, before, activationId, abilityId,
+                gameTime, targetsPlayer, allowForcePvp);
+        if (decision.accepted() && !decision.state().equals(before)) {
+            commitEvaluated(progression.playerId(), before, decision);
         }
         return decision;
     }

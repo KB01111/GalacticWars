@@ -66,6 +66,12 @@ public final class LaunchDataIntegrityTest {
             assertTrue(unlocks.size() == unlockList.size(), questId + " duplicate unlock");
             assertTrue(declaredUnlocks.put(questId, unlocks) == null, questId + " duplicate declaration");
         }
+        assertTrue(quests.stream().filter(quest ->
+                        string(quest, "id").equals("republic_chapter_3")
+                                || string(quest, "id").equals("nightsister_chapter_3"))
+                        .allMatch(quest -> quest.contains("\"event\":\"force_ability_used\"")
+                                && quest.contains("\"required_count\":2")),
+                "Force mastery chapters require embodied basic-ability training");
         assertTrue(declaredUnlocks.equals(EXPECTED_QUEST_UNLOCKS), "quest unlock contents");
         List<String> vehicles = objects(Files.readString(GAMEPLAY.resolve("vehicles/launch.json")), "vehicles");
         assertTrue(vehicles.stream().anyMatch(vehicle -> string(vehicle, "unlock").equals("vehicle_crafting")

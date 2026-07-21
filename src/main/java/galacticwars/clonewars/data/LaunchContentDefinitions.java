@@ -20,6 +20,7 @@ public record LaunchContentDefinitions(
     public static final int MAX_SERIALIZED_TRADE_TEXT_BYTES = 128;
     public static final int MAX_TRADE_ITEM_COUNT = 64;
     public static final int MAX_TRADE_CREDIT_PRICE = 1_000_000;
+    public static final int MAX_QUEST_OBJECTIVE_REQUIRED_COUNT = 1_000_000;
 
     public LaunchContentDefinitions {
         planets = immutable(planets, "planets");
@@ -39,7 +40,9 @@ public record LaunchContentDefinitions(
     public Set<String> forceAbilityIds() { return Set.copyOf(forceAbilities.keySet()); }
     public List<String> questIds() { return List.copyOf(quests.keySet()); }
     public Set<String> questUnlocks(String id) { return quests.containsKey(id) ? quests.get(id).unlocks() : Set.of(); }
-    public List<String> questObjectives(String id) { return quests.containsKey(id) ? quests.get(id).objectives() : List.of(); }
+    public List<QuestObjectiveDefinition> questObjectives(String id) {
+        return quests.containsKey(id) ? quests.get(id).objectives() : List.of();
+    }
     public int questRewardCredits(String id) { return quests.containsKey(id) ? quests.get(id).rewardCredits() : 0; }
     public int regionRewardCredits(String id) { return conquestRegions.containsKey(id) ? conquestRegions.get(id).rewardCredits() : 0; }
     public Optional<TradeDefinition> trade(String id) { return Optional.ofNullable(trades.get(id)); }
@@ -141,14 +144,40 @@ public record LaunchContentDefinitions(
         }
     }
 
-    public record QuestDefinition(String id, List<String> objectives, int rewardCredits, Set<String> unlocks) {
+    public record QuestObjectiveDefinition(
+            String id,
+            String eventType,
+            Set<String> subjectIds,
+            int requiredCount
+    ) {
+        public QuestObjectiveDefinition {
+            requireIds(id, eventType);
+            subjectIds = Set.copyOf(Objects.requireNonNull(subjectIds, "subjectIds for " + id));
+            if (subjectIds.stream().anyMatch(subject -> subject == null || subject.isBlank())
+                    || requiredCount < 1
+                    || requiredCount > MAX_QUEST_OBJECTIVE_REQUIRED_COUNT) {
+                throw new IllegalArgumentException("Invalid quest objective " + id);
+            }
+        }
+    }
+
+    public record QuestDefinition(
+            String id,
+            List<QuestObjectiveDefinition> objectives,
+            int rewardCredits,
+            Set<String> unlocks
+    ) {
         public QuestDefinition {
             requireIds(id);
             Objects.requireNonNull(objectives, "objectives for quest " + id);
             Objects.requireNonNull(unlocks, "unlocks for quest " + id);
             objectives = List.copyOf(objectives);
             unlocks = Set.copyOf(unlocks);
-            if (objectives.isEmpty() || rewardCredits < 0) throw new IllegalArgumentException("Invalid quest " + id);
+            if (objectives.isEmpty() || rewardCredits < 0
+                    || objectives.stream().map(QuestObjectiveDefinition::id).distinct().count()
+                            != objectives.size()) {
+                throw new IllegalArgumentException("Invalid quest " + id);
+            }
         }
     }
 

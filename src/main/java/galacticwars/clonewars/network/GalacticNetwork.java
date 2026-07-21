@@ -160,7 +160,9 @@ public final class GalacticNetwork {
                         payload.replayId(),
                         payload.actionId(),
                         payload.primaryTargetId(),
-                        payload.secondaryTargetId());
+                        payload.secondaryTargetId(),
+                        payload.expectedContentGeneration(),
+                        payload.expectedSettlementRevision());
             } else if (player.containerMenu instanceof MerchantTradeMenu merchant) {
                 merchant.handleReplayAction(player, payload.replayId(), payload.actionId());
             }

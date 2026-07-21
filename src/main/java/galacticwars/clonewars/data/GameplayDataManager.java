@@ -60,18 +60,33 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
     private static final Identifier LISTENER_ID =
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "gameplay_data");
     private static final AtomicBoolean REGISTERED = new AtomicBoolean();
-    private static volatile GameplayDataSnapshot snapshot = defaults();
-    private static volatile long generation;
+    private static final GameplayDataSnapshot DEFAULT_SNAPSHOT = defaults();
 
     private GameplayDataManager() {
     }
 
     public static GameplayDataSnapshot snapshot() {
-        return snapshot;
+        return currentContent().snapshot();
     }
 
     public static long generation() {
-        return generation;
+        return currentContent().state().generation();
+    }
+
+    public static GameplayContentState contentState() {
+        return currentContent().state();
+    }
+
+    public static boolean isReady() {
+        return currentContent().state().hasUsableSnapshot();
+    }
+
+    public static CurrentContent currentContent() {
+        LaunchContentRuntime.RuntimeSnapshot current = LaunchContentRuntime.current();
+        GameplayDataSnapshot accepted = current.gameplaySnapshot();
+        return new CurrentContent(
+                accepted == null ? DEFAULT_SNAPSHOT : accepted,
+                current.contentState());
     }
 
     public static void register() {
@@ -157,6 +172,13 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
                     unitClasses,
                     factionPolicies,
                     launchContent);
+            CoreContentBindings.validate(loaded);
+            for (CoreContentBindings.VehicleBinding binding : CoreContentBindings.vehicles().values()) {
+                requireRegistered(BuiltInRegistries.ENTITY_TYPE, binding.entityTypeId(),
+                        "vehicle entity type");
+                requireRegistered(BuiltInRegistries.ITEM, binding.deploymentKitItemId(),
+                        "vehicle deployment kit");
+            }
             return LoadResult.success(loaded);
         } catch (RuntimeException | IOException exception) {
             return LoadResult.failure(exception);
@@ -166,35 +188,59 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
     @Override
     protected void apply(LoadResult result, ResourceManager manager, ProfilerFiller profiler) {
         if (result.snapshot().isPresent()) {
-            snapshot = result.snapshot().orElseThrow();
+            GameplayDataSnapshot loaded = result.snapshot().orElseThrow();
             LinkedHashMap<String, List<String>> launchUnits = new LinkedHashMap<>();
-            snapshot.factions().definitions().keySet().forEach(faction -> launchUnits.put(
-                    faction.path(), snapshot.units().definitions().values().stream()
-                            .filter(unit -> unit.factionId().equals(faction))
-                            .map(unit -> unit.id().path()).toList()));
-            LaunchContentRuntime.install(
-                    snapshot.launchContent(),
-                    snapshot.selectableFactions().stream().map(faction -> faction.id().toString()).toList(),
+            loaded.factions().definitions().keySet().forEach(faction -> launchUnits.put(
+                    faction.path(), java.util.stream.Stream.concat(
+                            loaded.units().definitions().values().stream()
+                                    .filter(unit -> unit.factionId().equals(faction))
+                                    .map(unit -> unit.id().path()),
+                            loaded.civilianArchetypesByEntityType().values().stream()
+                                    .filter(civilian -> civilian.factionId().equals(faction.toString()))
+                                    .map(civilian -> subjectPath(civilian.id())))
+                            .distinct().sorted().toList()));
+            long nextGeneration = currentContent().state().generation() + 1;
+            String contentHash = GameplayContentFingerprint.compute(loaded);
+            GameplayContentState ready = GameplayContentState.ready(nextGeneration, contentHash);
+            LaunchContentRuntime.installAccepted(
+                    loaded,
+                    ready,
+                    loaded.selectableFactions().stream().map(faction -> faction.id().toString()).toList(),
                     launchUnits);
-            generation++;
             GalacticWars.LOGGER.info(
-                    "Loaded {} factions, {} units, {} classes, {} abilities, {} faction policies, {} civilian archetypes, {} base blueprints, {} Overworld spawn profiles, {} quests, {} trades, {} vehicles, and {} planets",
-                    snapshot.factions().definitions().size(),
-                    snapshot.units().definitions().size(),
-                    snapshot.unitClasses().size(),
-                    snapshot.abilities().size(),
-                    snapshot.factionPolicies().size(),
-                    snapshot.civilianArchetypesByEntityType().size(),
-                    snapshot.blueprints().size(),
-                    snapshot.overworldSpawnProfiles().size(),
-                    snapshot.launchContent().quests().size(),
-                    snapshot.launchContent().trades().size(),
-                    snapshot.launchContent().vehicles().size(),
-                    snapshot.launchContent().planets().size());
+                    "Loaded gameplay content generation {} ({}) with {} factions, {} units, {} classes, {} abilities, {} faction policies, {} civilian archetypes, {} base blueprints, {} Overworld spawn profiles, {} quests, {} trades, {} vehicles, and {} planets",
+                    nextGeneration,
+                    contentHash,
+                    loaded.factions().definitions().size(),
+                    loaded.units().definitions().size(),
+                    loaded.unitClasses().size(),
+                    loaded.abilities().size(),
+                    loaded.factionPolicies().size(),
+                    loaded.civilianArchetypesByEntityType().size(),
+                    loaded.blueprints().size(),
+                    loaded.overworldSpawnProfiles().size(),
+                    loaded.launchContent().quests().size(),
+                    loaded.launchContent().trades().size(),
+                    loaded.launchContent().vehicles().size(),
+                    loaded.launchContent().planets().size());
         } else {
+            Throwable failure = result.failure().orElseGet(
+                    () -> new IllegalStateException("gameplay data reload failed without a diagnostic"));
+            String diagnostic = failure.getMessage() == null
+                    ? failure.getClass().getSimpleName()
+                    : failure.getClass().getSimpleName() + ": " + failure.getMessage();
+            GameplayContentState currentState = currentContent().state();
+            if (!currentState.hasUsableSnapshot()) {
+                LaunchContentRuntime.updateContentState(GameplayContentState.initialFailure(diagnostic));
+                GalacticWars.LOGGER.error("Initial gameplay data load failed; refusing to start", failure);
+                throw new IllegalStateException("Initial Galactic Wars gameplay data is invalid: "
+                        + diagnostic, failure);
+            }
+            LaunchContentRuntime.updateContentState(GameplayContentState.rejectedReload(
+                    currentState.generation(), currentState.contentHash(), diagnostic));
             GalacticWars.LOGGER.error(
                     "Rejected gameplay data reload; retaining the previous valid snapshot",
-                    result.failure().orElse(null));
+                    failure);
         }
     }
 
@@ -736,17 +782,12 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
     }
 
     private static GameplayDataSnapshot defaults() {
-        List<KingdomBaseBlueprint> blueprints = KingdomBaseBlueprint.builtIns();
-        LinkedHashMap<String, KingdomBaseBlueprint> indexed = new LinkedHashMap<>();
-        for (KingdomBaseBlueprint blueprint : blueprints) {
-            indexed.put(blueprint.id(), blueprint);
-        }
         return new GameplayDataSnapshot(
                 new FactionCatalog(Map.of()),
                 new ArmyUnitCatalog(List.of()),
                 Map.of(),
                 Map.of("galacticwars:mandalorian_rider", ArmyUnitId.of("galacticwars:mandalorian_warrior")),
-                indexed,
+                Map.of(),
                 Map.of(),
                 Map.of(),
                 Map.of(),
@@ -762,6 +803,18 @@ public final class GameplayDataManager extends SimplePreparableReloadListener<Ga
 
         static LoadResult failure(Throwable failure) {
             return new LoadResult(Optional.empty(), Optional.of(failure));
+        }
+    }
+
+    private static String subjectPath(String id) {
+        int separator = id.indexOf(':');
+        return separator < 0 ? id : id.substring(separator + 1);
+    }
+
+    public record CurrentContent(GameplayDataSnapshot snapshot, GameplayContentState state) {
+        public CurrentContent {
+            java.util.Objects.requireNonNull(snapshot, "snapshot");
+            java.util.Objects.requireNonNull(state, "state");
         }
     }
 

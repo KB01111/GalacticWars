@@ -153,7 +153,9 @@ public record LaunchContentDefinitions(
         public QuestObjectiveDefinition {
             requireIds(id, eventType);
             subjectIds = Set.copyOf(Objects.requireNonNull(subjectIds, "subjectIds for " + id));
-            if (subjectIds.stream().anyMatch(subject -> subject == null || subject.isBlank())
+            if (subjectIds.stream().anyMatch(String::isBlank)
+                    || requiredCount < 1
+                    || requiredCount > MAX_QUEST_OBJECTIVE_REQUIRED_COUNT) {
                     || requiredCount < 1
                     || requiredCount > MAX_QUEST_OBJECTIVE_REQUIRED_COUNT) {
                 throw new IllegalArgumentException("Invalid quest objective " + id);

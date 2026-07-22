@@ -352,11 +352,12 @@ public final class ModGameTests {
         tests.put(id("blueprint_projector_runtime"), ModGameTests::blueprintProjectorRuntime);
         tests.put(id("kingdom_governance_persistence"), ModGameTests::kingdomGovernancePersistence);
         tests.put(id("kingdom_multiplayer_runtime"), ModGameTests::kingdomMultiplayerRuntime);
-        tests.put(id("overworld_faction_outpost_runtime"), ModGameTests::blueprintSiteRuntime);
+        tests.put(id("overworld_faction_outpost_runtime"), ModGameTests::overworldFactionOutpostRuntime);
+        tests.put(id("blueprint_site_runtime"), ModGameTests::blueprintSiteRuntime);
         tests.put(id("chunk_generation_rejection_serialization"),
                 ModGameTests::chunkGenerationRejectionSerialization);
         tests.put(id("chunk_generation_initialization_serialization"),
-                ModGameTests::chunkGenerationRejectionSerialization);
+                ModGameTests::chunkGenerationInitializationSerialization);
         tests.put(id("natural_rejection_serialization"),
                 ModGameTests::naturalRejectionSerialization);
         tests.put(id("planet_faction_outpost_runtime"), ModGameTests::planetFactionOutpostRuntime);

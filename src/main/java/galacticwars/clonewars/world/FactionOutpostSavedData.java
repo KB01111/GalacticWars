@@ -26,7 +26,7 @@ public final class FactionOutpostSavedData extends SavedData {
             Codec.INT.fieldOf("x").forGetter(FactionOutpostRecord::x),
             Codec.INT.fieldOf("y").forGetter(FactionOutpostRecord::y),
             Codec.INT.fieldOf("z").forGetter(FactionOutpostRecord::z),
-            Codec.intRange(16, 512).fieldOf("radius").forGetter(FactionOutpostRecord::radius),
+            Codec.intRange(8, 512).fieldOf("radius").forGetter(FactionOutpostRecord::radius),
             UUIDUtil.CODEC.listOf().optionalFieldOf("military_npcs", List.of())
                     .forGetter(FactionOutpostRecord::militaryNpcIds),
             UUIDUtil.CODEC.listOf().optionalFieldOf("civilian_npcs", List.of())

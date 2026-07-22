@@ -66,6 +66,10 @@ public final class BlueprintSiteAnchorBlockEntity extends BlockEntity {
             setChanged();
             return;
         }
+        if (!blueprint.matchesDefinitionHash(contentHash)) {
+            initialized = true;
+            setChanged();
+            return;
         }
         var profile = blueprint.worldgen().orElseThrow();
         String identity = level.dimension().identifier() + ":" + pos.asLong() + ":" + blueprintId;

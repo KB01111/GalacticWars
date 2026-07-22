@@ -6,11 +6,13 @@ import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.OptionGroup;
 import dev.isxander.yacl3.api.YetAnotherConfigLib;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
-import galacticwars.clonewars.Config;
+import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
+import galacticwars.clonewars.client.ClientConfig;
+import galacticwars.clonewars.client.ServerPolicyClientState;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-/** Creates a fresh YACL screen backed by the loader-neutral common config. */
+/** Local accessibility controls plus a read-only authoritative server-policy snapshot. */
 public final class GalacticWarsConfigScreen {
     private GalacticWarsConfigScreen() {
     }
@@ -19,38 +21,42 @@ public final class GalacticWarsConfigScreen {
         return YetAnotherConfigLib.createBuilder()
                 .title(text("config.galacticwars.title"))
                 .category(ConfigCategory.createBuilder()
-                        .name(text("config.galacticwars.category.general"))
+                        .name(text("config.galacticwars.category.accessibility"))
                         .group(OptionGroup.createBuilder()
-                                .name(text("config.galacticwars.group.foundation"))
+                                .name(text("config.galacticwars.group.hud"))
                                 .description(OptionDescription.of(
-                                        text("config.galacticwars.group.foundation.description")))
-                                .option(booleanOption("log_startup", Config.LOG_STARTUP))
+                                        text("config.galacticwars.group.hud.description")))
+                                .option(integerOption("hud_horizontal_offset", ClientConfig.HUD_HORIZONTAL_OFFSET, 10))
+                                .option(integerOption("hud_vertical_offset", ClientConfig.HUD_VERTICAL_OFFSET, 5))
+                                .option(integerOption("hud_scale_percent", ClientConfig.HUD_SCALE_PERCENT, 5))
+                                .build())
+                        .group(OptionGroup.createBuilder()
+                                .name(text("config.galacticwars.group.effects"))
+                                .description(OptionDescription.of(
+                                        text("config.galacticwars.group.effects.description")))
+                                .option(integerOption("effect_intensity_percent", ClientConfig.EFFECT_INTENSITY_PERCENT, 5))
+                                .option(integerOption("particle_density_percent", ClientConfig.PARTICLE_DENSITY_PERCENT, 5))
+                                .option(integerOption("camera_shake_percent", ClientConfig.CAMERA_SHAKE_PERCENT, 5))
+                                .option(booleanOption("high_contrast", ClientConfig.HIGH_CONTRAST))
+                                .option(booleanOption("avoid_color_only", ClientConfig.AVOID_COLOR_ONLY))
+                                .option(booleanOption("narration_hints", ClientConfig.NARRATION_HINTS))
                                 .build())
                         .build())
                 .category(ConfigCategory.createBuilder()
-                        .name(text("config.galacticwars.category.combat"))
+                        .name(text("config.galacticwars.category.server_policy"))
                         .group(OptionGroup.createBuilder()
-                                .name(text("config.galacticwars.group.combat_safety"))
-                                .description(OptionDescription.of(
-                                        text("config.galacticwars.group.combat_safety.description")))
-                                .option(booleanOption(
-                                        "allow_blaster_friendly_fire",
-                                        Config.ALLOW_BLASTER_FRIENDLY_FIRE))
-                                .option(booleanOption("allow_blaster_pvp", Config.ALLOW_BLASTER_PVP))
-                                .option(booleanOption("allow_class_pvp", Config.ALLOW_CLASS_PVP))
-                                .option(booleanOption("allow_force_pvp", Config.ALLOW_FORCE_PVP))
-                                .option(booleanOption("allow_force_block_physics", Config.ALLOW_FORCE_BLOCK_PHYSICS))
-                                .option(booleanOption("allow_force_vehicle_physics", Config.ALLOW_FORCE_VEHICLE_PHYSICS))
+                                .name(text("config.galacticwars.group.server_policy"))
+                                .description(OptionDescription.of(policyDescription()))
                                 .build())
                         .build())
-                .save(Config::save)
+                .save(ClientConfig::save)
                 .build()
                 .generateScreen(parent);
     }
 
     private static Option<Boolean> booleanOption(
             String key,
-            Config.BooleanValue value
+            ClientConfig.BooleanValue value
     ) {
         return Option.<Boolean>createBuilder()
                 .name(text("config.galacticwars.option." + key))
@@ -61,6 +67,31 @@ public final class GalacticWarsConfigScreen {
                         .coloured(true)
                         .onOffFormatter())
                 .build();
+    }
+
+    private static Option<Integer> integerOption(
+            String key, ClientConfig.IntegerValue value, int step
+    ) {
+        return Option.<Integer>createBuilder()
+                .name(text("config.galacticwars.option." + key))
+                .description(OptionDescription.of(
+                        text("config.galacticwars.option." + key + ".description")))
+                .binding(value.getDefault(), value::get, value::set)
+                .controller(option -> IntegerSliderControllerBuilder.create(option)
+                        .range(value.minimum(), value.maximum()).step(step))
+                .build();
+    }
+
+    private static Component policyDescription() {
+        var policy = ServerPolicyClientState.snapshot();
+        return Component.translatable("config.galacticwars.group.server_policy.description",
+                onOff(policy.blasterFriendlyFire()), onOff(policy.blasterPvp()),
+                onOff(policy.classPvp()), onOff(policy.forcePvp()),
+                onOff(policy.forceBlockPhysics()), onOff(policy.forceVehiclePhysics()));
+    }
+
+    private static Component onOff(boolean value) {
+        return Component.translatable(value ? "options.on" : "options.off");
     }
 
     private static Component text(String key) {

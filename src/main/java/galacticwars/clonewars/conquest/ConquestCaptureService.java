@@ -22,6 +22,8 @@ import net.minecraft.world.phys.AABB;
 
 /** Server-authoritative, world-present capture transaction shared by runtime ticks and GameTests. */
 public final class ConquestCaptureService {
+    private static final long COUNTERATTACK_DELAY_TICKS = 24_000L;
+
     private ConquestCaptureService() {
     }
 
@@ -91,7 +93,9 @@ public final class ConquestCaptureService {
             data.put(progressed);
             return CaptureResult.accepted(false, "capturing", progressed);
         }
-        ConquestControlState captured = progressed.captured(playerFaction, playerKingdom);
+        ConquestControlState captured = progressed.captured(
+                playerFaction, playerKingdom, level.getGameTime() + COUNTERATTACK_DELAY_TICKS,
+                namespacedFaction(region.defenderFaction()));
         UUID eventId = UUID.nameUUIDFromBytes(("conquest:" + region.id() + ":"
                 + player.getUUID() + ":" + captured.revision()).getBytes(StandardCharsets.UTF_8));
         ProgressionSavedData progression = ProgressionSavedData.get(level);

@@ -28,6 +28,7 @@ import galacticwars.clonewars.kingdom.SettlementRecord;
 import galacticwars.clonewars.network.CommandCenterStatePayload;
 import galacticwars.clonewars.network.GalacticNetwork;
 import galacticwars.clonewars.progression.ProgressionSavedData;
+import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.registry.ModItems;
 import galacticwars.clonewars.registry.ModDataComponents;
 import galacticwars.clonewars.registry.ModMenuTypes;
@@ -649,7 +650,89 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                 ProgressionSavedData.get(level).state(player.getUUID()), hall.treasuryCredits(),
                 hall.upkeepPaid(), navigationAvailability, fabrication,
                 data.kingdoms(), data.pendingInvites(), data.pendingDiplomacy(),
+                conflictSummaries(serverPlayer, kingdom, data),
                 level.getGameTime());
+    }
+
+    private static List<galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary>
+            conflictSummaries(
+                    ServerPlayer player,
+                    galacticwars.clonewars.kingdom.KingdomRecord kingdom,
+                    KingdomSavedData kingdoms
+            ) {
+         java.util.ArrayList<galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary>
+                 result = new java.util.ArrayList<>();
+         galacticwars.clonewars.progression.MissionAttemptSavedData.get(player.level().getServer().overworld())
+                 .forPlayer(player.getUUID()).ifPresent(attempt -> {
+                     if (!attempt.phase().equals("complete")) {
+                         long endsAt = attempt.phase().equals("cooldown")
+                                 ? attempt.retryAt()
+                                 : attempt.phase().equals("hold")
+                                 ? player.level().getServer().overworld().getGameTime()
+                                 + Math.max(0, 200 - attempt.holdTicks()) : 0L;
+                         result.add(new galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary(
+                                 attempt.missionId(), "campaign_mission", attempt.targetDimension(),
+                                 attempt.target().getX(), attempt.target().getZ(), attempt.phase(),
+                                 attempt.holdTicks(), 200, endsAt,
+                                 kingdom.factionId(), attempt.failureReason()));
+                     }
+                 });
+         for (galacticwars.clonewars.kingdom.KingdomSiege siege : kingdoms.sieges()) {
+            if (!siege.attackerKingdomId().equals(kingdom.id())
+                    && !siege.defenderKingdomId().equals(kingdom.id())) {
+                continue;
+            }
+            galacticwars.clonewars.kingdom.KingdomClaim claim = kingdoms
+                    .kingdom(siege.defenderKingdomId()).stream()
+                    .flatMap(record -> record.claims().stream())
+                    .filter(candidate -> candidate.id().equals(siege.claimId()))
+                    .findFirst().orElse(null);
+            if (claim == null) {
+                continue;
+            }
+            result.add(new galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary(
+                    siege.id().toString(), "kingdom_siege", claim.dimensionId(),
+                    (claim.center().x() << 4) + 8, (claim.center().z() << 4) + 8,
+                    siege.state().name().toLowerCase(java.util.Locale.ROOT),
+                    siege.captureProgress(), siege.captureGoal(), 0L,
+                    siege.attackerKingdomId().toString(), siege.defenderKingdomId().toString()));
+        }
+        for (var region : LaunchContentCatalog.data().conquestRegions().values()) {
+            var planet = LaunchContentCatalog.data().planets().get(region.planetId());
+            if (planet == null) {
+                continue;
+            }
+            net.minecraft.server.level.ServerLevel level;
+            try {
+                level = player.level().getServer().getLevel(net.minecraft.resources.ResourceKey.create(
+                        net.minecraft.core.registries.Registries.DIMENSION,
+                        net.minecraft.resources.Identifier.parse(planet.dimensionId())));
+            } catch (RuntimeException invalidDimension) {
+                continue;
+            }
+            if (level == null) {
+                continue;
+            }
+            var state = galacticwars.clonewars.conquest.ConquestSavedData.get(level)
+                    .state(region.id()).orElse(null);
+            if (state == null || !state.controllingKingdom().equals(kingdom.id().toString())
+                    || state.counterattackAt() <= 0L) {
+                continue;
+            }
+            result.add(new galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary(
+                    state.regionId(), "conquest_counterattack", state.dimensionId(),
+                    state.beaconX(), state.beaconZ(),
+                    state.counterattackActive() ? "active" : "scheduled",
+                    state.counterattackProgress(), Math.max(200, region.captureTicks() / 2),
+                    state.counterattackActive() ? state.counterattackEndsAt() : state.counterattackAt(),
+                    state.attackingFaction(), state.controllingFaction()));
+        }
+        return result.stream()
+                .sorted(java.util.Comparator.comparing(
+                        galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary::endsAt)
+                        .thenComparing(
+                                galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary::state))
+                .limit(16).toList();
     }
 
     private static List<String> vehicleIds() {

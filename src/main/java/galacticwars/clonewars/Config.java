@@ -15,9 +15,10 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Loader-neutral, YACL-backed common configuration. */
+/** Authoritative gameplay policy loaded only by the logical server. */
 public final class Config {
-    private static final Path CONFIG_PATH = Platform.getConfigFolder().resolve("galacticwars.properties");
+    private static final Path CONFIG_PATH = Platform.getConfigFolder().resolve("galacticwars-server.properties");
+    private static final Path LEGACY_CONFIG_PATH = Platform.getConfigFolder().resolve("galacticwars.properties");
     private static final Map<String, BooleanValue> VALUES = new LinkedHashMap<>();
     private static boolean loaded;
 
@@ -40,30 +41,60 @@ public final class Config {
             return;
         }
         loaded = true;
-        if (!Files.isRegularFile(CONFIG_PATH)) {
+        Path source = Files.isRegularFile(CONFIG_PATH) ? CONFIG_PATH
+                : Files.isRegularFile(LEGACY_CONFIG_PATH) ? LEGACY_CONFIG_PATH : null;
+        if (source == null) {
             save();
             return;
         }
 
+        if (read(source) && source.equals(LEGACY_CONFIG_PATH)) {
+            save();
+            GalacticWars.LOGGER.info("Migrated server policy from {} to {}", source, CONFIG_PATH);
+        }
+    }
+
+    /** Reloads the authoritative policy from disk for the operator command. */
+    public static synchronized boolean reload() {
+        if (!Files.isRegularFile(CONFIG_PATH)) {
+            VALUES.values().forEach(BooleanValue::reset);
+            save();
+            return true;
+        }
+        Map<String, Boolean> snapshot = new LinkedHashMap<>();
+        VALUES.forEach((key, value) -> snapshot.put(key, value.get()));
+        if (!read(CONFIG_PATH)) {
+            snapshot.forEach((key, value) -> VALUES.get(key).set(value));
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean read(Path source) {
         Properties properties = new Properties();
-        try (InputStream input = Files.newInputStream(CONFIG_PATH)) {
+        try (InputStream input = Files.newInputStream(source)) {
             properties.load(input);
         } catch (IOException exception) {
-            GalacticWars.LOGGER.error("Unable to read {}", CONFIG_PATH, exception);
-            return;
+            GalacticWars.LOGGER.error("Unable to read {}", source, exception);
+            return false;
         }
 
-        VALUES.forEach((key, value) -> {
+        Map<String, Boolean> parsed = new LinkedHashMap<>();
+        for (Map.Entry<String, BooleanValue> entry : VALUES.entrySet()) {
+            String key = entry.getKey();
             String encoded = properties.getProperty(key);
             if (encoded == null) {
-                return;
-            }
-            if (encoded.equalsIgnoreCase("true") || encoded.equalsIgnoreCase("false")) {
-                value.set(Boolean.parseBoolean(encoded));
+                parsed.put(key, entry.getValue().getDefault());
+            } else if (encoded.equalsIgnoreCase("true") || encoded.equalsIgnoreCase("false")) {
+                parsed.put(key, Boolean.parseBoolean(encoded));
             } else {
-                GalacticWars.LOGGER.warn("Ignoring invalid boolean {}={} in {}", key, encoded, CONFIG_PATH);
+                GalacticWars.LOGGER.warn("Ignoring invalid boolean {}={} in {}", key, encoded, source);
+                parsed.put(key, entry.getValue().getDefault());
             }
-        });
+        }
+
+        parsed.forEach((key, value) -> VALUES.get(key).set(value));
+        return true;
     }
 
     public static synchronized void save() {
@@ -125,6 +156,10 @@ public final class Config {
 
         public void set(boolean nextValue) {
             value.set(nextValue);
+        }
+
+        private void reset() {
+            value.set(defaultValue);
         }
     }
 }

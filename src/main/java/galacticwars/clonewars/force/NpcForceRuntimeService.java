@@ -3,11 +3,11 @@ package galacticwars.clonewars.force;
 import galacticwars.clonewars.data.GameplayDataManager;
 import galacticwars.clonewars.data.LaunchContentDefinitions;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
+import galacticwars.clonewars.registry.ModSounds;
 import java.util.List;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -72,7 +72,7 @@ public final class NpcForceRuntimeService {
                         : tradition.equals("sith") ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.END_ROD,
                 recruit.getX(), recruit.getEyeY(), recruit.getZ(), Math.max(4, affected * 2),
                 0.3D, 0.3D, 0.3D, 0.03D);
-        level.playSound(null, recruit.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(),
+        level.playSound(null, recruit.blockPosition(), ModSounds.FORCE_USE.get(),
                 SoundSource.HOSTILE, 0.65F, tradition.equals("sith") ? 0.7F : 1.05F);
     }
 }

@@ -45,13 +45,25 @@ public final class ClassAbilityEffectRegistry {
             AbilityDefinition ability,
             LivingEntity target
     ) {
+        return execute(level, actor, ability, target, 1.0D);
+    }
+
+    /** Executes a player ability with the bounded potency supplied by class milestones. */
+    public static boolean execute(
+            ServerLevel level,
+            LivingEntity actor,
+            AbilityDefinition ability,
+            LivingEntity target,
+            double potency
+    ) {
+        double boundedPotency = Math.max(1.0D, Math.min(1.25D, potency));
         return switch (ClassAbilityExecutorCatalog.family(ability.id().toString())) {
-            case PROJECTILE -> projectile(level, actor, target, ability);
-            case MARK -> mark(level, actor, target, ability);
-            case MOBILITY -> mobility(actor, target);
-            case DEFENSIVE -> defensive(actor);
-            case SUPPORT -> support(level, actor, ability.range());
-            case PASSIVE -> passive(actor, ability.id().toString());
+            case PROJECTILE -> projectile(level, actor, target, ability, boundedPotency);
+            case MARK -> mark(level, actor, target, ability, boundedPotency);
+            case MOBILITY -> mobility(actor, target, boundedPotency);
+            case DEFENSIVE -> defensive(actor, boundedPotency);
+            case SUPPORT -> support(level, actor, ability.range(), boundedPotency);
+            case PASSIVE -> passive(actor, ability.id().toString(), boundedPotency);
         };
     }
 
@@ -73,7 +85,7 @@ public final class ClassAbilityEffectRegistry {
 
     private static boolean projectile(
             ServerLevel level, LivingEntity actor,
-            LivingEntity target, AbilityDefinition ability
+            LivingEntity target, AbilityDefinition ability, double potency
     ) {
         if (target == null) return false;
         Vec3 direction = target.getEyePosition().subtract(actor.getEyePosition());
@@ -82,12 +94,13 @@ public final class ClassAbilityEffectRegistry {
         BlasterBoltEntity bolt = new BlasterBoltEntity(level, actor,
                 weapon,
                 path(ability.id().toString()).contains("heavy") || path(ability.id().toString()).contains("barrage")
-                        ? 8.0D : 5.0D);
+                        ? 8.0D * potency : 5.0D * potency);
         bolt.setPos(actor.getEyePosition().add(direction.normalize().scale(0.7D)));
         bolt.shoot(direction.x, direction.y, direction.z, 3.2F, 0.5F);
         boolean spawned = level.addFreshEntity(bolt);
         if (spawned && path(ability.id().toString()).equals("crippling_shot")) {
-            target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 80, 1), actor);
+            target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS,
+                    scaledDuration(80, potency), 1), actor);
         }
         return spawned;
     }
@@ -106,17 +119,18 @@ public final class ClassAbilityEffectRegistry {
     }
 
     private static boolean mark(
-            ServerLevel level, LivingEntity actor, LivingEntity target, AbilityDefinition ability
+            ServerLevel level, LivingEntity actor, LivingEntity target,
+            AbilityDefinition ability, double potency
     ) {
         if (ability.activation() != AbilityActivation.AREA) {
-            return debuff(actor, target, ability);
+            return debuff(actor, target, ability, potency);
         }
         int affected = 0;
         for (LivingEntity candidate : level.getEntitiesOfClass(
                 LivingEntity.class,
                 actor.getBoundingBox().inflate(Math.max(1.0D, ability.range())),
                 candidate -> hostileTo(actor, candidate, level))) {
-            if (debuff(actor, candidate, ability)) {
+            if (debuff(actor, candidate, ability, potency)) {
                 affected++;
             }
         }
@@ -124,61 +138,78 @@ public final class ClassAbilityEffectRegistry {
     }
 
     private static boolean debuff(
-            LivingEntity actor, LivingEntity target, AbilityDefinition ability
+            LivingEntity actor, LivingEntity target, AbilityDefinition ability, double potency
     ) {
         if (target == null || target == actor || !target.isAlive()) return false;
         String id = path(ability.id().toString());
-        target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 100, 0), actor);
+        target.addEffect(new MobEffectInstance(MobEffects.GLOWING,
+                scaledDuration(100, potency), 0), actor);
         if (id.equals("target_disruption")) {
-            target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 80, 1), actor);
+            target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS,
+                    scaledDuration(80, potency), 1), actor);
         } else if (id.equals("intimidation")) {
-            target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0), actor);
+            target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS,
+                    scaledDuration(100, potency), 0), actor);
         } else if (id.equals("smoke_charge")) {
-            target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0), actor);
+            target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS,
+                    scaledDuration(60, potency), 0), actor);
         }
         return true;
     }
 
-    private static boolean mobility(LivingEntity actor, LivingEntity target) {
+    private static boolean mobility(LivingEntity actor, LivingEntity target, double potency) {
         Vec3 direction = target == null
                 ? actor.getLookAngle() : target.position().subtract(actor.position());
         if (direction.lengthSqr() < 0.01D) return false;
         Vec3 normalized = direction.normalize();
-        actor.push(normalized.x * 0.9D, 0.18D, normalized.z * 0.9D);
-        actor.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 1));
+        actor.push(normalized.x * 0.9D * potency, 0.18D,
+                normalized.z * 0.9D * potency);
+        actor.addEffect(new MobEffectInstance(MobEffects.SPEED,
+                scaledDuration(40, potency), 1));
         return true;
     }
 
-    private static boolean defensive(LivingEntity actor) {
-        actor.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 100, 1));
-        actor.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 0));
+    private static boolean defensive(LivingEntity actor, double potency) {
+        actor.addEffect(new MobEffectInstance(MobEffects.RESISTANCE,
+                scaledDuration(100, potency), 1));
+        actor.addEffect(new MobEffectInstance(MobEffects.ABSORPTION,
+                scaledDuration(100, potency), 0));
         return true;
     }
 
-    private static boolean support(ServerLevel level, LivingEntity actor, double range) {
-        actor.heal(2.0F);
-        actor.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 80, 0));
+    private static boolean support(
+            ServerLevel level, LivingEntity actor, double range, double potency
+    ) {
+        actor.heal((float) (2.0F * potency));
+        actor.addEffect(new MobEffectInstance(MobEffects.RESISTANCE,
+                scaledDuration(80, potency), 0));
         for (LivingEntity ally : level.getEntitiesOfClass(
                 LivingEntity.class, actor.getBoundingBox().inflate(Math.max(4.0D, range)),
                 candidate -> candidate != actor && alliedWith(actor, candidate, level))) {
-            ally.heal(2.0F);
-            ally.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 80, 0));
+            ally.heal((float) (2.0F * potency));
+            ally.addEffect(new MobEffectInstance(MobEffects.RESISTANCE,
+                    scaledDuration(80, potency), 0));
         }
         return true;
     }
 
-    private static boolean passive(LivingEntity actor, String abilityId) {
+    private static boolean passive(LivingEntity actor, String abilityId, double potency) {
         String id = path(abilityId);
+        int amplifier = potency > 1.0D ? 1 : 0;
         if (id.contains("mobility") || id.contains("patience")) {
-            actor.addEffect(new MobEffectInstance(MobEffects.SPEED, 60, 0, false, false));
+            actor.addEffect(new MobEffectInstance(MobEffects.SPEED, 60, amplifier, false, false));
         } else if (id.contains("resistance") || id.contains("ward") || id.contains("beskar")) {
-            actor.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 60, 0, false, false));
+            actor.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 60, amplifier, false, false));
         } else if (id.contains("steady") || id.contains("focus") || id.contains("weapon_mastery")) {
-            actor.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 60, 0, false, false));
+            actor.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 60, amplifier, false, false));
         } else {
-            actor.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 60, 0, false, false));
+            actor.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 60, amplifier, false, false));
         }
         return true;
+    }
+
+    private static int scaledDuration(int baseTicks, double potency) {
+        return Math.max(1, (int) Math.round(baseTicks * potency));
     }
 
     private static boolean hostileTo(LivingEntity actor, LivingEntity candidate, ServerLevel level) {

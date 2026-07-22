@@ -124,10 +124,36 @@ public final class ForceShrineService {
                         node.id(), node.branch(), node.tier(), node.pointCost(), node.abilityId(),
                         node.passive(), node.prerequisites().stream().toList()))
                 .toList();
+        var progression = ProgressionSavedData.get(player.level()).state(player.getUUID());
+        String factionPath = switch (state.traditionId()) {
+            case "jedi" -> "republic";
+            case "sith" -> "separatist";
+            case "nightsister" -> "nightsister";
+            default -> "";
+        };
+        var training = content.quests().values().stream()
+                .filter(quest -> quest.id().startsWith(factionPath + "_force_training_"))
+                .sorted(Comparator.comparing(LaunchContentDefinitions.QuestDefinition::id))
+                .limit(3)
+                .map(quest -> {
+                    int required = quest.objectives().stream()
+                            .mapToInt(LaunchContentDefinitions.QuestObjectiveDefinition::requiredCount).sum();
+                    int current = quest.objectives().stream()
+                            .mapToInt(objective -> Math.min(objective.requiredCount(),
+                                    galacticwars.clonewars.progression.GalacticProgressionCoordinator
+                                            .objectiveProgress(progression, objective)))
+                            .sum();
+                    return new ForceProgressionPayload.TrainingQuestEntry(
+                            quest.id(), current, required, quest.rewardMasteryExperience(),
+                            progression.hasSubject(
+                                    galacticwars.clonewars.progression.ProgressionEventType.QUEST_ADVANCED,
+                                    quest.id()));
+                }).toList();
         GalacticNetwork.CHANNEL.sendToPlayer(() -> player, new ForceProgressionPayload(
                 position, state.traditionId(), state.rank(), state.masteryExperience(),
                 state.unspentPoints(), state.learnedNodeIds().stream().toList(),
-                state.equippedAbilityIds(), nodes, ForceProgressionService.RESPEC_CREDIT_COST));
+                state.equippedAbilityIds(), nodes, training,
+                ForceProgressionService.RESPEC_CREDIT_COST));
     }
 
     private static boolean remember(UUID playerId, UUID replayId) {

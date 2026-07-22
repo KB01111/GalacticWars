@@ -63,8 +63,7 @@ public final class PlayerClassScreen extends Screen {
                     .build();
             button.active = available && !definition.classId().equals(displayedClassId);
             if (!available) {
-                button.setTooltip(Tooltip.create(Component.translatable(
-                        "screen.galacticwars.class.locked")));
+                button.setTooltip(Tooltip.create(unavailableReason(definition, attachment)));
             } else if (definition.classId().equals(displayedClassId)) {
                 button.setTooltip(Tooltip.create(Component.translatable(
                         "screen.galacticwars.class.current")));
@@ -111,6 +110,13 @@ public final class PlayerClassScreen extends Screen {
                 || ClientGameplayCatalog.snapshot().serverGeneration() < 0L) {
             Component syncing = Component.translatable("screen.galacticwars.class.syncing");
             graphics.text(font, syncing, (width - font.width(syncing)) / 2, height / 2, 0xFFFFB86B);
+        } else if (!ClassClientState.snapshot().classId().isBlank()) {
+            var state = ClassClientState.snapshot();
+            Component progress = Component.translatable("screen.galacticwars.class.progress",
+                    state.rank(), state.experience(), state.experienceForNextRank(),
+                    milestone(state.nextMilestoneRank()));
+            graphics.text(font, progress, (width - font.width(progress)) / 2,
+                    height - 50, 0xFFC5D1DD);
         }
     }
 
@@ -168,7 +174,34 @@ public final class PlayerClassScreen extends Screen {
 
     private static String abilitySummary(GameplayCatalogPayload.ClassEntry definition) {
         return definition.abilityDisplayNames().isEmpty()
-                ? "No abilities"
+                ? Component.translatable("screen.galacticwars.class.no_abilities").getString()
                 : String.join(" / ", definition.abilityDisplayNames());
+    }
+
+    private static Component unavailableReason(
+            GameplayCatalogPayload.ClassEntry definition,
+            PlayerCampaignAttachmentState attachment
+    ) {
+        if (attachment == null) {
+            return Component.translatable("screen.galacticwars.class.syncing");
+        }
+        if (!definition.forcePathSlot().isBlank()
+                && !definition.forcePathSlot().equals(attachment.force().tradition())) {
+            return Component.translatable("screen.galacticwars.class.requires_force",
+                    definition.forcePathSlot());
+        }
+        return definition.requirements().stream()
+                .filter(requirement -> !requirementMet(requirement, attachment.campaign()))
+                .findFirst()
+                .<Component>map(requirement -> Component.translatable(
+                        "screen.galacticwars.class.requires_quest",
+                        Component.translatable("quest.galacticwars."
+                                + requirement.subjectId() + ".title")))
+                .orElseGet(() -> Component.translatable("screen.galacticwars.class.locked"));
+    }
+
+    private static Component milestone(int rank) {
+        return rank <= 0 ? Component.translatable("screen.galacticwars.class.milestone.complete")
+                : Component.translatable("screen.galacticwars.class.milestone." + rank);
     }
 }

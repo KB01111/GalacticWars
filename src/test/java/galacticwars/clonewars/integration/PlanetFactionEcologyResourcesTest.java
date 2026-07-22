@@ -17,7 +17,7 @@ public final class PlanetFactionEcologyResourcesTest {
     private static final Pattern PLANET = Pattern.compile(
             "\\{\\s*\"id\"\\s*:\\s*\"([^\"]+)\"[^{}]*"
                     + "\"dimension\"\\s*:\\s*\"([^\"]+)\"[^{}]*"
-                    + "\"faction\"\\s*:\\s*\"([^\"]+)\"\\s*}");
+                    + "\"faction\"\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern CUSTOM_SPAWNER = Pattern.compile(
             "\\{\\s*\"type\"\\s*:\\s*\"(galacticwars:[^\"]+)\"\\s*,"
                     + "\\s*\"maxCount\"\\s*:\\s*(\\d+)\\s*,"
@@ -53,7 +53,12 @@ public final class PlanetFactionEcologyResourcesTest {
             String biome = read(biomePath);
             assertContains(dimension, "\"biome\": \"galacticwars:" + planet.id() + "\"",
                     planet.id() + " custom biome reference");
-            assertContains(dimension, "\"features\": true", planet.id() + " feature generation");
+            if (dimension.contains("\"type\": \"minecraft:flat\"")) {
+                assertContains(dimension, "\"features\": true", planet.id() + " feature generation");
+            } else {
+                assertContains(dimension, "\"type\": \"minecraft:noise\"",
+                        planet.id() + " noise terrain");
+            }
             assertContains(biome, "\"features\"", planet.id() + " biome features");
             assertContains(biome, "\"spawners\"", planet.id() + " biome spawners");
             assertContains(biome, PLANET_FEATURE_MARKERS.get(planet.id()),

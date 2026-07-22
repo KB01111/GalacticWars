@@ -60,7 +60,8 @@ public record CommandCenterDashboardState(
         List<MemberSummary> members,
         List<ForeignKingdomSummary> foreignKingdoms,
         List<InviteSummary> invites,
-        List<DiplomacyProposalSummary> diplomacyProposals
+        List<DiplomacyProposalSummary> diplomacyProposals,
+        List<ConflictSummary> conflicts
 ) {
     public static final int MAX_DASHBOARD_ENTRIES = 64;
     private static final UUID NO_KINGDOM = new UUID(0L, 0L);
@@ -101,6 +102,7 @@ public record CommandCenterDashboardState(
         invites = List.copyOf(Objects.requireNonNull(invites, "invites"));
         diplomacyProposals = List.copyOf(Objects.requireNonNull(
                 diplomacyProposals, "diplomacyProposals"));
+        conflicts = boundedCopy(conflicts, "conflicts", 16);
     }
 
     public static CommandCenterDashboardState empty(UUID actorId, long gameTime) {
@@ -112,7 +114,7 @@ public record CommandCenterDashboardState(
                 0, 0, 0, 0, false, false, 0, 0, 0,
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public static CommandCenterDashboardState capture(
@@ -133,6 +135,34 @@ public record CommandCenterDashboardState(
             List<KingdomRecord> foreignKingdoms,
             List<KingdomInvite> pendingInvites,
             List<DiplomacyProposal> pendingDiplomacy,
+            long gameTime
+    ) {
+        return capture(actorId, kingdom, armyGroups, commandCandidateIds, combatTargets,
+                workers, constructionBuilderIds, availableBlueprints, nearbyPlayers,
+                progression, treasuryCredits, upkeepPaid, navigationAvailability,
+                vehicleFabrication, foreignKingdoms, pendingInvites, pendingDiplomacy,
+                List.of(), gameTime);
+    }
+
+    public static CommandCenterDashboardState capture(
+            UUID actorId,
+            KingdomRecord kingdom,
+            List<ArmyGroupRecord> armyGroups,
+            List<UUID> commandCandidateIds,
+            List<CombatTargetSummary> combatTargets,
+            List<WorkerSummary> workers,
+            List<UUID> constructionBuilderIds,
+            List<KingdomBaseBlueprint> availableBlueprints,
+            List<NearbyPlayerSummary> nearbyPlayers,
+            ProgressionState progression,
+            int treasuryCredits,
+            boolean upkeepPaid,
+            ActionAvailability navigationAvailability,
+            List<VehicleFabricationSummary> vehicleFabrication,
+            List<KingdomRecord> foreignKingdoms,
+            List<KingdomInvite> pendingInvites,
+            List<DiplomacyProposal> pendingDiplomacy,
+            List<ConflictSummary> conflicts,
             long gameTime
     ) {
         Objects.requireNonNull(actorId, "actorId");
@@ -251,11 +281,22 @@ public record CommandCenterDashboardState(
                 progression.total(ProgressionEventType.TRADE_COMPLETED),
                 progression.total(ProgressionEventType.REGION_CAPTURED), availableCommanders,
                 claims, squads, targets, blueprints, availableBuilders, builds, workOrders,
-                liveWorkers, campaign, inviteTargets, members, others, invites, proposals);
+                liveWorkers, campaign, inviteTargets, members, others, invites, proposals, conflicts);
     }
 
     public Optional<QuestSummary> activeQuest() {
-        return campaign.stream().filter(quest -> !quest.complete()).findFirst();
+        return campaign.stream()
+                .filter(quest -> quest.questId().contains("_chapter_"))
+                .filter(quest -> !quest.complete()).findFirst();
+    }
+
+    public List<QuestSummary> forceTrainingQuests() {
+        return campaign.stream().filter(quest -> quest.questId().contains("_force_training_"))
+                .toList();
+    }
+
+    public Optional<QuestSummary> activeForceTrainingQuest() {
+        return forceTrainingQuests().stream().filter(quest -> !quest.complete()).findFirst();
     }
 
     public Optional<ObjectiveSummary> nextObjective() {
@@ -269,8 +310,10 @@ public record CommandCenterDashboardState(
             return List.of();
         }
         return LaunchContentCatalog.quests().stream()
-                .filter(questId -> path(questId).startsWith(factionPath + "_chapter_"))
-                .sorted()
+                .filter(questId -> path(questId).startsWith(factionPath + "_chapter_")
+                        || path(questId).startsWith(factionPath + "_force_training_"))
+                .sorted(Comparator.<String>comparingInt(questId ->
+                        questId.contains("_chapter_") ? 0 : 1).thenComparing(questId -> questId))
                 .map(questId -> new QuestSummary(
                         questId,
                         progression.hasSubject(ProgressionEventType.QUEST_ADVANCED, questId),
@@ -647,6 +690,33 @@ public record CommandCenterDashboardState(
 
         public boolean complete() {
             return currentCount >= requiredCount;
+        }
+    }
+
+    public record ConflictSummary(
+            String conflictId,
+            String type,
+            String dimensionId,
+            int x,
+            int z,
+            String state,
+            int progress,
+            int goal,
+            long endsAt,
+            String attacker,
+            String defender
+    ) {
+        public ConflictSummary {
+            conflictId = normalize(conflictId);
+            type = normalize(type);
+            dimensionId = normalize(dimensionId);
+            state = normalize(state);
+            attacker = normalize(attacker);
+            defender = normalize(defender);
+            if (conflictId.isEmpty() || type.isEmpty() || dimensionId.isEmpty()
+                    || state.isEmpty() || progress < 0 || goal < 1 || endsAt < 0L) {
+                throw new IllegalArgumentException("invalid conflict dashboard summary");
+            }
         }
     }
 

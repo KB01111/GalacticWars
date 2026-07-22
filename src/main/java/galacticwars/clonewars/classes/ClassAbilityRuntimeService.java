@@ -50,14 +50,18 @@ public final class ClassAbilityRuntimeService {
         if (gameTime < cooldownEnd) {
             return ActivationDecision.rejected("ability_cooldown", state);
         }
-        if (state.resource() < ability.resourceCost()) {
+        int resourceCost = ClassProgressionMilestones.resourceCost(
+                ability.resourceCost(), state.rank());
+        int cooldownTicks = ClassProgressionMilestones.cooldownTicks(
+                ability.cooldownTicks(), state.rank());
+        if (state.resource() < resourceCost) {
             return ActivationDecision.rejected("insufficient_class_resource", state);
         }
-        long nextCooldown = Math.addExact(gameTime, ability.cooldownTicks());
+        long nextCooldown = Math.addExact(gameTime, cooldownTicks);
         ClassProgressState updated = state.activate(
-                ability.id(), ability.resourceCost(), nextCooldown, gameTime);
+                ability.id(), resourceCost, nextCooldown, gameTime);
         return new ActivationDecision(true, "accepted", updated,
-                ability.resourceCost(), ability.cooldownTicks());
+                resourceCost, cooldownTicks);
     }
 
     public static boolean shouldEvaluateNpc(AbilityDefinition ability, int stableActorHash, long gameTime) {

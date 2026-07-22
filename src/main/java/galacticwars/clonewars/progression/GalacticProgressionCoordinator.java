@@ -88,9 +88,7 @@ public final class GalacticProgressionCoordinator {
         if (state.hasSubject(ProgressionEventType.QUEST_ADVANCED, questId)) {
             return ProgressionDecision.accepted(state, state);
         }
-        int chapter = Integer.parseInt(questId.substring(questId.lastIndexOf('_') + 1));
-        if (chapter > 1) {
-            String prerequisite = questId.substring(0, questId.lastIndexOf('_') + 1) + (chapter - 1);
+        for (String prerequisite : LaunchContentCatalog.questPrerequisites(questId)) {
             if (!state.hasSubject(ProgressionEventType.QUEST_ADVANCED, prerequisite)) {
                 return ProgressionDecision.rejected("quest_prerequisite_missing", state);
             }

@@ -16,6 +16,10 @@ object ClientPacketBridge {
     private val classHudHandler = AtomicReference(noClassHudHandler)
     private val noGameplayCatalogHandler = Consumer<GameplayCatalogPayload> { }
     private val gameplayCatalogHandler = AtomicReference(noGameplayCatalogHandler)
+    private val noObjectiveMarkerHandler = Consumer<ObjectiveMarkerPayload> { }
+    private val objectiveMarkerHandler = AtomicReference(noObjectiveMarkerHandler)
+    private val noServerPolicyHandler = Consumer<ServerPolicyPayload> { }
+    private val serverPolicyHandler = AtomicReference(noServerPolicyHandler)
     private val noFieldCommandStateHandler = Consumer<FieldCommandStatePayload> { }
     private val fieldCommandStateHandler = AtomicReference(noFieldCommandStateHandler)
     private val noFieldCommandOpenHandler = Runnable { }
@@ -62,6 +66,26 @@ object ClientPacketBridge {
     }
 
     @JvmStatic
+    fun installObjectiveMarkerHandler(handler: Consumer<ObjectiveMarkerPayload>) {
+        objectiveMarkerHandler.set(handler)
+    }
+
+    @JvmStatic
+    fun handleObjectiveMarker(payload: ObjectiveMarkerPayload) {
+        objectiveMarkerHandler.get().accept(payload)
+    }
+
+    @JvmStatic
+    fun installServerPolicyHandler(handler: Consumer<ServerPolicyPayload>) {
+        serverPolicyHandler.set(handler)
+    }
+
+    @JvmStatic
+    fun handleServerPolicy(payload: ServerPolicyPayload) {
+        serverPolicyHandler.get().accept(payload)
+    }
+
+    @JvmStatic
     fun installFieldCommandStateHandler(handler: Consumer<FieldCommandStatePayload>) {
         fieldCommandStateHandler.set(handler)
     }
@@ -88,6 +112,8 @@ object ClientPacketBridge {
         forceProgressionHandler.set(noForceProgressionHandler)
         classHudHandler.set(noClassHudHandler)
         gameplayCatalogHandler.set(noGameplayCatalogHandler)
+        objectiveMarkerHandler.set(noObjectiveMarkerHandler)
+        serverPolicyHandler.set(noServerPolicyHandler)
         fieldCommandStateHandler.set(noFieldCommandStateHandler)
         fieldCommandOpenHandler.set(noFieldCommandOpenHandler)
     }

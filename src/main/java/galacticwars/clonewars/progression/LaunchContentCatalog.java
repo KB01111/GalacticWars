@@ -31,6 +31,7 @@ public final class LaunchContentCatalog {
     public static List<String> vehicles() { return data().vehicleIds(); }
     public static Set<String> forceAbilities() { return data().forceAbilityIds(); }
     public static List<String> quests() { return data().questIds(); }
+    public static List<String> missions() { return data().missionIds(); }
     public static Map<String, LaunchContentDefinitions.TradeDefinition> trades() { return data().trades(); }
     public static Set<String> questUnlocks(String id) { return data().questUnlocks(id); }
     public static List<LaunchContentDefinitions.QuestObjectiveDefinition> questObjectives(String id) {
@@ -39,6 +40,10 @@ public final class LaunchContentCatalog {
     public static int questRewardCredits(String id) { return data().questRewardCredits(id); }
     public static int questRewardMasteryExperience(String id) {
         return data().questRewardMasteryExperience(id);
+    }
+    public static Set<String> questPrerequisites(String id) {
+        var quest = data().quests().get(id);
+        return quest == null ? Set.of() : quest.prerequisites();
     }
     public static int regionRewardCredits(String id) { return data().regionRewardCredits(id); }
 }

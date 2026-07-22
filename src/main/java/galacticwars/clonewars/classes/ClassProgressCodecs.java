@@ -12,6 +12,8 @@ public final class ClassProgressCodecs {
             Codec.STRING.optionalFieldOf("class_id", "").forGetter(ClassProgressState::classId),
             Codec.INT.optionalFieldOf("rank", 0).forGetter(ClassProgressState::rank),
             Codec.LONG.optionalFieldOf("experience", 0L).forGetter(ClassProgressState::experience),
+            Codec.INT.optionalFieldOf("credited_missions", 0)
+                    .forGetter(ClassProgressState::creditedMissions),
             Codec.INT.optionalFieldOf("resource", ClassProgressState.MAX_RESOURCE)
                     .forGetter(ClassProgressState::resource),
             Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("cooldown_ends", Map.of())

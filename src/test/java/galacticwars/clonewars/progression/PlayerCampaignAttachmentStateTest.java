@@ -38,8 +38,6 @@ public final class PlayerCampaignAttachmentStateTest {
         assertEquals(fixture.playerId(), state.playerId(), "attachment player");
         assertCampaignProjection(fixture.progression(), state.campaign());
         assertForceProjection(fixture.force(), state.force());
-        assertTrue(!state.campaign().eventSubjects().containsKey(ProgressionEventType.DELIVERY_COMPLETED),
-                "delivery replay subjects remain server-only");
         assertThrows(IllegalArgumentException.class, () ->
                         new PlayerCampaignAttachmentState.CampaignProjection(
                                 "galacticwars:republic", 0, Map.of(),
@@ -303,7 +301,7 @@ public final class PlayerCampaignAttachmentStateTest {
         LinkedHashMap<ProgressionEventType, Set<String>> subjects = new LinkedHashMap<>();
         for (ProgressionEventType type : ProgressionEventType.values()) {
             totals.put(type, Integer.MAX_VALUE);
-            if (type == ProgressionEventType.DELIVERY_COMPLETED) {
+            if (PlayerCampaignAttachmentState.SERVER_ONLY_EVENT_SUBJECT_TYPES.contains(type)) {
                 continue;
             }
             LinkedHashSet<String> values = new LinkedHashSet<>();
@@ -391,7 +389,7 @@ public final class PlayerCampaignAttachmentStateTest {
         assertEquals(authoritative.eventTotals(), projected.eventTotals(), "event total projection");
         LinkedHashMap<ProgressionEventType, Set<String>> expectedSubjects =
                 new LinkedHashMap<>(authoritative.eventSubjects());
-        expectedSubjects.remove(ProgressionEventType.DELIVERY_COMPLETED);
+        PlayerCampaignAttachmentState.SERVER_ONLY_EVENT_SUBJECT_TYPES.forEach(expectedSubjects::remove);
         assertEquals(expectedSubjects, projected.eventSubjects(), "client-visible subject projection");
         assertEquals(authoritative.unlocks(), projected.unlocks(), "unlock projection");
     }

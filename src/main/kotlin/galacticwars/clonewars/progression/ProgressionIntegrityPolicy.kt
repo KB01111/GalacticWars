@@ -61,6 +61,13 @@ object ProgressionIntegrityPolicy {
                 matchesCatalogSubject(event.subjectId, definitions.vehicles().keys)
             ProgressionEventType.FORCE_ABILITY_USED ->
                 matchesCatalogSubject(event.subjectId, definitions.forceAbilities().keys)
+            ProgressionEventType.MISSION_STARTED,
+            ProgressionEventType.MISSION_FAILED,
+            ProgressionEventType.MISSION_OBJECTIVE_COMPLETED,
+            ProgressionEventType.MISSION_COMPLETED ->
+                matchesCatalogSubject(event.subjectId, definitions.missions().keys)
+            ProgressionEventType.REGION_DEFENDED ->
+                matchesCatalogSubject(event.subjectId, definitions.conquestRegions().keys)
             ProgressionEventType.QUEST_ADVANCED ->
                 matchesCatalogSubject(event.subjectId, definitions.quests().keys)
             ProgressionEventType.CAMPAIGN_COMPLETED -> event.subjectId in campaignSubjects(
@@ -138,6 +145,11 @@ object ProgressionIntegrityPolicy {
         ProgressionEventType.PLANET_VISITED -> "unknown_planet"
         ProgressionEventType.VEHICLE_ACQUIRED -> "unknown_vehicle"
         ProgressionEventType.FORCE_ABILITY_USED -> "unknown_force_ability"
+        ProgressionEventType.MISSION_STARTED,
+        ProgressionEventType.MISSION_FAILED,
+        ProgressionEventType.MISSION_OBJECTIVE_COMPLETED,
+        ProgressionEventType.MISSION_COMPLETED -> "unknown_mission"
+        ProgressionEventType.REGION_DEFENDED -> "unknown_region"
         ProgressionEventType.QUEST_ADVANCED -> "unknown_quest"
         ProgressionEventType.CAMPAIGN_COMPLETED -> "unknown_campaign"
         ProgressionEventType.TRADE_COMPLETED -> "unknown_trade"

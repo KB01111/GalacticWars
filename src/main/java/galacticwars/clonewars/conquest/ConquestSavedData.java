@@ -25,7 +25,15 @@ public final class ConquestSavedData extends SavedData {
             Codec.STRING.optionalFieldOf("controlling_kingdom", "").forGetter(ConquestControlState::controllingKingdom),
             Codec.STRING.optionalFieldOf("capturing_player", "").forGetter(ConquestControlState::capturingPlayer),
             Codec.INT.optionalFieldOf("progress", 0).forGetter(ConquestControlState::progress),
-            Codec.LONG.optionalFieldOf("revision", 0L).forGetter(ConquestControlState::revision)
+            Codec.LONG.optionalFieldOf("revision", 0L).forGetter(ConquestControlState::revision),
+            Codec.LONG.optionalFieldOf("counterattack_at", 0L)
+                    .forGetter(ConquestControlState::counterattackAt),
+            Codec.LONG.optionalFieldOf("counterattack_ends_at", 0L)
+                    .forGetter(ConquestControlState::counterattackEndsAt),
+            Codec.INT.optionalFieldOf("counterattack_progress", 0)
+                    .forGetter(ConquestControlState::counterattackProgress),
+            Codec.STRING.optionalFieldOf("attacking_faction", "")
+                    .forGetter(ConquestControlState::attackingFaction)
     ).apply(instance, ConquestControlState::new));
     public static final Codec<ConquestSavedData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.INT.optionalFieldOf("schema_version", CURRENT_SCHEMA_VERSION)

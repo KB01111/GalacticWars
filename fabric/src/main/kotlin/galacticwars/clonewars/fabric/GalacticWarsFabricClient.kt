@@ -7,6 +7,7 @@ import galacticwars.clonewars.GalacticWarsClient
 import galacticwars.clonewars.client.gui.BlasterHeatHud
 import galacticwars.clonewars.client.gui.ClassHud
 import galacticwars.clonewars.client.gui.ForceHud
+import galacticwars.clonewars.client.gui.ObjectiveMarkerHud
 import galacticwars.clonewars.client.gui.GalacticWarsConfigScreen
 import galacticwars.clonewars.client.gui.VehicleHud
 import net.fabricmc.api.ClientModInitializer
@@ -25,6 +26,7 @@ class GalacticWarsFabricClient : ClientModInitializer {
         attachHud("force_hud") { graphics -> ForceHud.render(graphics) }
         attachHud("class_hud") { graphics -> ClassHud.render(graphics) }
         attachHud("vehicle_hud") { graphics -> VehicleHud.render(graphics) }
+        attachHud("objective_marker") { graphics -> ObjectiveMarkerHud.render(graphics) }
     }
 
     private fun attachHud(

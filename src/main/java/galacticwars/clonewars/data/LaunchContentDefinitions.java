@@ -15,6 +15,7 @@ public record LaunchContentDefinitions(
         Map<String, ForceTraditionDefinition> forceTraditions,
         Map<String, ForceNodeDefinition> forceNodes,
         Map<String, QuestDefinition> quests,
+        Map<String, MissionDefinition> missions,
         Map<String, TradeDefinition> trades,
         Map<String, ConquestRegionDefinition> conquestRegions
 ) {
@@ -31,13 +32,14 @@ public record LaunchContentDefinitions(
         forceTraditions = immutable(forceTraditions, "forceTraditions");
         forceNodes = immutable(forceNodes, "forceNodes");
         quests = immutable(quests, "quests");
+        missions = immutable(missions, "missions");
         trades = immutable(trades, "trades");
         conquestRegions = immutable(conquestRegions, "conquestRegions");
     }
 
     public static LaunchContentDefinitions empty() {
         return new LaunchContentDefinitions(
-                Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+                Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
     }
 
     /** Compatibility constructor for dependency-light tests that do not exercise Force progression. */
@@ -49,7 +51,23 @@ public record LaunchContentDefinitions(
             Map<String, TradeDefinition> trades,
             Map<String, ConquestRegionDefinition> conquestRegions
     ) {
-        this(planets, vehicles, forceAbilities, Map.of(), Map.of(), quests, trades, conquestRegions);
+        this(planets, vehicles, forceAbilities, Map.of(), Map.of(), quests,
+                Map.of(), trades, conquestRegions);
+    }
+
+    /** Compatibility constructor for tests authored before mission contracts were data-driven. */
+    public LaunchContentDefinitions(
+            Map<String, PlanetDefinition> planets,
+            Map<String, VehicleDefinition> vehicles,
+            Map<String, ForceAbilityDefinition> forceAbilities,
+            Map<String, ForceTraditionDefinition> forceTraditions,
+            Map<String, ForceNodeDefinition> forceNodes,
+            Map<String, QuestDefinition> quests,
+            Map<String, TradeDefinition> trades,
+            Map<String, ConquestRegionDefinition> conquestRegions
+    ) {
+        this(planets, vehicles, forceAbilities, forceTraditions, forceNodes, quests,
+                Map.of(), trades, conquestRegions);
     }
 
     public List<String> planetIds() { return List.copyOf(planets.keySet()); }
@@ -58,6 +76,7 @@ public record LaunchContentDefinitions(
     public Set<String> forceTraditionIds() { return Set.copyOf(forceTraditions.keySet()); }
     public Set<String> forceNodeIds() { return Set.copyOf(forceNodes.keySet()); }
     public List<String> questIds() { return List.copyOf(quests.keySet()); }
+    public List<String> missionIds() { return List.copyOf(missions.keySet()); }
     public Set<String> questUnlocks(String id) { return quests.containsKey(id) ? quests.get(id).unlocks() : Set.of(); }
     public List<QuestObjectiveDefinition> questObjectives(String id) {
         return quests.containsKey(id) ? quests.get(id).objectives() : List.of();
@@ -74,11 +93,45 @@ public record LaunchContentDefinitions(
         return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(source));
     }
 
-    public record PlanetDefinition(String id, String dimensionId, String arrival, String theme, String factionId) {
+    public record PlanetDefinition(
+            String id,
+            String dimensionId,
+            String arrival,
+            String theme,
+            String factionId,
+            List<PlanetPoiDefinition> pointsOfInterest
+    ) {
         public PlanetDefinition {
             requireIds(id, dimensionId, arrival, theme, factionId);
+            pointsOfInterest = List.copyOf(Objects.requireNonNull(pointsOfInterest, "pointsOfInterest"));
+            for (String requiredRole : List.of("arrival", "economy", "contested")) {
+                if (pointsOfInterest.stream().filter(poi -> poi.role().equals(requiredRole)).count() != 1) {
+                    throw new IllegalArgumentException("Planet " + id
+                            + " must define exactly one " + requiredRole + " point of interest");
+                }
+            }
             if (id.getBytes(StandardCharsets.UTF_8).length > MAX_SERIALIZED_PLANET_ID_BYTES) {
                 throw new IllegalArgumentException("Planet id exceeds navigation packet limit: " + id);
+            }
+        }
+
+        public PlanetDefinition(
+                String id, String dimensionId, String arrival, String theme, String factionId
+        ) {
+            this(id, dimensionId, arrival, theme, factionId, List.of(
+                    new PlanetPoiDefinition(id + "_arrival", "arrival", 0, 0, "arrival"),
+                    new PlanetPoiDefinition(id + "_economy", "economy", 32, 0, "economy"),
+                    new PlanetPoiDefinition(id + "_contested", "contested", 64, 0, "contested")));
+        }
+    }
+
+    public record PlanetPoiDefinition(
+            String id, String role, int x, int z, String referenceId
+    ) {
+        public PlanetPoiDefinition {
+            requireIds(id, role, referenceId);
+            if (!Set.of("arrival", "economy", "contested").contains(role)) {
+                throw new IllegalArgumentException("Invalid planet point-of-interest role " + role);
             }
         }
     }
@@ -284,7 +337,11 @@ public record LaunchContentDefinitions(
             List<QuestObjectiveDefinition> objectives,
             int rewardCredits,
             Set<String> unlocks,
-            int rewardMasteryExperience
+            int rewardMasteryExperience,
+            String titleKey,
+            String briefingKey,
+            String hintKey,
+            Set<String> prerequisites
     ) {
         public QuestDefinition {
             requireIds(id);
@@ -298,6 +355,22 @@ public record LaunchContentDefinitions(
                             != objectives.size()) {
                 throw new IllegalArgumentException("Invalid quest " + id);
             }
+            titleKey = titleKey == null || titleKey.isBlank()
+                    ? "quest.galacticwars." + path(id) + ".title" : titleKey.trim();
+            briefingKey = briefingKey == null || briefingKey.isBlank()
+                    ? "quest.galacticwars." + path(id) + ".briefing" : briefingKey.trim();
+            hintKey = hintKey == null || hintKey.isBlank()
+                    ? "screen.galacticwars.operations.objective." + objectives.getFirst().id()
+                    : hintKey.trim();
+            prerequisites = Set.copyOf(Objects.requireNonNull(prerequisites, "prerequisites"));
+        }
+
+        public QuestDefinition(
+                String id, List<QuestObjectiveDefinition> objectives,
+                int rewardCredits, Set<String> unlocks, int rewardMasteryExperience
+        ) {
+            this(id, objectives, rewardCredits, unlocks, rewardMasteryExperience,
+                    "", "", "", conventionalQuestPrerequisites(id));
         }
 
         public QuestDefinition(
@@ -305,6 +378,44 @@ public record LaunchContentDefinitions(
                 int rewardCredits, Set<String> unlocks
         ) {
             this(id, objectives, rewardCredits, unlocks, 0);
+        }
+    }
+
+    public record MissionRequirementDefinition(
+            String eventType,
+            Set<String> subjectIds,
+            int requiredCount
+    ) {
+        public MissionRequirementDefinition {
+            requireIds(eventType);
+            subjectIds = Set.copyOf(Objects.requireNonNull(subjectIds, "subjectIds"));
+            if (subjectIds.stream().anyMatch(String::isBlank)
+                    || requiredCount < 1
+                    || requiredCount > MAX_QUEST_OBJECTIVE_REQUIRED_COUNT) {
+                throw new IllegalArgumentException("Invalid mission requirement " + eventType);
+            }
+        }
+    }
+
+    public record MissionDefinition(
+            String id,
+            String questId,
+            String archetype,
+            String planetId,
+            String targetRegionId,
+            List<MissionRequirementDefinition> requirements,
+            int retryCooldownTicks
+    ) {
+        public MissionDefinition {
+            requireIds(id, questId, archetype);
+            planetId = planetId == null ? "" : planetId.trim();
+            targetRegionId = targetRegionId == null ? "" : targetRegionId.trim();
+            requirements = List.copyOf(Objects.requireNonNull(requirements, "requirements"));
+            if (!Set.of("secure", "escort", "assault").contains(archetype)
+                    || requirements.isEmpty() || retryCooldownTicks < 0
+                    || retryCooldownTicks > 72_000) {
+                throw new IllegalArgumentException("Invalid mission " + id);
+            }
         }
     }
 
@@ -340,10 +451,13 @@ public record LaunchContentDefinitions(
             int landmarkX,
             int landmarkZ,
             int captureRadius,
-            String defenderFaction
+            String defenderFaction,
+            String encounterId,
+            String rewardIdentity,
+            String counterattackId
     ) {
         public ConquestRegionDefinition {
-            requireIds(id, planetId, defenderFaction);
+            requireIds(id, planetId, defenderFaction, encounterId, rewardIdentity, counterattackId);
             if (protectedRadius < 1 || captureTicks < 1 || rewardCredits < 0 || captureRadius < 4) {
                 throw new IllegalArgumentException("Invalid region " + id);
             }
@@ -353,12 +467,39 @@ public record LaunchContentDefinitions(
                 String id, String planetId, int protectedRadius, int captureTicks, int rewardCredits
         ) {
             this(id, planetId, protectedRadius, captureTicks, rewardCredits,
-                    0, 0, Math.max(8, protectedRadius / 2), "neutral");
+                    0, 0, Math.max(8, protectedRadius / 2), "neutral",
+                    id + "_encounter", id + "_reward", id + "_counterattack");
+        }
+
+        public ConquestRegionDefinition(
+                String id, String planetId, int protectedRadius, int captureTicks, int rewardCredits,
+                int landmarkX, int landmarkZ, int captureRadius, String defenderFaction
+        ) {
+            this(id, planetId, protectedRadius, captureTicks, rewardCredits,
+                    landmarkX, landmarkZ, captureRadius, defenderFaction,
+                    id + "_encounter", id + "_reward", id + "_counterattack");
         }
     }
 
     private static void requireIds(String... values) {
         for (String value : values) if (value == null || value.isBlank()) throw new IllegalArgumentException("Launch identifiers cannot be blank");
+    }
+
+    private static Set<String> conventionalQuestPrerequisites(String id) {
+        if (id == null) return Set.of();
+        int separator = id.lastIndexOf('_');
+        if (separator < 0) return Set.of();
+        try {
+            int step = Integer.parseInt(id.substring(separator + 1));
+            return step > 1 ? Set.of(id.substring(0, separator + 1) + (step - 1)) : Set.of();
+        } catch (NumberFormatException ignored) {
+            return Set.of();
+        }
+    }
+
+    private static String path(String id) {
+        int separator = id.indexOf(':');
+        return separator < 0 ? id : id.substring(separator + 1);
     }
 
     private static void requireUtf8Bound(String value, int maximumBytes, String label) {

@@ -69,18 +69,21 @@ public final class ForceProgressionScreen extends Screen {
         boolean prerequisites = snapshot.learnedNodes().containsAll(node.prerequisites());
         boolean rankReady = snapshot.rank() >= node.tier() + 1;
         Button nodeButton = Button.builder(
-                        Component.literal((learned ? "✓ " : "○ ") + display(node.id())
-                                + (node.passive() ? " [P]" : "")),
+                        Component.translatable("screen.galacticwars.force.node",
+                                learned ? "✓" : "○", display(node.id()),
+                                node.passive() ? Component.translatable(
+                                        "screen.galacticwars.force.passive") : Component.empty()),
                         pressed -> send(ForceProgressionActionPayload.LEARN, node.id(), -1))
                 .bounds(left + 4, top, width - (node.abilityId().isBlank() ? 8 : 82), 22)
                 .build();
         nodeButton.active = !learned && prerequisites && rankReady
                 && snapshot.unspentPoints() >= node.pointCost();
         if (!nodeButton.active && !learned) {
-            nodeButton.setTooltip(Tooltip.create(Component.literal(
-                    !rankReady ? "Requires rank " + (node.tier() + 1)
-                            : !prerequisites ? "Requires preceding nodes"
-                            : "Requires a skill point")));
+            nodeButton.setTooltip(Tooltip.create(Component.translatable(
+                    !rankReady ? "screen.galacticwars.force.requires_rank"
+                            : !prerequisites ? "screen.galacticwars.force.requires_prerequisites"
+                            : "screen.galacticwars.force.requires_point",
+                    node.tier() + 1)));
         }
         addRenderableWidget(nodeButton);
         if (!node.abilityId().isBlank()) {
@@ -95,7 +98,8 @@ public final class ForceProgressionScreen extends Screen {
                         .bounds(left + width - 76 + slot * 24, top, 22, 22).build();
                 equip.active = learned && !equippedAt(node.abilityId(), slot);
                 if (equippedAt(node.abilityId(), slot)) {
-                    equip.setTooltip(Tooltip.create(Component.literal("Equipped")));
+                    equip.setTooltip(Tooltip.create(Component.translatable(
+                            "screen.galacticwars.force.equipped")));
                 }
                 addRenderableWidget(equip);
             }
@@ -132,18 +136,21 @@ public final class ForceProgressionScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int accent = snapshot.tradition().equals("sith") ? 0xFFE34848
                 : snapshot.tradition().equals("nightsister") ? 0xFF56D98C : 0xFF8DA1FF;
-        graphics.text(font, Component.literal(display(snapshot.tradition()) + " Training"),
-                (width - font.width(display(snapshot.tradition()) + " Training")) / 2,
+        Component trainingTitle = Component.translatable(
+                "screen.galacticwars.force.training_title", display(snapshot.tradition()));
+        graphics.text(font, trainingTitle,
+                (width - font.width(trainingTitle)) / 2,
                 14, accent);
-        Component status = Component.literal("Rank " + snapshot.rank() + "  •  Mastery "
-                + snapshot.masteryExperience() + "  •  " + snapshot.unspentPoints()
-                + " points available");
+        Component status = Component.translatable("screen.galacticwars.force.status",
+                snapshot.rank(), snapshot.masteryExperience(), snapshot.unspentPoints());
         graphics.text(font, status, (width - font.width(status)) / 2, 31, 0xFFE7EBF5);
         String core = snapshot.nodes().stream().filter(node -> node.branch().equals("core"))
                 .map(node -> display(node.id())).reduce((first, next) -> first + "  •  " + next)
                 .orElse("");
-        graphics.text(font, Component.literal("Fundamentals: " + core),
-                (width - font.width("Fundamentals: " + core)) / 2, 48, 0xFFB8C1D1);
+        Component fundamentals = Component.translatable(
+                "screen.galacticwars.force.fundamentals", core);
+        graphics.text(font, fundamentals,
+                (width - font.width(fundamentals)) / 2, 48, 0xFFB8C1D1);
         List<String> branches = snapshot.nodes().stream().map(ForceProgressionPayload.NodeEntry::branch)
                 .filter(branch -> !branch.equals("core")).distinct().limit(2).toList();
         int panelWidth = Math.min(560, width - 20);
@@ -154,6 +161,22 @@ public final class ForceProgressionScreen extends Screen {
             graphics.text(font, Component.literal(label), center - font.width(label) / 2,
                     63, accent);
         }
+        snapshot.trainingQuests().stream().filter(training -> !training.complete()).findFirst()
+                .ifPresentOrElse(training -> {
+                    Component progress = Component.translatable(
+                            "screen.galacticwars.force.training_progress",
+                            Component.translatable("quest.galacticwars."
+                                    + training.questId() + ".title"),
+                            training.currentCount(), training.requiredCount(),
+                            training.rewardMasteryExperience());
+                    graphics.text(font, progress, (width - font.width(progress)) / 2,
+                            height - 48, 0xFFB8C1D1);
+                }, () -> {
+                    Component complete = Component.translatable(
+                            "screen.galacticwars.force.training_complete");
+                    graphics.text(font, complete, (width - font.width(complete)) / 2,
+                            height - 48, 0xFF8AD8A0);
+                });
     }
 
     @Override

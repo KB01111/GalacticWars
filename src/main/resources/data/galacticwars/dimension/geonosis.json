@@ -1,18 +1,11 @@
 {
   "type": "galacticwars:geonosis",
   "generator": {
-    "type": "minecraft:flat",
-    "settings": {
-      "biome": "galacticwars:geonosis",
-      "features": true,
-      "lakes": false,
-      "structure_overrides": [],
-      "layers": [
-        {"height": 1, "block": "minecraft:bedrock"},
-        {"height": 100, "block": "minecraft:stone"},
-        {"height": 20, "block": "minecraft:red_sandstone"},
-        {"height": 7, "block": "galacticwars:geonosis_rock"}
-      ]
-    }
+    "type": "minecraft:noise",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "galacticwars:geonosis"
+    },
+    "settings": "minecraft:overworld"
   }
 }

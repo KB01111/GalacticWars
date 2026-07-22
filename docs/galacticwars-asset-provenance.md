@@ -1,5 +1,13 @@
 # Galactic Wars Asset Provenance
 
+## 2026-07-22 subtitle-backed runtime sound identities
+
+The `galacticwars` blaster, lightsaber, Force, vehicle, travel, construction, mission, and planet
+ambience sound events are original event identities and subtitles. For the 1.0 cohesion pass they
+reference Minecraft's installed runtime sound events through `sounds.json` event aliases; no audio
+files are copied or redistributed. This keeps the initial sound pass compatible with the host game
+license while leaving the event identities stable for later project-owned recordings.
+
 ## 2026-07-20 permissioned upstream character-art replacement
 
 The visually rejected generated clone, B1, and Mandalorian sets were replaced with authored source

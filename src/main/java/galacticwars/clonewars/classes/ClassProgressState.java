@@ -11,6 +11,7 @@ public record ClassProgressState(
         String classId,
         int rank,
         long experience,
+        int creditedMissions,
         int resource,
         Map<String, Long> cooldownEnds
 ) {
@@ -29,6 +30,9 @@ public record ClassProgressState(
         if (experience < 0L) {
             throw new IllegalArgumentException("experience cannot be negative");
         }
+        if (creditedMissions < 0 || creditedMissions > 1_000_000) {
+            throw new IllegalArgumentException("credited mission count is invalid");
+        }
         if (resource < 0 || resource > MAX_RESOURCE) {
             throw new IllegalArgumentException("resource must be between 0 and " + MAX_RESOURCE);
         }
@@ -45,7 +49,7 @@ public record ClassProgressState(
     }
 
     public static ClassProgressState unassigned() {
-        return new ClassProgressState(CURRENT_SCHEMA_VERSION, "", 0, 0L, MAX_RESOURCE, Map.of());
+        return new ClassProgressState(CURRENT_SCHEMA_VERSION, "", 0, 0L, 0, MAX_RESOURCE, Map.of());
     }
 
     public ClassProgressState assign(UnitClassId classId) {
@@ -53,7 +57,8 @@ public record ClassProgressState(
         if (this.classId.equals(normalized)) {
             return this;
         }
-        return new ClassProgressState(CURRENT_SCHEMA_VERSION, normalized, 1, 0L, MAX_RESOURCE, Map.of());
+        return new ClassProgressState(CURRENT_SCHEMA_VERSION, normalized, 1, 0L, 0,
+                MAX_RESOURCE, Map.of());
     }
 
     /**
@@ -69,7 +74,8 @@ public record ClassProgressState(
             return assign(classId);
         }
         return new ClassProgressState(
-                schemaVersion, normalized, rank, experience, resource, cooldownEnds);
+                schemaVersion, normalized, rank, experience, creditedMissions,
+                resource, cooldownEnds);
     }
 
     public ClassProgressState gainExperience(long amount) {
@@ -90,15 +96,42 @@ public record ClassProgressState(
         if (nextRank == MAX_RANK) {
             remaining = 0L;
         }
-        return new ClassProgressState(schemaVersion, classId, nextRank, remaining,
+        return new ClassProgressState(schemaVersion, classId, nextRank, remaining, creditedMissions,
                 resource, cooldownEnds);
+    }
+
+    public ClassProgressState creditCompletedMissions(int completedMissions) {
+        int bounded = Math.min(1_000_000, Math.max(0, completedMissions));
+        if (classId.isEmpty() || bounded <= creditedMissions) {
+            return this;
+        }
+        ClassProgressState awarded = gainExperience((long) (bounded - creditedMissions) * 50L);
+        return new ClassProgressState(awarded.schemaVersion, awarded.classId, awarded.rank,
+                awarded.experience, bounded, awarded.resource, awarded.cooldownEnds);
+    }
+
+    public long experienceForNextRank() {
+        return rank == 0 || rank >= MAX_RANK ? 0L : 100L * rank;
+    }
+
+    public int nextMilestoneRank() {
+        if (rank < ClassProgressionMilestones.SECONDARY_ABILITY_RANK) {
+            return ClassProgressionMilestones.SECONDARY_ABILITY_RANK;
+        }
+        if (rank < ClassProgressionMilestones.RESOURCE_EFFICIENCY_RANK) {
+            return ClassProgressionMilestones.RESOURCE_EFFICIENCY_RANK;
+        }
+        if (rank < ClassProgressionMilestones.COOLDOWN_EFFICIENCY_RANK) {
+            return ClassProgressionMilestones.COOLDOWN_EFFICIENCY_RANK;
+        }
+        return rank < MAX_RANK ? MAX_RANK : 0;
     }
 
     public ClassProgressState regenerate(int amount) {
         if (amount <= 0) {
             return this;
         }
-        return new ClassProgressState(schemaVersion, classId, rank, experience,
+        return new ClassProgressState(schemaVersion, classId, rank, experience, creditedMissions,
                 (int) Math.min(MAX_RESOURCE, (long) resource + amount), cooldownEnds);
     }
 
@@ -110,7 +143,7 @@ public record ClassProgressState(
             }
         });
         updated.put(abilityId.toString(), cooldownEnd);
-        return new ClassProgressState(schemaVersion, classId, rank, experience,
+        return new ClassProgressState(schemaVersion, classId, rank, experience, creditedMissions,
                 resource - resourceCost, updated);
     }
 }

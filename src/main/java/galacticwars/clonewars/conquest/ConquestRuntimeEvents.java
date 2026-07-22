@@ -76,6 +76,12 @@ public final class ConquestRuntimeEvents {
             return;
         }
         spawnControlPatrol(level, region, state, beacon);
+        ConquestControlState counterattack = ConquestCounterattackService.tick(
+                level, region, state, beacon);
+        if (!counterattack.equals(state)) {
+            data.put(counterattack);
+            state = counterattack;
+        }
         ConquestCaptureService.tick(level, region, beacon);
     }
 
@@ -191,7 +197,7 @@ public final class ConquestRuntimeEvents {
         return true;
     }
 
-    private static EntityType<GalacticRecruitEntity> patrolType(String factionId) {
+    public static EntityType<GalacticRecruitEntity> patrolType(String factionId) {
         String path = factionId.contains(":")
                 ? factionId.substring(factionId.indexOf(':') + 1) : factionId;
         return switch (path) {

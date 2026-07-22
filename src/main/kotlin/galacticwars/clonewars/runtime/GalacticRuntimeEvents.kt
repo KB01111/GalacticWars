@@ -12,6 +12,7 @@ import galacticwars.clonewars.force.ForceRuntimeEvents
 import galacticwars.clonewars.kingdom.KingdomClaimEvents
 import galacticwars.clonewars.kingdom.KingdomSimulationEvents
 import galacticwars.clonewars.kingdom.SiegeRuntimeEvents
+import galacticwars.clonewars.progression.MissionRuntimeEvents
 import galacticwars.clonewars.settlement.CommandCenterEvents
 import galacticwars.clonewars.survival.MountFiberRecoveryEvents
 import java.util.concurrent.atomic.AtomicBoolean
@@ -33,6 +34,7 @@ object GalacticRuntimeEvents {
         TickEvent.SERVER_POST.register(ForceRuntimeEvents::onServerTick)
         TickEvent.SERVER_POST.register(KingdomSimulationEvents::onServerTick)
         TickEvent.SERVER_POST.register(SiegeRuntimeEvents::onServerTick)
+        MissionRuntimeEvents.register()
         PlayerClassRuntime.register()
 
         EntityEvent.ADD.register { entity, level ->

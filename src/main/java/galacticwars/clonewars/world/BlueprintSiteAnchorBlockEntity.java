@@ -62,7 +62,10 @@ public final class BlueprintSiteAnchorBlockEntity extends BlockEntity {
     private void initialize(ServerLevel level, BlockPos pos) {
         KingdomBaseBlueprint blueprint = GameplayDataManager.snapshot().blueprint(blueprintId).orElse(null);
         if (blueprint == null || blueprint.worldgen().isEmpty()) {
+            initialized = true;
+            setChanged();
             return;
+        }
         }
         var profile = blueprint.worldgen().orElseThrow();
         String identity = level.dimension().identifier() + ":" + pos.asLong() + ":" + blueprintId;

@@ -36,10 +36,7 @@ public final class PlanetInfrastructureService {
         for (int x = -PLATFORM_RADIUS; x <= PLATFORM_RADIUS; x++) {
             for (int z = -PLATFORM_RADIUS; z <= PLATFORM_RADIUS; z++) {
                 BlockPos floorPos = feet.offset(x, -1, z);
-                if (level.getBlockState(floorPos).canBeReplaced()
-                        || !level.getFluidState(floorPos).isEmpty()) {
-                    level.setBlockAndUpdate(floorPos, floor);
-                }
+                placeIfReplaceable(level, floorPos, floor);
             }
         }
         if (poi.role().equals("economy")) {

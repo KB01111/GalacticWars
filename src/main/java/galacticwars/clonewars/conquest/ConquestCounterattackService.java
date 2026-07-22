@@ -49,8 +49,9 @@ final class ConquestCounterattackService {
         }
 
         spawnAttacker(level, region, state, beacon);
-        int attackers = attackerStrength(level, state, beacon, region.captureRadius());
-        int defenders = defenderStrength(level, state, beacon, region.captureRadius());
+        int clampedRadius = Math.max(32, region.captureRadius());
+        int attackers = attackerStrength(level, state, beacon, clampedRadius);
+        int defenders = defenderStrength(level, state, beacon, clampedRadius);
         ConquestControlState progressed = defenders > attackers
                 ? state.advanceDefense((defenders - attackers) * 20) : state;
         int defenseGoal = Math.max(200, region.captureTicks() / 2);

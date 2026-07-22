@@ -151,7 +151,7 @@ object PlayerClassRuntime {
                 player,
                 ability,
                 target,
-                ClassProgressionMilestones.potency(state.rank()),
+                ClassProgressionMilestones.potency(state.rank())
             )
         ) {
             return reject(player, if (ability.activation == AbilityActivation.AREA) {

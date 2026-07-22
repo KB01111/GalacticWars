@@ -106,6 +106,7 @@ public final class GalacticWarsClient {
             ClientGameplayCatalog.clear();
             FieldCommandClientState.clear();
             galacticwars.clonewars.client.ObjectiveMarkerClientState.clear();
+            galacticwars.clonewars.client.ServerPolicyClientState.clear();
         });
         ForceKeyMappings.registerTickHandler();
         ClassKeyMappings.registerTickHandler();

@@ -89,7 +89,10 @@ public record ForceProgressionPayload(
                     buffer.readVarInt(), buffer.readUtf(MAX_ID), buffer.readBoolean(),
                     readStrings(buffer, 4)));
         }
-        int trainingCount = Math.max(0, Math.min(3, buffer.readVarInt()));
+        int trainingCount = buffer.readVarInt();
+        if (trainingCount < 0 || trainingCount > 3) {
+            throw new IllegalArgumentException("Invalid training quest count: " + trainingCount);
+        }
         ArrayList<TrainingQuestEntry> training = new ArrayList<>(trainingCount);
         for (int index = 0; index < trainingCount; index++) {
             training.add(new TrainingQuestEntry(

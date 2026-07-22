@@ -143,6 +143,7 @@ public final class MissionRuntimeEvents {
                     missionTitle(mission.id())));
         }
         if (activeAttackers(targetLevel, holding.target(), mission.id(), holding.attempt()) > 0) {
+            holding = holding.feedback(gameTime);
             attempts.put(holding);
             return;
         }
@@ -343,7 +344,11 @@ public final class MissionRuntimeEvents {
     }
 
     private static String opposingFaction(String questId) {
-        String path = questId.substring(0, questId.indexOf("_chapter_"));
+        int chapterIndex = questId.indexOf("_chapter_");
+        if (chapterIndex < 0) {
+            return "galacticwars:separatist";
+        }
+        String path = questId.substring(0, chapterIndex);
         return switch (path) {
             case "republic", "nightsister" -> "galacticwars:separatist";
             case "separatist" -> "galacticwars:republic";

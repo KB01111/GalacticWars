@@ -729,9 +729,9 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
         }
         return result.stream()
                 .sorted(java.util.Comparator.comparing(
-                        galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary::state)
+                        galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary::endsAt)
                         .thenComparing(
-                                galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary::endsAt))
+                                galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary::state))
                 .limit(16).toList();
     }
 

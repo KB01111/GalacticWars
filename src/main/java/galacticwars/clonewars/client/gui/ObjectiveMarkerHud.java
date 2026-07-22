@@ -23,16 +23,19 @@ public final class ObjectiveMarkerHud {
                 "screen.galacticwars.operations.objective." + state.objectiveId());
         int offsetX = ClientConfig.HUD_HORIZONTAL_OFFSET.get();
         int offsetY = ClientConfig.HUD_VERTICAL_OFFSET.get();
+        double scale = ClientConfig.HUD_SCALE_PERCENT.get() / 100.0D;
         int primaryColor = ClientConfig.HIGH_CONTRAST.get() ? 0xFFFFFFFF : 0xFFE8EEF7;
-        drawCentered(graphics, action, 12 + offsetY, offsetX, primaryColor);
+        int actionY = (int) Math.round(12 * scale);
+        drawCentered(graphics, action, actionY + offsetY, offsetX, primaryColor);
         if (!state.targetKnown()) {
             return;
         }
         String currentDimension = player.level().dimension().identifier().toString();
+        int markerY = (int) Math.round(24 * scale);
         if (!currentDimension.equals(state.dimensionId())) {
             drawCentered(graphics,
                     Component.translatable("hud.galacticwars.objective.travel",
-                            dimensionName(state.dimensionId())), 24 + offsetY, offsetX, 0xFFFFC96B);
+                            dimensionName(state.dimensionId())), markerY + offsetY, offsetX, 0xFFFFC96B);
             return;
         }
         double dx = state.x() + 0.5D - player.getX();
@@ -47,7 +50,7 @@ public final class ObjectiveMarkerHud {
                 : relative >= -67.5D ? "↗" : relative >= -112.5D ? "→" : "↘";
         drawCentered(graphics,
                 Component.translatable("hud.galacticwars.objective.marker", arrow, distance),
-                24 + offsetY, offsetX, 0xFFFFC96B);
+                markerY + offsetY, offsetX, 0xFFFFC96B);
     }
 
     private static Component dimensionName(String dimensionId) {

@@ -48,8 +48,7 @@ public final class Config {
             return;
         }
 
-        read(source);
-        if (source.equals(LEGACY_CONFIG_PATH)) {
+        if (read(source) && source.equals(LEGACY_CONFIG_PATH)) {
             save();
             GalacticWars.LOGGER.info("Migrated server policy from {} to {}", source, CONFIG_PATH);
         }
@@ -57,12 +56,18 @@ public final class Config {
 
     /** Reloads the authoritative policy from disk for the operator command. */
     public static synchronized boolean reload() {
-        VALUES.values().forEach(BooleanValue::reset);
         if (!Files.isRegularFile(CONFIG_PATH)) {
+            VALUES.values().forEach(BooleanValue::reset);
             save();
             return true;
         }
-        return read(CONFIG_PATH);
+        Map<String, Boolean> snapshot = new LinkedHashMap<>();
+        VALUES.forEach((key, value) -> snapshot.put(key, value.get()));
+        if (!read(CONFIG_PATH)) {
+            snapshot.forEach((key, value) -> VALUES.get(key).set(value));
+            return false;
+        }
+        return true;
     }
 
     private static boolean read(Path source) {
@@ -74,17 +79,21 @@ public final class Config {
             return false;
         }
 
-        VALUES.forEach((key, value) -> {
+        Map<String, Boolean> parsed = new LinkedHashMap<>();
+        for (Map.Entry<String, BooleanValue> entry : VALUES.entrySet()) {
+            String key = entry.getKey();
             String encoded = properties.getProperty(key);
             if (encoded == null) {
-                return;
-            }
-            if (encoded.equalsIgnoreCase("true") || encoded.equalsIgnoreCase("false")) {
-                value.set(Boolean.parseBoolean(encoded));
+                parsed.put(key, entry.getValue().getDefault());
+            } else if (encoded.equalsIgnoreCase("true") || encoded.equalsIgnoreCase("false")) {
+                parsed.put(key, Boolean.parseBoolean(encoded));
             } else {
                 GalacticWars.LOGGER.warn("Ignoring invalid boolean {}={} in {}", key, encoded, source);
+                parsed.put(key, entry.getValue().getDefault());
             }
-        });
+        }
+
+        parsed.forEach((key, value) -> VALUES.get(key).set(value));
         return true;
     }
 

@@ -30,23 +30,30 @@ public final class BlasterHeatHud {
         BlasterHeatPolicy.BlasterHeatState heat = BlasterItem.heat(weapon);
         boolean overheated = heat.overheatTicks() > 0;
         int heatedSegments = overheated ? SEGMENT_COUNT : SEGMENT_COUNT - heat.shotsRemaining();
-        int width = SEGMENT_COUNT * SEGMENT_WIDTH + (SEGMENT_COUNT - 1) * SEGMENT_GAP;
+        double scale = ClientConfig.HUD_SCALE_PERCENT.get() / 100.0D;
+        int segmentWidth = (int) Math.round(SEGMENT_WIDTH * scale);
+        int segmentGap = (int) Math.round(SEGMENT_GAP * scale);
+        int barHeight = (int) Math.round(BAR_HEIGHT * scale);
+        int width = SEGMENT_COUNT * segmentWidth + (SEGMENT_COUNT - 1) * segmentGap;
         int left = (graphics.guiWidth() - width) / 2 + ClientConfig.HUD_HORIZONTAL_OFFSET.get();
         int top = graphics.guiHeight() - 39 + ClientConfig.HUD_VERTICAL_OFFSET.get();
         int activeColor = overheated ? 0xFFFF3D32 : heat.heatFraction() >= 0.66F ? 0xFFFFA726 : 0xFF35C9FF;
 
-        graphics.fill(left - 3, top - 2, left + width + 3, top + BAR_HEIGHT + 2, 0xAA080C12);
+        int padding = (int) Math.round(3 * scale);
+        int verticalPadding = (int) Math.round(2 * scale);
+        graphics.fill(left - padding, top - verticalPadding, left + width + padding, top + barHeight + verticalPadding, 0xAA080C12);
         for (int segment = 0; segment < SEGMENT_COUNT; segment++) {
-            int x = left + segment * (SEGMENT_WIDTH + SEGMENT_GAP);
-            graphics.fill(x, top, x + SEGMENT_WIDTH, top + BAR_HEIGHT,
+            int x = left + segment * (segmentWidth + segmentGap);
+            graphics.fill(x, top, x + segmentWidth, top + barHeight,
                     segment < heatedSegments ? activeColor : 0xFF34404D);
         }
 
         Component label = Component.translatable(overheated
                 ? "hud.galacticwars.blaster.overheated"
                 : "hud.galacticwars.blaster.heat");
+        int labelOffset = (int) Math.round(10 * scale);
         graphics.centeredText(minecraft.font, label,
-                graphics.guiWidth() / 2 + ClientConfig.HUD_HORIZONTAL_OFFSET.get(), top - 10,
+                graphics.guiWidth() / 2 + ClientConfig.HUD_HORIZONTAL_OFFSET.get(), top - labelOffset,
                 overheated ? 0xFFFF665C : 0xFFD7E7F5);
     }
 

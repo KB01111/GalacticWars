@@ -26,7 +26,7 @@ public final class FactionOutpostSavedData extends SavedData {
             Codec.INT.fieldOf("x").forGetter(FactionOutpostRecord::x),
             Codec.INT.fieldOf("y").forGetter(FactionOutpostRecord::y),
             Codec.INT.fieldOf("z").forGetter(FactionOutpostRecord::z),
-            Codec.intRange(16, 512).fieldOf("radius").forGetter(FactionOutpostRecord::radius),
+            Codec.intRange(8, 512).fieldOf("radius").forGetter(FactionOutpostRecord::radius),
             UUIDUtil.CODEC.listOf().optionalFieldOf("military_npcs", List.of())
                     .forGetter(FactionOutpostRecord::militaryNpcIds),
             UUIDUtil.CODEC.listOf().optionalFieldOf("civilian_npcs", List.of())
@@ -208,6 +208,30 @@ public final class FactionOutpostSavedData extends SavedData {
         index(updated);
         this.setDirty();
         return Optional.of(updated);
+    }
+
+    /** Publishes a generated site's complete identity before any residents become visible. */
+    public FactionOutpostRecord registerGeneratedSite(
+            UUID id,
+            String factionId,
+            String dimensionId,
+            BlockPos position,
+            int radius,
+            List<UUID> militaryNpcIds,
+            List<UUID> civilianNpcIds,
+            long gameTime
+    ) {
+        FactionOutpostRecord existing = outpostsById.get(id);
+        if (existing != null) {
+            return existing;
+        }
+        FactionOutpostRecord created = new FactionOutpostRecord(id, factionId, dimensionId,
+                position.getX(), position.getY(), position.getZ(), radius,
+                militaryNpcIds, civilianNpcIds, gameTime);
+        index(created);
+        generatedSiteIds.add(id);
+        this.setDirty();
+        return created;
     }
 
     public boolean removeNpc(UUID npcId, long gameTime) {

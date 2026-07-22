@@ -156,8 +156,6 @@ public record LaunchContentDefinitions(
             if (subjectIds.stream().anyMatch(String::isBlank)
                     || requiredCount < 1
                     || requiredCount > MAX_QUEST_OBJECTIVE_REQUIRED_COUNT) {
-                    || requiredCount < 1
-                    || requiredCount > MAX_QUEST_OBJECTIVE_REQUIRED_COUNT) {
                 throw new IllegalArgumentException("Invalid quest objective " + id);
             }
         }

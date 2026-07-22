@@ -125,8 +125,18 @@ public final class VirtualArmyMovementPlanner {
                 && !patrolReachedWaypoint) {
             return group;
         }
+        ArmyMarchState previousMarch = group.simulation().marchState();
+        ArmyMarchPhase phase = decision.pauseReason().equals(DESTINATION_REACHED)
+                ? ArmyMarchPhase.HALTED
+                : decision.pauseReason().isEmpty() ? ArmyMarchPhase.MARCHING : ArmyMarchPhase.HALTED;
+        ArmyMarchState nextMarch = previousMarch.transition(
+                phase,
+                group.order().formation(),
+                100,
+                yawToward(group.simulation().anchor(), decision.anchor(), previousMarch.yawDegrees()),
+                gameTime);
         ArmyGroupSimulation simulation = group.simulation().advance(
-                decision.anchor(), gameTime, decision.pauseReason());
+                decision.anchor(), gameTime, decision.pauseReason(), nextMarch);
         ArmyGroupRecord advanced = group.withSimulation(simulation, group.snapshots());
         if (patrolReachedWaypoint) {
             return advancePatrolWaypoint(
@@ -184,5 +194,13 @@ public final class VirtualArmyMovementPlanner {
         return group.withSimulation(
                 simulation.advance(simulation.anchor(), gameTime, "patrol_paused"),
                 group.snapshots());
+    }
+
+    private static float yawToward(ArmyLocation first, ArmyLocation second, float fallback) {
+        double x = second.x() - first.x();
+        double z = second.z() - first.z();
+        return x * x + z * z < 0.0001D
+                ? fallback
+                : (float)Math.toDegrees(Math.atan2(-x, z));
     }
 }

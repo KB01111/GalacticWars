@@ -16,6 +16,8 @@ object ClientPacketBridge {
     private val gameplayCatalogHandler = AtomicReference(noGameplayCatalogHandler)
     private val noFieldCommandStateHandler = Consumer<FieldCommandStatePayload> { }
     private val fieldCommandStateHandler = AtomicReference(noFieldCommandStateHandler)
+    private val noFieldCommandOpenHandler = Runnable { }
+    private val fieldCommandOpenHandler = AtomicReference(noFieldCommandOpenHandler)
 
     @JvmStatic
     fun installForceHudHandler(handler: Consumer<ForceHudPayload>) {
@@ -58,10 +60,22 @@ object ClientPacketBridge {
     }
 
     @JvmStatic
+    fun installFieldCommandOpenHandler(handler: Runnable) {
+        fieldCommandOpenHandler.set(handler)
+    }
+
+    /** Safe common-code bridge used by the physical Tactical Command Marker. */
+    @JvmStatic
+    fun openFieldCommandScreen() {
+        fieldCommandOpenHandler.get().run()
+    }
+
+    @JvmStatic
     fun clearClientHandlers() {
         forceHudHandler.set(noForceHudHandler)
         classHudHandler.set(noClassHudHandler)
         gameplayCatalogHandler.set(noGameplayCatalogHandler)
         fieldCommandStateHandler.set(noFieldCommandStateHandler)
+        fieldCommandOpenHandler.set(noFieldCommandOpenHandler)
     }
 }

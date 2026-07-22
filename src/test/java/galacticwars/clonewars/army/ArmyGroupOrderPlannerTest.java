@@ -22,6 +22,7 @@ public final class ArmyGroupOrderPlannerTest {
         preservesPersistedSlotsWhenRotatingFormationPositions();
         appliesPersistedTacticsYawToRecordPlanning();
         preservesPersistedSlotsThroughRematerializationPlacement();
+        rematerializesInPersistedCompressedFormation();
         assignsHoldOrdersToColumnFormationPositions();
         assignsPatrolOrdersToFormationPositions();
         assignsFollowAndProtectOrdersToOwnerRelativeFormationPositions();
@@ -147,6 +148,46 @@ public final class ArmyGroupOrderPlannerTest {
                 group, THIRD_RECRUIT_ID, anchorPosition), "slot one respawn position");
         assertEquals(new ArmyPosition(10, 64, 22), ArmyGroupOrderPlanner.formationPositionForMember(
                 group, FIRST_RECRUIT_ID, anchorPosition), "slot two respawn position");
+    }
+
+    private static void rematerializesInPersistedCompressedFormation() {
+        ArmyLocation anchor = new ArmyLocation("minecraft:overworld", 10, 64, 20);
+        ArmyMarchState compressed = new ArmyMarchState(
+                ArmyMarchPhase.COMPRESSED, ArmyFormation.COLUMN, 62, 90.0F, 40L);
+        ArmyGroupRecord group = new ArmyGroupRecord(
+                GROUP_ID,
+                OWNER_ID,
+                KINGDOM_ID,
+                Optional.of(COMMANDER_ID),
+                List.of(FIRST_RECRUIT_ID, SECOND_RECRUIT_ID, THIRD_RECRUIT_ID),
+                new ArmyGroupOrder(
+                        ArmyCommandType.MOVE_TO_POSITION,
+                        Optional.of(new ArmyLocation("minecraft:overworld", 40, 64, 20)),
+                        Optional.empty(),
+                        ArmyFormation.WEDGE,
+                        2),
+                new ArmyGroupSimulation(
+                        ArmyGroupLifecycleState.VIRTUAL, anchor, 40L, 1L, 1L, "", compressed),
+                List.of(),
+                "Compressed squad",
+                Optional.of(anchor),
+                List.of(),
+                Optional.empty(),
+                0,
+                Optional.of(List.of(
+                        new ArmyFormationSlotAssignment(FIRST_RECRUIT_ID, 2),
+                        new ArmyFormationSlotAssignment(SECOND_RECRUIT_ID, 0),
+                        new ArmyFormationSlotAssignment(THIRD_RECRUIT_ID, 1))),
+                Optional.empty(),
+                Optional.of(ArmyGroupTactics.DEFAULT.withFormationYaw(-45.0F)));
+
+        ArmyPosition anchorPosition = anchor.blockPosition();
+        assertEquals(anchorPosition, ArmyGroupOrderPlanner.formationPositionForMember(
+                group, SECOND_RECRUIT_ID, anchorPosition), "compressed slot zero");
+        assertEquals(new ArmyPosition(8, 64, 20), ArmyGroupOrderPlanner.formationPositionForMember(
+                group, THIRD_RECRUIT_ID, anchorPosition), "compressed slot one");
+        assertEquals(new ArmyPosition(6, 64, 20), ArmyGroupOrderPlanner.formationPositionForMember(
+                group, FIRST_RECRUIT_ID, anchorPosition), "compressed slot two");
     }
 
     private static void assignsHoldOrdersToColumnFormationPositions() {

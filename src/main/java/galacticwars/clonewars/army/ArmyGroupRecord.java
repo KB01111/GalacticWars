@@ -117,7 +117,9 @@ public record ArmyGroupRecord(
         return new ArmyGroupRecord(
                 id, ownerId, kingdomId, Optional.of(commanderId), memberIds,
                 ArmyGroupOrder.follow(formation),
-                new ArmyGroupSimulation(ArmyGroupLifecycleState.LIVE, anchor, gameTime, 0L, 0L, ""),
+                new ArmyGroupSimulation(
+                        ArmyGroupLifecycleState.LIVE, anchor, gameTime, 0L, 0L, "",
+                        ArmyMarchState.halted(formation)),
                 List.of(), "Squad " + id.toString().substring(0, 4), Optional.of(anchor), List.of(),
                 Optional.empty(), 0, Optional.of(ArmyFormationSlotAssignment.assignDeterministically(memberIds)),
                 Optional.empty(), Optional.empty());
@@ -155,10 +157,7 @@ public record ArmyGroupRecord(
     }
 
     public ArmyGroupRecord withOrder(ArmyGroupOrder order) {
-        return copy(commanderId, memberIds, order,
-                new ArmyGroupSimulation(
-                        simulation.lifecycleState(), simulation.anchor(), simulation.lastSimulationGameTime(),
-                        simulation.revision() + 1, simulation.snapshotGeneration(), ""), snapshots);
+        return copy(commanderId, memberIds, order, simulation.resetMarch(order.formation()), snapshots);
     }
 
     public ArmyGroupRecord withCommander(UUID commanderId) {
@@ -166,7 +165,7 @@ public record ArmyGroupRecord(
         return copy(Optional.of(commanderId), remainingMembers, order,
                 new ArmyGroupSimulation(
                         ArmyGroupLifecycleState.LIVE, simulation.anchor(), simulation.lastSimulationGameTime(),
-                        simulation.revision() + 1, simulation.snapshotGeneration(), ""), snapshots);
+                        simulation.revision() + 1, simulation.snapshotGeneration(), "", simulation.marchState()), snapshots);
     }
 
     public ArmyGroupRecord orphan(ArmyLocation anchor) {
@@ -175,7 +174,8 @@ public record ArmyGroupRecord(
         return copy(Optional.empty(), memberIds, hold,
                 new ArmyGroupSimulation(
                         ArmyGroupLifecycleState.ORPHANED, anchor, simulation.lastSimulationGameTime(),
-                        simulation.revision() + 1, simulation.snapshotGeneration(), "commander_missing"), snapshots);
+                        simulation.revision() + 1, simulation.snapshotGeneration(), "commander_missing",
+                        ArmyMarchState.halted(order.formation())), snapshots);
     }
 
     public ArmyGroupRecord withMembers(List<UUID> members) {
@@ -193,7 +193,8 @@ public record ArmyGroupRecord(
         return new ArmyGroupRecord(id, ownerId, kingdomId, commanderId, normalizedMembers, order,
                 new ArmyGroupSimulation(
                         simulation.lifecycleState(), simulation.anchor(), simulation.lastSimulationGameTime(),
-                        simulation.revision() + 1, simulation.snapshotGeneration(), simulation.blockedReason()),
+                        simulation.revision() + 1, simulation.snapshotGeneration(), simulation.blockedReason(),
+                        simulation.marchState()),
                 retainedSnapshots, name, rallyPoint, patrolRoute, defendedClaimId, supplyUnits,
                 nextAssignments, patrolPlan, tactics);
     }
@@ -211,17 +212,13 @@ public record ArmyGroupRecord(
                 }
                 updated.set(i, snapshot);
                 return copy(commanderId, memberIds, order,
-                        new ArmyGroupSimulation(
-                                simulation.lifecycleState(), simulation.anchor(), simulation.lastSimulationGameTime(),
-                                simulation.revision() + 1, simulation.snapshotGeneration(), simulation.blockedReason()),
+                        simulation.touch(simulation.blockedReason()),
                         updated);
             }
         }
         updated.add(snapshot);
         return copy(commanderId, memberIds, order,
-                new ArmyGroupSimulation(
-                        simulation.lifecycleState(), simulation.anchor(), simulation.lastSimulationGameTime(),
-                        simulation.revision() + 1, simulation.snapshotGeneration(), simulation.blockedReason()),
+                simulation.touch(simulation.blockedReason()),
                 updated);
     }
 
@@ -260,7 +257,8 @@ public record ArmyGroupRecord(
         }
         ArmyGroupSimulation nextSimulation = new ArmyGroupSimulation(
                 simulation.lifecycleState(), simulation.anchor(), simulation.lastSimulationGameTime(),
-                simulation.revision() + 1, simulation.snapshotGeneration(), simulation.blockedReason());
+                simulation.revision() + 1, simulation.snapshotGeneration(), simulation.blockedReason(),
+                simulation.marchState());
         return new ArmyGroupRecord(id, ownerId, kingdomId, commanderId, memberIds, nextOrder, nextSimulation, snapshots,
                 name, rallyPoint, patrolPlan.locations(), defendedClaimId, supplyUnits, formationSlotAssignments,
                 Optional.of(patrolPlan), tactics);

@@ -18,7 +18,8 @@ public record FactionDefinition(
         int pledgeDirectDelta,
         int pledgeAllyDelta,
         int pledgeEnemyDelta,
-        FactionStrategyDefinition strategy
+        FactionStrategyDefinition strategy,
+        String starterUnitId
 ) {
     public FactionDefinition(
             FactionId id,
@@ -30,7 +31,7 @@ public record FactionDefinition(
             Set<FactionId> enemies
     ) {
         this(id, displayName, hireCost, minimumHiringAlignment, maxOwnedRecruits, allies, enemies,
-                0, "", 10, 2, -5, FactionStrategyDefinition.shared());
+                0, "", 10, 2, -5, FactionStrategyDefinition.shared(), "");
     }
 
     public FactionDefinition(
@@ -49,7 +50,27 @@ public record FactionDefinition(
     ) {
         this(id, displayName, hireCost, minimumHiringAlignment, maxOwnedRecruits, allies, enemies,
                 selectionOrder, pledgeTokenItemId, pledgeDirectDelta, pledgeAllyDelta, pledgeEnemyDelta,
-                FactionStrategyDefinition.shared());
+                FactionStrategyDefinition.shared(), "");
+    }
+
+    public FactionDefinition(
+            FactionId id,
+            String displayName,
+            int hireCost,
+            int minimumHiringAlignment,
+            int maxOwnedRecruits,
+            Set<FactionId> allies,
+            Set<FactionId> enemies,
+            int selectionOrder,
+            String pledgeTokenItemId,
+            int pledgeDirectDelta,
+            int pledgeAllyDelta,
+            int pledgeEnemyDelta,
+            FactionStrategyDefinition strategy
+    ) {
+        this(id, displayName, hireCost, minimumHiringAlignment, maxOwnedRecruits, allies, enemies,
+                selectionOrder, pledgeTokenItemId, pledgeDirectDelta, pledgeAllyDelta, pledgeEnemyDelta,
+                strategy, "");
     }
 
     public FactionDefinition {
@@ -66,6 +87,7 @@ public record FactionDefinition(
         validateRelationSets(id.toString(), id, allies, enemies);
         pledgeTokenItemId = pledgeTokenItemId == null ? "" : pledgeTokenItemId.trim().toLowerCase();
         Objects.requireNonNull(strategy, "strategy");
+        starterUnitId = starterUnitId == null ? "" : starterUnitId.trim().toLowerCase();
     }
 
     public static void validateRelationSets(

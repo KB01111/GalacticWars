@@ -18,6 +18,9 @@ public final class YaclConfigIntegrationTest {
         String fabricClient = read("fabric/src/main/kotlin/galacticwars/clonewars/fabric/GalacticWarsFabricClient.kt");
         String neoForgeClient = read("neoforge/src/main/kotlin/galacticwars/clonewars/neoforge/GalacticWarsNeoForgeClient.kt");
         String screen = read("src/main/java/galacticwars/clonewars/client/gui/GalacticWarsConfigScreen.java");
+        String serverConfig = read("src/main/java/galacticwars/clonewars/Config.java");
+        String clientConfig = read("src/main/java/galacticwars/clonewars/client/ClientConfig.java");
+        String policySync = read("src/main/java/galacticwars/clonewars/network/ServerPolicySync.java");
         String language = read("src/main/resources/assets/galacticwars/lang/en_us.json");
         String notice = read("NOTICE.md");
 
@@ -41,14 +44,24 @@ public final class YaclConfigIntegrationTest {
         assertContains(fabricClient, "GalacticWarsConfigScreen.create(parent)", "Fabric YACL screen factory");
         assertContains(neoForgeClient, "GalacticWarsConfigScreen.create(parent)", "NeoForge YACL screen factory");
         assertContains(screen, "YetAnotherConfigLib.createBuilder()", "YACL builder");
-        assertContains(screen, ".save(Config::save)", "loader-neutral config persistence");
+        assertContains(screen, ".save(ClientConfig::save)", "local client config persistence");
+        assertContains(clientConfig, "galacticwars-client.properties", "local config path");
+        assertContains(serverConfig, "galacticwars-server.properties", "server policy path");
+        assertContains(serverConfig, "galacticwars.properties", "legacy policy migration path");
+        assertContains(policySync, "Commands.LEVEL_GAMEMASTERS", "operator-only reload gate");
+        assertContains(policySync, "ServerPolicyPayload.current()", "read-only policy synchronization");
+        assertNotContains(screen, "Config.ALLOW_", "client mutation of server policy");
 
         for (String option : new String[]{
-                "log_startup",
-                "allow_blaster_friendly_fire",
-                "allow_blaster_pvp",
-                "allow_class_pvp",
-                "allow_force_pvp"
+                "hud_horizontal_offset",
+                "hud_vertical_offset",
+                "hud_scale_percent",
+                "effect_intensity_percent",
+                "particle_density_percent",
+                "camera_shake_percent",
+                "high_contrast",
+                "avoid_color_only",
+                "narration_hints"
         }) {
             assertContains(screen, "\"" + option + "\"", option + " binding");
             assertContains(language, "config.galacticwars.option." + option, option + " translation");

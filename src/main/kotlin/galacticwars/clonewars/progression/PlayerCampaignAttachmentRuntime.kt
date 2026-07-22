@@ -61,6 +61,7 @@ object PlayerCampaignAttachmentRuntime {
         val playerId = player.uuid
         val authoritativeProgression = ProgressionSavedData.get(level).state(playerId)
         OnboardingAdvancementService.synchronize(player, authoritativeProgression)
+        ObjectiveMarkerService.synchronize(player, authoritativeProgression)
         val authoritativeForce = ForceSavedData.get(level).state(playerId)
         val projected = PlayerCampaignAttachmentService.fromAuthoritative(
             authoritativeProgression,

@@ -36,6 +36,7 @@ final class LaunchContentValidator {
                 loadForceTraditions(manager, factionIds);
         Map<String, LaunchContentDefinitions.ForceNodeDefinition> forceNodes = loadForceNodes(manager);
         Map<String, LaunchContentDefinitions.QuestDefinition> quests = loadQuests(manager);
+        Map<String, LaunchContentDefinitions.MissionDefinition> missions = loadMissions(manager);
         Map<String, LaunchContentDefinitions.TradeDefinition> trades = loadTrades(manager, factionIds);
         Map<String, LaunchContentDefinitions.ConquestRegionDefinition> regions =
                 loadRegions(manager, planets.keySet(), factionIds);
@@ -45,10 +46,13 @@ final class LaunchContentValidator {
         requireCount("Force traditions", forceTraditions, 3);
         requireCount("Force nodes", forceNodes, 39);
         requireMinimum("quests", quests, 15);
+        requireCount("missions", missions, 15);
         requireMinimum("trades", trades, factionIds.size() + regions.size());
         requireCount("conquest regions", regions, 4);
         validateReferences(vehicles, forceAbilities, forceTraditions, forceNodes,
                 quests, trades, regions, factionIds);
+        CampaignReachabilityValidator.validate(quests, trades);
+        validateMissions(missions, quests, planets, regions);
         for (String factionId : factionIds) {
             if (trades.values().stream().noneMatch(trade ->
                     trade.factionId().equals(factionId) && trade.stockTier() == 1)) {
@@ -64,7 +68,7 @@ final class LaunchContentValidator {
             }
         }
         return new LaunchContentDefinitions(planets, vehicles, forceAbilities,
-                forceTraditions, forceNodes, quests, trades, regions);
+                forceTraditions, forceNodes, quests, missions, trades, regions);
     }
 
     static void validateReferences(
@@ -102,6 +106,12 @@ final class LaunchContentValidator {
         knownUnlocks.addAll(quests.keySet());
         quests.values().forEach(quest -> knownUnlocks.addAll(quest.unlocks()));
         for (LaunchContentDefinitions.QuestDefinition quest : quests.values()) {
+            for (String prerequisite : quest.prerequisites()) {
+                if (prerequisite.equals(quest.id()) || !quests.containsKey(prerequisite)) {
+                    throw new IllegalArgumentException("Quest " + quest.id()
+                            + " has invalid prerequisite " + prerequisite);
+                }
+            }
             for (LaunchContentDefinitions.QuestObjectiveDefinition objective : quest.objectives()) {
                 try {
                     ProgressionEventType.valueOf(objective.eventType().toUpperCase(Locale.ROOT));
@@ -164,10 +174,10 @@ final class LaunchContentValidator {
     private static Map<String, LaunchContentDefinitions.PlanetDefinition> loadPlanets(
             ResourceManager manager, Set<String> factions) throws IOException {
         LinkedHashMap<String, LaunchContentDefinitions.PlanetDefinition> result = new LinkedHashMap<>();
-        for (JsonObject json : objects(manager, "planets", "planets")) {
+        for (JsonObject json : objects(manager, "planets", "planets", 2)) {
             var definition = new LaunchContentDefinitions.PlanetDefinition(
                     string(json, "id"), string(json, "dimension"), string(json, "arrival"),
-                    string(json, "theme"), string(json, "faction"));
+                    string(json, "theme"), string(json, "faction"), planetPois(json));
             if (!factions.contains(definition.factionId())) throw new IllegalArgumentException("Unknown planet faction " + definition.factionId());
             put(result, definition.id(), definition, "planet");
         }
@@ -284,13 +294,92 @@ final class LaunchContentValidator {
     private static Map<String, LaunchContentDefinitions.QuestDefinition> loadQuests(ResourceManager manager) throws IOException {
         LinkedHashMap<String, LaunchContentDefinitions.QuestDefinition> result = new LinkedHashMap<>();
         for (JsonObject json : objects(manager, "quests", "quests", 2)) {
+            List<LaunchContentDefinitions.QuestObjectiveDefinition> objectives = questObjectives(json);
             var definition = new LaunchContentDefinitions.QuestDefinition(
-                    string(json, "id"), questObjectives(json), integer(json, "reward_credits"),
+                    string(json, "id"), objectives, integer(json, "reward_credits"),
                     Set.copyOf(strings(json, "unlocks")),
-                    json.has("mastery_experience") ? integer(json, "mastery_experience") : 0);
+                    json.has("mastery_experience") ? integer(json, "mastery_experience") : 0,
+                    optionalString(json, "title_key"), optionalString(json, "briefing_key"),
+                    optionalString(json, "hint_key"),
+                    json.has("prerequisites") ? Set.copyOf(strings(json, "prerequisites"))
+                            : conventionalQuestPrerequisites(string(json, "id")));
             put(result, definition.id(), definition, "quest");
         }
         return result;
+    }
+
+    private static Map<String, LaunchContentDefinitions.MissionDefinition> loadMissions(
+            ResourceManager manager
+    ) throws IOException {
+        LinkedHashMap<String, LaunchContentDefinitions.MissionDefinition> result = new LinkedHashMap<>();
+        for (JsonObject json : objects(manager, "missions", "missions")) {
+            var definition = new LaunchContentDefinitions.MissionDefinition(
+                    string(json, "id"), string(json, "quest"), string(json, "archetype"),
+                    optionalString(json, "planet"), optionalString(json, "target_region"),
+                    missionRequirements(json),
+                    json.has("retry_cooldown_ticks") ? integer(json, "retry_cooldown_ticks") : 200);
+            put(result, definition.id(), definition, "mission");
+        }
+        return result;
+    }
+
+    private static List<LaunchContentDefinitions.MissionRequirementDefinition> missionRequirements(
+            JsonObject mission
+    ) {
+        JsonArray values = mission.getAsJsonArray("requirements");
+        if (values == null || values.isEmpty()) {
+            throw new IllegalArgumentException("Missing requirements for mission " + string(mission, "id"));
+        }
+        java.util.ArrayList<LaunchContentDefinitions.MissionRequirementDefinition> result =
+                new java.util.ArrayList<>();
+        for (JsonElement element : values) {
+            JsonObject requirement = element.getAsJsonObject();
+            result.add(new LaunchContentDefinitions.MissionRequirementDefinition(
+                    string(requirement, "event"),
+                    requirement.has("subjects")
+                            ? Set.copyOf(strings(requirement, "subjects")) : Set.of(),
+                    requirement.has("count") ? integer(requirement, "count") : 1));
+        }
+        return List.copyOf(result);
+    }
+
+    private static void validateMissions(
+            Map<String, LaunchContentDefinitions.MissionDefinition> missions,
+            Map<String, LaunchContentDefinitions.QuestDefinition> quests,
+            Map<String, LaunchContentDefinitions.PlanetDefinition> planets,
+            Map<String, LaunchContentDefinitions.ConquestRegionDefinition> regions
+    ) {
+        for (LaunchContentDefinitions.MissionDefinition mission : missions.values()) {
+            if (!quests.containsKey(mission.questId())) {
+                throw new IllegalArgumentException("Mission " + mission.id()
+                        + " references unknown quest " + mission.questId());
+            }
+            if (!mission.planetId().isEmpty() && !planets.containsKey(mission.planetId())) {
+                throw new IllegalArgumentException("Mission " + mission.id()
+                        + " references unknown planet " + mission.planetId());
+            }
+            if (!mission.targetRegionId().isEmpty()
+                    && !regions.containsKey(mission.targetRegionId())) {
+                throw new IllegalArgumentException("Mission " + mission.id()
+                        + " references unknown region " + mission.targetRegionId());
+            }
+            boolean questReferencesMission = quests.get(mission.questId()).objectives().stream()
+                    .anyMatch(objective -> objective.eventType().equals("mission_completed")
+                            && objective.subjectIds().contains(mission.id()));
+            if (!questReferencesMission) {
+                throw new IllegalArgumentException("Quest " + mission.questId()
+                        + " must expose mission objective " + mission.id());
+            }
+            for (LaunchContentDefinitions.MissionRequirementDefinition requirement
+                    : mission.requirements()) {
+                try {
+                    ProgressionEventType.valueOf(requirement.eventType().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException unknown) {
+                    throw new IllegalArgumentException("Mission " + mission.id()
+                            + " has unknown requirement " + requirement.eventType(), unknown);
+                }
+            }
+        }
     }
 
     private static Map<String, LaunchContentDefinitions.TradeDefinition> loadTrades(
@@ -315,7 +404,9 @@ final class LaunchContentValidator {
                     string(json, "id"), string(json, "planet"), integer(json, "protected_radius"),
                     integer(json, "capture_ticks"), integer(json, "reward_credits"),
                     integer(json, "landmark_x"), integer(json, "landmark_z"),
-                    integer(json, "capture_radius"), string(json, "defender_faction"));
+                    integer(json, "capture_radius"), string(json, "defender_faction"),
+                    string(json, "encounter"), string(json, "reward_identity"),
+                    string(json, "counterattack"));
             if (!planetIds.contains(definition.planetId())) throw new IllegalArgumentException("Unknown region planet " + definition.planetId());
             if (!factionIds.contains(definition.defenderFaction())) throw new IllegalArgumentException("Unknown region defender faction " + definition.defenderFaction());
             put(result, definition.id(), definition, "conquest region");
@@ -384,6 +475,21 @@ final class LaunchContentValidator {
         return List.copyOf(result);
     }
 
+    private static List<LaunchContentDefinitions.PlanetPoiDefinition> planetPois(JsonObject planet) {
+        JsonArray values = planet.getAsJsonArray("points_of_interest");
+        if (values == null) throw new IllegalArgumentException(
+                "Missing points_of_interest for planet " + string(planet, "id"));
+        java.util.ArrayList<LaunchContentDefinitions.PlanetPoiDefinition> result =
+                new java.util.ArrayList<>();
+        for (JsonElement element : values) {
+            JsonObject poi = element.getAsJsonObject();
+            result.add(new LaunchContentDefinitions.PlanetPoiDefinition(
+                    string(poi, "id"), string(poi, "role"), integer(poi, "x"),
+                    integer(poi, "z"), string(poi, "reference")));
+        }
+        return List.copyOf(result);
+    }
+
     private static String string(JsonObject json, String key) {
         if (!json.has(key) || json.get(key).getAsString().isBlank()) throw new IllegalArgumentException("Missing " + key);
         return json.get(key).getAsString();
@@ -401,6 +507,17 @@ final class LaunchContentValidator {
 
     private static String optionalString(JsonObject json, String key) {
         return json.has(key) ? json.get(key).getAsString().trim() : "";
+    }
+
+    private static Set<String> conventionalQuestPrerequisites(String id) {
+        int separator = id.lastIndexOf('_');
+        if (separator < 0) return Set.of();
+        try {
+            int step = Integer.parseInt(id.substring(separator + 1));
+            return step > 1 ? Set.of(id.substring(0, separator + 1) + (step - 1)) : Set.of();
+        } catch (NumberFormatException ignored) {
+            return Set.of();
+        }
     }
 
     private static List<String> strings(JsonObject json, String key) {

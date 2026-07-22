@@ -126,6 +126,9 @@ public final class PlanetTravelService {
         if (arrival.isEmpty()) {
             return TravelResult.rejected("safe_arrival_unavailable");
         }
+        if (!returningHome) {
+            PlanetInfrastructureService.ensure(destination, planet);
+        }
         BlockPos target = arrival.orElseThrow();
         if (!galacticwars.clonewars.conquest.ConquestRuntimeEvents
                 .arrivalClear(destination, player, target)) {
@@ -205,6 +208,9 @@ public final class PlanetTravelService {
             }
             return TravelResult.rejected("teleport_failed");
         }
+        destination.playSound(null, target,
+                galacticwars.clonewars.registry.ModSounds.PLANET_TRAVEL.get(),
+                net.minecraft.sounds.SoundSource.PLAYERS, 0.8F, 1.0F);
         squadTravel.commit();
         for (ServerPlayer traveler : vehicleTravel.travelers()) {
             traveler.setRespawnPosition(new ServerPlayer.RespawnConfig(

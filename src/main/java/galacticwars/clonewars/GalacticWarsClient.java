@@ -90,16 +90,22 @@ public final class GalacticWarsClient {
             return;
         }
 
+        galacticwars.clonewars.client.ClientConfig.load();
         ClientPacketBridge.installForceHudHandler(ForceClientState::update);
         ClientPacketBridge.installForceProgressionHandler(
                 galacticwars.clonewars.client.gui.ForceProgressionScreen::open);
         ClientPacketBridge.installClassHudHandler(ClassClientState::update);
         ClientPacketBridge.installGameplayCatalogHandler(ClientGameplayCatalog::replace);
+        ClientPacketBridge.installObjectiveMarkerHandler(
+                galacticwars.clonewars.client.ObjectiveMarkerClientState::update);
+        ClientPacketBridge.installServerPolicyHandler(
+                galacticwars.clonewars.client.ServerPolicyClientState::update);
         ClientPacketBridge.installFieldCommandStateHandler(FieldCommandClientState::update);
         ClientPacketBridge.installFieldCommandOpenHandler(ArmyFieldCommandKeyMappings::openCommandScreen);
         ClientPlayerEvent.CLIENT_PLAYER_QUIT.register(player -> {
             ClientGameplayCatalog.clear();
             FieldCommandClientState.clear();
+            galacticwars.clonewars.client.ObjectiveMarkerClientState.clear();
         });
         ForceKeyMappings.registerTickHandler();
         ClassKeyMappings.registerTickHandler();

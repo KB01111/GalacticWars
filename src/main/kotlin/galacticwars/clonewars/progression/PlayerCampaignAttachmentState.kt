@@ -80,8 +80,8 @@ class PlayerCampaignAttachmentState(
             require(this.factionId.length <= MAX_IDENTIFIER_LENGTH) { "factionId is too long" }
             require(pendingCreditRewards >= 0) { "pendingCreditRewards cannot be negative" }
             require(eventTotals.values.all { it >= 0 }) { "event totals cannot be negative" }
-            require(ProgressionEventType.DELIVERY_COMPLETED !in eventSubjects) {
-                "delivery replay subjects are server-only"
+            require(eventSubjects.keys.none { it in SERVER_ONLY_EVENT_SUBJECT_TYPES }) {
+                "replay and mission-lifecycle subjects are server-only"
             }
             require(eventSubjects.values.all { it.size <= MAX_SUBJECTS_PER_TYPE }) {
                 "event subject count exceeds protocol limit"
@@ -185,6 +185,14 @@ class PlayerCampaignAttachmentState(
         const val MAX_UNLOCKS: Int = 256
         const val MAX_FORCE_COOLDOWNS: Int = 32
         const val MAX_SYNC_PAYLOAD_BYTES: Int = 1_048_576
+
+        @JvmField
+        val SERVER_ONLY_EVENT_SUBJECT_TYPES: Set<ProgressionEventType> = setOf(
+            ProgressionEventType.DELIVERY_COMPLETED,
+            ProgressionEventType.MISSION_STARTED,
+            ProgressionEventType.MISSION_FAILED,
+            ProgressionEventType.MISSION_OBJECTIVE_COMPLETED,
+        )
 
         private val EVENT_TYPE_CODEC: Codec<ProgressionEventType> = Codec.STRING.comapFlatMap(
             { value ->

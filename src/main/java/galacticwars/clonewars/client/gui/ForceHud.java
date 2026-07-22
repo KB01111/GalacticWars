@@ -1,6 +1,7 @@
 package galacticwars.clonewars.client.gui;
 
 import galacticwars.clonewars.client.ForceClientState;
+import galacticwars.clonewars.client.ClientConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -15,11 +16,12 @@ public final class ForceHud {
     public static void render(GuiGraphicsExtractor graphics) {
         if (!ForceClientState.visible() || Minecraft.getInstance().player == null) return;
         var state = ForceClientState.snapshot();
-        int width = Math.min(222, Math.max(174, graphics.guiWidth() / 3));
+        int scale = ClientConfig.HUD_SCALE_PERCENT.get();
+        int width = Math.min(333, Math.max(87, Math.min(222, Math.max(174, graphics.guiWidth() / 3)) * scale / 100));
         boolean hasFailure = !state.failureReason().isBlank();
         int height = hasFailure ? 69 : 57;
-        int left = 12;
-        int top = Math.max(4, graphics.guiHeight() - height - 12);
+        int left = 12 + ClientConfig.HUD_HORIZONTAL_OFFSET.get();
+        int top = Math.max(4, graphics.guiHeight() - height - 12 + ClientConfig.HUD_VERTICAL_OFFSET.get());
         int accent = switch (state.tradition()) {
             case "sith" -> 0xFFE34848;
             case "nightsister" -> 0xFF56D98C;

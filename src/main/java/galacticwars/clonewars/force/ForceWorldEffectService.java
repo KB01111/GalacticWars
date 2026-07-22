@@ -33,6 +33,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import galacticwars.clonewars.registry.ModSounds;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 
@@ -363,7 +364,7 @@ public final class ForceWorldEffectService {
                 player.getX(), player.getEyeY(), player.getZ(),
                 Math.max(4, report.affectedEntities().size() * 2),
                 0.35D, 0.35D, 0.35D, 0.04D);
-        level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(),
+        level.playSound(null, player.blockPosition(), ModSounds.FORCE_USE.get(),
                 SoundSource.PLAYERS, 0.8F,
                 ability.path().equals("sith") ? 0.65F
                         : ability.path().equals("nightsister") ? 0.85F : 1.2F);

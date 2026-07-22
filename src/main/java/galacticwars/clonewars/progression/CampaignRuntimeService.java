@@ -13,8 +13,16 @@ public final class CampaignRuntimeService {
         if (!initial.accepted()) {
             return initial;
         }
-        ProgressionState current = initial.state();
+        ProgressionState current = MissionRuntimeService.startEligibleMission(initial.state());
         boolean changed = initial.changed();
+        if (!current.equals(initial.state())) {
+            changed = true;
+        }
+        ProgressionState missionCompleted = MissionRuntimeService.completeEligibleMissions(current);
+        if (!missionCompleted.equals(current)) {
+            current = missionCompleted;
+            changed = true;
+        }
         boolean advanced;
         do {
             advanced = false;
@@ -34,6 +42,11 @@ public final class CampaignRuntimeService {
                 }
             }
         } while (advanced);
+        ProgressionState nextMissionStarted = MissionRuntimeService.startEligibleMission(current);
+        if (!nextMissionStarted.equals(current)) {
+            current = nextMissionStarted;
+            changed = true;
+        }
         if (!current.factionId().isEmpty()) {
             String factionPath = current.factionId().contains(":")
                     ? current.factionId().substring(current.factionId().indexOf(':') + 1)

@@ -1,6 +1,7 @@
 package galacticwars.clonewars.client.gui;
 
 import galacticwars.clonewars.combat.BlasterHeatPolicy;
+import galacticwars.clonewars.client.ClientConfig;
 import galacticwars.clonewars.combat.BlasterItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -30,8 +31,8 @@ public final class BlasterHeatHud {
         boolean overheated = heat.overheatTicks() > 0;
         int heatedSegments = overheated ? SEGMENT_COUNT : SEGMENT_COUNT - heat.shotsRemaining();
         int width = SEGMENT_COUNT * SEGMENT_WIDTH + (SEGMENT_COUNT - 1) * SEGMENT_GAP;
-        int left = (graphics.guiWidth() - width) / 2;
-        int top = graphics.guiHeight() - 39;
+        int left = (graphics.guiWidth() - width) / 2 + ClientConfig.HUD_HORIZONTAL_OFFSET.get();
+        int top = graphics.guiHeight() - 39 + ClientConfig.HUD_VERTICAL_OFFSET.get();
         int activeColor = overheated ? 0xFFFF3D32 : heat.heatFraction() >= 0.66F ? 0xFFFFA726 : 0xFF35C9FF;
 
         graphics.fill(left - 3, top - 2, left + width + 3, top + BAR_HEIGHT + 2, 0xAA080C12);
@@ -44,7 +45,8 @@ public final class BlasterHeatHud {
         Component label = Component.translatable(overheated
                 ? "hud.galacticwars.blaster.overheated"
                 : "hud.galacticwars.blaster.heat");
-        graphics.centeredText(minecraft.font, label, graphics.guiWidth() / 2, top - 10,
+        graphics.centeredText(minecraft.font, label,
+                graphics.guiWidth() / 2 + ClientConfig.HUD_HORIZONTAL_OFFSET.get(), top - 10,
                 overheated ? 0xFFFF665C : 0xFFD7E7F5);
     }
 

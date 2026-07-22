@@ -21,6 +21,7 @@ public final class PlanetDimensionCompletenessTest {
                 RESOURCE_ROOT.resolve("data/minecraft/tags/block/mineable/pickaxe.json"));
         String shovelTag = Files.readString(
                 RESOURCE_ROOT.resolve("data/minecraft/tags/block/mineable/shovel.json"));
+        String planetDefinitions = read(MOD_DATA.resolve("galacticwars/planets/launch.json"));
 
         for (Map.Entry<String, PlanetContract> entry : PLANETS.entrySet()) {
             String id = entry.getKey();
@@ -30,14 +31,22 @@ public final class PlanetDimensionCompletenessTest {
 
             assertContains(dimension, "\"type\": \"galacticwars:" + id + "\"",
                     id + " dimension type");
-            assertContains(dimension, "\"type\": \"minecraft:flat\"",
+            assertContains(dimension, "\"type\": \"minecraft:"
+                            + (contract.noiseTerrain() ? "noise" : "flat") + "\"",
                     id + " intentional planet generator");
             assertContains(dimension, "\"biome\": \"" + contract.biome() + "\"",
                     id + " biome");
-            assertContains(dimension, "\"block\": \"galacticwars:" + contract.surfaceBlock() + "\"",
-                    id + " authored surface material");
-            assertContains(dimension, "\"structure_overrides\": []",
-                    id + " structure isolation");
+            if (contract.noiseTerrain()) {
+                assertContains(dimension, "\"settings\": \"minecraft:overworld\"",
+                        id + " noise settings");
+            } else {
+                assertContains(dimension, "\"block\": \"galacticwars:"
+                                + contract.surfaceBlock() + "\"",
+                        id + " authored surface material");
+                assertContains(dimension, "\"structure_overrides\": []",
+                        id + " structure isolation");
+            }
+            assertContains(planetDefinitions, "\"id\":\"" + id + "\"", id + " definition");
             assertContains(dimensionType, "\"minecraft:visual/fog_color\"",
                     id + " fog treatment");
             assertContains(dimensionType, "\"minecraft:visual/sky_color\"",
@@ -76,10 +85,10 @@ public final class PlanetDimensionCompletenessTest {
 
     private static Map<String, PlanetContract> planets() {
         LinkedHashMap<String, PlanetContract> planets = new LinkedHashMap<>();
-        planets.put("tatooine", new PlanetContract("galacticwars:tatooine", "tatooine_sand", true));
-        planets.put("geonosis", new PlanetContract("galacticwars:geonosis", "geonosis_rock", false));
-        planets.put("kamino", new PlanetContract("galacticwars:kamino", "kamino_panel", false));
-        planets.put("coruscant", new PlanetContract("galacticwars:coruscant", "coruscant_panel", false));
+        planets.put("tatooine", new PlanetContract("galacticwars:tatooine", "tatooine_sand", true, true));
+        planets.put("geonosis", new PlanetContract("galacticwars:geonosis", "geonosis_rock", false, true));
+        planets.put("kamino", new PlanetContract("galacticwars:kamino", "kamino_panel", false, false));
+        planets.put("coruscant", new PlanetContract("galacticwars:coruscant", "coruscant_panel", false, false));
         return Map.copyOf(planets);
     }
 
@@ -114,6 +123,8 @@ public final class PlanetDimensionCompletenessTest {
         }
     }
 
-    private record PlanetContract(String biome, String surfaceBlock, boolean shovelMineable) {
+    private record PlanetContract(
+            String biome, String surfaceBlock, boolean shovelMineable, boolean noiseTerrain
+    ) {
     }
 }

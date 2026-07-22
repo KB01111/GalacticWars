@@ -113,7 +113,7 @@ object PlayerClassRuntime {
         val state = savedData.state(player.uuid)
         val definition = GameplayDataManager.snapshot().unitClass(state.classId()).orElse(null)
             ?: return reject(player, "unassigned")
-        val abilities = activeAbilities(definition)
+        val abilities = activeAbilities(definition, state.rank())
         if (slot >= abilities.size) {
             return reject(player, "empty_slot")
         }
@@ -146,7 +146,14 @@ object PlayerClassRuntime {
         ) {
             return reject(player, "invalid_target")
         }
-        if (!ClassAbilityEffectRegistry.execute(level, player, ability, target)) {
+        if (!ClassAbilityEffectRegistry.execute(
+                level,
+                player,
+                ability,
+                target,
+                ClassProgressionMilestones.potency(state.rank()),
+            )
+        ) {
             return reject(player, if (ability.activation == AbilityActivation.AREA) {
                 "no_valid_targets"
             } else {
@@ -154,7 +161,7 @@ object PlayerClassRuntime {
             })
         }
 
-        val experience = maxOf(1L, ability.resourceCost.toLong())
+        val experience = maxOf(1L, decision.resourceSpent().toLong() / 5L)
         savedData.update(player.uuid) { decision.state().gainExperience(experience) }
         player.sendSystemMessage(Component.translatable(
             "message.galacticwars.class.activated",
@@ -181,12 +188,15 @@ object PlayerClassRuntime {
         if (definition.forceTraditionSlot().isNotEmpty()) {
             return ClassHudPayload.unassigned()
         }
-        val abilities = activeAbilities(definition)
+        val abilities = activeAbilities(definition, state.rank())
         val first = abilities.getOrNull(0)
         val second = abilities.getOrNull(1)
         return ClassHudPayload(
             state.classId(),
             state.rank(),
+            state.experience(),
+            state.experienceForNextRank(),
+            state.nextMilestoneRank(),
             state.resource(),
             first?.id?.toString().orEmpty(),
             cooldownRemaining(state, first, level.gameTime),
@@ -198,12 +208,20 @@ object PlayerClassRuntime {
     private fun tick(player: ServerPlayer) {
         val level = player.level()
         val savedData = ClassProgressSavedData.get(level)
-        val regenerated = savedData.update(player.uuid) { state -> state.regenerate(2) }
+        val completedMissions = ProgressionSavedData.get(level).state(player.uuid)
+            .total(ProgressionEventType.MISSION_COMPLETED)
+        val regenerated = savedData.update(player.uuid) { state ->
+            state.creditCompletedMissions(completedMissions).regenerate(2)
+        }
         val definition = GameplayDataManager.snapshot().unitClass(regenerated.classId()).orElse(null)
         if (definition != null) {
             definition.abilityIds().asSequence()
-                .mapNotNull { abilityId ->
-                    GameplayDataManager.snapshot().ability(abilityId.toString()).orElse(null)
+                .withIndex()
+                .filter { indexed ->
+                    regenerated.rank() >= ClassProgressionMilestones.requiredRankForAbilityIndex(indexed.index)
+                }
+                .mapNotNull { indexed ->
+                    GameplayDataManager.snapshot().ability(indexed.value.toString()).orElse(null)
                 }
                 .filter { ability -> ability.enabled && ability.activation == AbilityActivation.PASSIVE }
                 .filter { ability -> ClassAbilityEffectRegistry.registered(ability.id.toString()) }
@@ -214,10 +232,14 @@ object PlayerClassRuntime {
         synchronize(player)
     }
 
-    private fun activeAbilities(definition: UnitClassDefinition): List<AbilityDefinition> =
+    private fun activeAbilities(definition: UnitClassDefinition, rank: Int): List<AbilityDefinition> =
         definition.abilityIds().asSequence()
-            .mapNotNull { abilityId ->
-                GameplayDataManager.snapshot().ability(abilityId.toString()).orElse(null)
+            .withIndex()
+            .filter { indexed ->
+                rank >= ClassProgressionMilestones.requiredRankForAbilityIndex(indexed.index)
+            }
+            .mapNotNull { indexed ->
+                GameplayDataManager.snapshot().ability(indexed.value.toString()).orElse(null)
             }
             .filter { ability -> ability.enabled && ability.activation != AbilityActivation.PASSIVE }
             .take(ACTIVE_ABILITY_SLOTS)

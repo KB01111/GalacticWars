@@ -15,9 +15,10 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Loader-neutral, YACL-backed common configuration. */
+/** Authoritative gameplay policy loaded only by the logical server. */
 public final class Config {
-    private static final Path CONFIG_PATH = Platform.getConfigFolder().resolve("galacticwars.properties");
+    private static final Path CONFIG_PATH = Platform.getConfigFolder().resolve("galacticwars-server.properties");
+    private static final Path LEGACY_CONFIG_PATH = Platform.getConfigFolder().resolve("galacticwars.properties");
     private static final Map<String, BooleanValue> VALUES = new LinkedHashMap<>();
     private static boolean loaded;
 
@@ -40,17 +41,37 @@ public final class Config {
             return;
         }
         loaded = true;
-        if (!Files.isRegularFile(CONFIG_PATH)) {
+        Path source = Files.isRegularFile(CONFIG_PATH) ? CONFIG_PATH
+                : Files.isRegularFile(LEGACY_CONFIG_PATH) ? LEGACY_CONFIG_PATH : null;
+        if (source == null) {
             save();
             return;
         }
 
+        read(source);
+        if (source.equals(LEGACY_CONFIG_PATH)) {
+            save();
+            GalacticWars.LOGGER.info("Migrated server policy from {} to {}", source, CONFIG_PATH);
+        }
+    }
+
+    /** Reloads the authoritative policy from disk for the operator command. */
+    public static synchronized boolean reload() {
+        VALUES.values().forEach(BooleanValue::reset);
+        if (!Files.isRegularFile(CONFIG_PATH)) {
+            save();
+            return true;
+        }
+        return read(CONFIG_PATH);
+    }
+
+    private static boolean read(Path source) {
         Properties properties = new Properties();
-        try (InputStream input = Files.newInputStream(CONFIG_PATH)) {
+        try (InputStream input = Files.newInputStream(source)) {
             properties.load(input);
         } catch (IOException exception) {
-            GalacticWars.LOGGER.error("Unable to read {}", CONFIG_PATH, exception);
-            return;
+            GalacticWars.LOGGER.error("Unable to read {}", source, exception);
+            return false;
         }
 
         VALUES.forEach((key, value) -> {
@@ -61,9 +82,10 @@ public final class Config {
             if (encoded.equalsIgnoreCase("true") || encoded.equalsIgnoreCase("false")) {
                 value.set(Boolean.parseBoolean(encoded));
             } else {
-                GalacticWars.LOGGER.warn("Ignoring invalid boolean {}={} in {}", key, encoded, CONFIG_PATH);
+                GalacticWars.LOGGER.warn("Ignoring invalid boolean {}={} in {}", key, encoded, source);
             }
         });
+        return true;
     }
 
     public static synchronized void save() {
@@ -125,6 +147,10 @@ public final class Config {
 
         public void set(boolean nextValue) {
             value.set(nextValue);
+        }
+
+        private void reset() {
+            value.set(defaultValue);
         }
     }
 }

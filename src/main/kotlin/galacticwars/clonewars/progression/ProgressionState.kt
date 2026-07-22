@@ -138,6 +138,8 @@ class ProgressionState(
         val creditDelta = when (event.type) {
             ProgressionEventType.QUEST_ADVANCED -> LaunchContentCatalog.questRewardCredits(event.subjectId)
             ProgressionEventType.REGION_CAPTURED -> LaunchContentCatalog.regionRewardCredits(event.subjectId)
+            ProgressionEventType.REGION_DEFENDED ->
+                LaunchContentCatalog.regionRewardCredits(event.subjectId) / 2
             else -> 0
         }
         val updatedCredits = Math.addExact(credits, creditDelta)

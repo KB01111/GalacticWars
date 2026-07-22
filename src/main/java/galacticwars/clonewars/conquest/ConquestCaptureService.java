@@ -91,7 +91,9 @@ public final class ConquestCaptureService {
             data.put(progressed);
             return CaptureResult.accepted(false, "capturing", progressed);
         }
-        ConquestControlState captured = progressed.captured(playerFaction, playerKingdom);
+        ConquestControlState captured = progressed.captured(
+                playerFaction, playerKingdom, level.getGameTime() + 24_000L,
+                namespacedFaction(region.defenderFaction()));
         UUID eventId = UUID.nameUUIDFromBytes(("conquest:" + region.id() + ":"
                 + player.getUUID() + ":" + captured.revision()).getBytes(StandardCharsets.UTF_8));
         ProgressionSavedData progression = ProgressionSavedData.get(level);

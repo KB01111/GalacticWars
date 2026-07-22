@@ -1,6 +1,7 @@
 package galacticwars.clonewars.client.gui;
 
 import galacticwars.clonewars.client.ClientGameplayCatalog;
+import galacticwars.clonewars.client.ClientConfig;
 import galacticwars.clonewars.vehicle.GalacticVehicleEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -11,8 +12,8 @@ public final class VehicleHud {
     public static void render(GuiGraphicsExtractor graphics) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || !(minecraft.player.getVehicle() instanceof GalacticVehicleEntity vehicle)) return;
-        int left = graphics.guiWidth() - 154;
-        int top = graphics.guiHeight() - 38;
+        int left = graphics.guiWidth() - 154 + ClientConfig.HUD_HORIZONTAL_OFFSET.get();
+        int top = graphics.guiHeight() - 38 + ClientConfig.HUD_VERTICAL_OFFSET.get();
         var configured = ClientGameplayCatalog.snapshot().vehicle(vehicle.vehicleId()).orElse(null);
         int maximumHealth = configured == null
                 ? vehicle.syncedMaximumHealth()

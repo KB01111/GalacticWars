@@ -40,6 +40,11 @@ public final class PlayerCampaignAttachmentStateTest {
         assertForceProjection(fixture.force(), state.force());
         assertTrue(!state.campaign().eventSubjects().containsKey(ProgressionEventType.DELIVERY_COMPLETED),
                 "delivery replay subjects remain server-only");
+        assertTrue(!state.campaign().eventSubjects().containsKey(ProgressionEventType.MISSION_STARTED)
+                        && !state.campaign().eventSubjects().containsKey(ProgressionEventType.MISSION_FAILED)
+                        && !state.campaign().eventSubjects().containsKey(
+                        ProgressionEventType.MISSION_OBJECTIVE_COMPLETED),
+                "mission attempt internals remain server-only");
         assertThrows(IllegalArgumentException.class, () ->
                         new PlayerCampaignAttachmentState.CampaignProjection(
                                 "galacticwars:republic", 0, Map.of(),
@@ -303,7 +308,7 @@ public final class PlayerCampaignAttachmentStateTest {
         LinkedHashMap<ProgressionEventType, Set<String>> subjects = new LinkedHashMap<>();
         for (ProgressionEventType type : ProgressionEventType.values()) {
             totals.put(type, Integer.MAX_VALUE);
-            if (type == ProgressionEventType.DELIVERY_COMPLETED) {
+            if (PlayerCampaignAttachmentState.SERVER_ONLY_EVENT_SUBJECT_TYPES.contains(type)) {
                 continue;
             }
             LinkedHashSet<String> values = new LinkedHashSet<>();

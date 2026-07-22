@@ -19,6 +19,7 @@ public record ForceProgressionPayload(
         List<String> learnedNodes,
         List<String> equippedAbilities,
         List<NodeEntry> nodes,
+        List<TrainingQuestEntry> trainingQuests,
         int respecCost
 ) implements CustomPacketPayload {
     private static final int MAX_ID = 64;
@@ -27,11 +28,13 @@ public record ForceProgressionPayload(
         learnedNodes = List.copyOf(learnedNodes);
         equippedAbilities = List.copyOf(equippedAbilities);
         nodes = List.copyOf(nodes);
+        trainingQuests = List.copyOf(trainingQuests);
         if (tradition.length() > MAX_ID || rank < 1 || rank > 10
                 || masteryExperience < 0 || masteryExperience > 320
                 || unspentPoints < 0 || unspentPoints > 9
                 || learnedNodes.size() > 13 || equippedAbilities.size() > 3
-                || nodes.size() != 13 || respecCost < 0 || respecCost > 10_000) {
+                || nodes.size() != 13 || trainingQuests.size() > 3
+                || respecCost < 0 || respecCost > 10_000) {
             throw new IllegalArgumentException("Invalid bounded Force progression payload");
         }
     }
@@ -59,6 +62,14 @@ public record ForceProgressionPayload(
             buffer.writeBoolean(node.passive());
             writeStrings(buffer, node.prerequisites(), 4);
         });
+        buffer.writeVarInt(payload.trainingQuests().size());
+        payload.trainingQuests().forEach(training -> {
+            buffer.writeUtf(training.questId(), MAX_ID);
+            buffer.writeVarInt(training.currentCount());
+            buffer.writeVarInt(training.requiredCount());
+            buffer.writeVarInt(training.rewardMasteryExperience());
+            buffer.writeBoolean(training.complete());
+        });
         buffer.writeVarInt(payload.respecCost());
     }
 
@@ -78,8 +89,15 @@ public record ForceProgressionPayload(
                     buffer.readVarInt(), buffer.readUtf(MAX_ID), buffer.readBoolean(),
                     readStrings(buffer, 4)));
         }
+        int trainingCount = Math.max(0, Math.min(3, buffer.readVarInt()));
+        ArrayList<TrainingQuestEntry> training = new ArrayList<>(trainingCount);
+        for (int index = 0; index < trainingCount; index++) {
+            training.add(new TrainingQuestEntry(
+                    buffer.readUtf(MAX_ID), buffer.readVarInt(), buffer.readVarInt(),
+                    buffer.readVarInt(), buffer.readBoolean()));
+        }
         return new ForceProgressionPayload(position, tradition, rank, experience, points,
-                learned, equipped, nodes, buffer.readVarInt());
+                learned, equipped, nodes, training, buffer.readVarInt());
     }
 
     private static void writeStrings(
@@ -117,6 +135,22 @@ public record ForceProgressionPayload(
                     || tier < 0 || tier > 5 || pointCost < 0 || pointCost > 1
                     || prerequisites.size() > 4) {
                 throw new IllegalArgumentException("Invalid Force node payload");
+            }
+        }
+    }
+
+    public record TrainingQuestEntry(
+            String questId,
+            int currentCount,
+            int requiredCount,
+            int rewardMasteryExperience,
+            boolean complete
+    ) {
+        public TrainingQuestEntry {
+            if (questId == null || questId.isBlank() || questId.length() > MAX_ID
+                    || currentCount < 0 || requiredCount < 1 || currentCount > requiredCount
+                    || rewardMasteryExperience < 0 || rewardMasteryExperience > 320) {
+                throw new IllegalArgumentException("Invalid Force training quest payload");
             }
         }
     }

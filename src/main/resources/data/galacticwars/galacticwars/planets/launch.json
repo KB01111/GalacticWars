@@ -1,6 +1,6 @@
-{"schema_version":1,"planets":[
-  {"id":"tatooine","dimension":"galacticwars:tatooine","arrival":"spaceport","theme":"desert","faction":"hutt_cartel"},
-  {"id":"geonosis","dimension":"galacticwars:geonosis","arrival":"foundry_outpost","theme":"canyon","faction":"separatist"},
-  {"id":"kamino","dimension":"galacticwars:kamino","arrival":"platform_city","theme":"storm_ocean","faction":"republic"},
-  {"id":"coruscant","dimension":"galacticwars:coruscant","arrival":"senate_district","theme":"city","faction":"republic"}
+{"schema_version":2,"planets":[
+  {"id":"tatooine","dimension":"galacticwars:tatooine","arrival":"spaceport","theme":"desert","faction":"hutt_cartel","points_of_interest":[{"id":"tatooine_arrival","role":"arrival","x":560,"z":320,"reference":"spaceport_arrival"},{"id":"tatooine_salvage_market","role":"economy","x":600,"z":384,"reference":"hutt_salvage_market"},{"id":"tatooine_contested_spaceport","role":"contested","x":640,"z":320,"reference":"tatooine_spaceport"}]},
+  {"id":"geonosis","dimension":"galacticwars:geonosis","arrival":"foundry_outpost","theme":"canyon","faction":"separatist","points_of_interest":[{"id":"geonosis_arrival","role":"arrival","x":-656,"z":448,"reference":"foundry_arrival"},{"id":"geonosis_resource_pit","role":"economy","x":-624,"z":384,"reference":"alloy_resource_pit"},{"id":"geonosis_contested_foundry","role":"contested","x":-576,"z":448,"reference":"geonosis_foundry"}]},
+  {"id":"kamino","dimension":"galacticwars:kamino","arrival":"platform_city","theme":"storm_ocean","faction":"republic","points_of_interest":[{"id":"kamino_arrival","role":"arrival","x":512,"z":-544,"reference":"platform_arrival"},{"id":"kamino_requisitions","role":"economy","x":448,"z":-576,"reference":"clone_requisitions"},{"id":"kamino_contested_platform","role":"contested","x":512,"z":-640,"reference":"kamino_platform"}]},
+  {"id":"coruscant","dimension":"galacticwars:coruscant","arrival":"senate_district","theme":"city","faction":"republic","points_of_interest":[{"id":"coruscant_arrival","role":"arrival","x":-448,"z":-608,"reference":"senate_arrival"},{"id":"coruscant_shadow_market","role":"economy","x":-384,"z":-576,"reference":"shadow_market"},{"id":"coruscant_contested_district","role":"contested","x":-448,"z":-512,"reference":"coruscant_district"}]}
 ]}

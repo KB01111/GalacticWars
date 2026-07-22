@@ -39,6 +39,7 @@ final class GameplayContentFingerprint {
             updateMap(digest, "force_tradition", launch.forceTraditions(), GameplayContentFingerprint::canonical);
             updateMap(digest, "force_node", launch.forceNodes(), GameplayContentFingerprint::canonical);
             updateMap(digest, "quest", launch.quests(), GameplayContentFingerprint::canonical);
+            updateMap(digest, "mission", launch.missions(), GameplayContentFingerprint::canonical);
             updateMap(digest, "trade", launch.trades(), GameplayContentFingerprint::canonical);
             updateMap(digest, "region", launch.conquestRegions(), GameplayContentFingerprint::canonical);
             return HexFormat.of().formatHex(digest.digest());

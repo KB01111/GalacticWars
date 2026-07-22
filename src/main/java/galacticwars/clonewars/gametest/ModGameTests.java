@@ -98,6 +98,8 @@ import galacticwars.clonewars.network.ClassSelectPayload;
 import galacticwars.clonewars.network.FieldCommandRequestPayload;
 import galacticwars.clonewars.progression.LaunchContentCatalog;
 import galacticwars.clonewars.progression.GalacticProgressionCoordinator;
+import galacticwars.clonewars.progression.MissionAttemptSavedData;
+import galacticwars.clonewars.progression.MissionRuntimeEvents;
 import galacticwars.clonewars.progression.ProgressionEvent;
 import galacticwars.clonewars.progression.ProgressionDecision;
 import galacticwars.clonewars.progression.ProgressionEventType;
@@ -295,6 +297,8 @@ public final class ModGameTests {
                                     ? 180
                                     : testId.equals(id("vehicle_embodied_runtime"))
                                             ? 260
+                                    : testId.equals(id("mission_failure_retry_persistence"))
+                                            ? 360
                                     : testId.equals(id("chapter_three_campaign_runtime"))
                                             ? 260
                                     : testId.equals(id("planet_faction_outpost_runtime"))
@@ -365,6 +369,8 @@ public final class ModGameTests {
         tests.put(id("force_embodied_runtime"), ModGameTests::forceEmbodiedRuntime);
         tests.put(id("chapter_three_campaign_runtime"), ModGameTests::chapterThreeCampaignRuntime);
         tests.put(id("all_faction_campaign_paths"), ModGameTests::allFactionCampaignPaths);
+        tests.put(id("mission_failure_retry_persistence"),
+                ModGameTests::missionFailureRetryPersistence);
         tests.put(id("conquest_control_authority"), ModGameTests::conquestControlAuthority);
         tests.put(id("recruit_entity_contract"), ModGameTests::recruitEntityContract);
         tests.put(id("curated_npc_runtime_contracts"), ModGameTests::curatedNpcRuntimeContracts);
@@ -591,7 +597,8 @@ public final class ModGameTests {
                 || snapshot.launchContent().forceTraditions().size() != 3
                 || snapshot.launchContent().forceNodes().size() != 39
                 || snapshot.launchContent().quests().size() != 24
-                || snapshot.launchContent().trades().size() != 10
+                || snapshot.launchContent().missions().size() != 15
+                || snapshot.launchContent().trades().size() != 13
                 || snapshot.launchContent().conquestRegions().size() != 4
                 || snapshot.launchContent().forceAbilities().values().stream()
                         .anyMatch(ability -> !ability.enabled())
@@ -966,14 +973,30 @@ public final class ModGameTests {
                 }
                 return;
             }
+            owner.setPos(hallPos.getX() + 0.5D, hallPos.getY(), hallPos.getZ() + 0.5D);
+            helper.getLevel().getEntitiesOfClass(
+                            GalacticRecruitEntity.class,
+                            new AABB(hallPos).inflate(48.0D),
+                            recruit -> recruit.getOwnerReference() == null
+                                    && recruit.factionIdForGameplay().equals("galacticwars:republic"))
+                    .forEach(GalacticRecruitEntity::discard);
+            ProgressionState completed = progression.state(owner.getUUID());
+            if (!completed.hasSubject(
+                    ProgressionEventType.QUEST_ADVANCED, "separatist_chapter_1")) {
+                if (helper.getTick() - startedAt >= 1_800L) {
+                    scenarioRun[0] = true;
+                    helper.fail("Starter camp completed but its active defense mission did not finish: "
+                            + MissionAttemptSavedData.get(helper.getLevel())
+                            .forPlayer(owner.getUUID()));
+                }
+                return;
+            }
             scenarioRun[0] = true;
             if (!chunksReleased[0]) {
                 forcedCampChunks.forEach(chunk ->
                         helper.getLevel().getChunkSource().updateChunkForced(chunk, false));
                 chunksReleased[0] = true;
             }
-            ProgressionState completed = progression.state(owner.getUUID());
-            owner.setPos(hallPos.getX() + 0.5D, hallPos.getY(), hallPos.getZ() + 0.5D);
             CommandCenterOperationsMenu operations = (CommandCenterOperationsMenu)
                     new CommandCenterOperationsMenuProvider(hallPos)
                             .createMenu(2, owner.getInventory(), owner);
@@ -2347,7 +2370,11 @@ public final class ModGameTests {
                 List.of(new CommandCenterDashboardState.InviteSummary(
                         UUID.randomUUID(), kingdomId, actorId, memberId, "member", gameTime + 1200L)),
                 List.of(new CommandCenterDashboardState.DiplomacyProposalSummary(
-                        UUID.randomUUID(), foreignKingdomId, kingdomId, "ally", gameTime + 1200L)));
+                        UUID.randomUUID(), foreignKingdomId, kingdomId, "ally", gameTime + 1200L)),
+                List.of(new CommandCenterDashboardState.ConflictSummary(
+                        "kamino_platform", "conquest_counterattack", "galacticwars:kamino",
+                        128, 96, "scheduled", 0, 200, gameTime + 1200L,
+                        "galacticwars:separatist", "galacticwars:republic")));
     }
 
     private static void blasterFriendlyFire(GameTestHelper helper) {
@@ -3238,6 +3265,62 @@ public final class ModGameTests {
         helper.succeed();
     }
 
+    private static void missionFailureRetryPersistence(GameTestHelper helper) {
+        ServerPlayer player = makeConnectedMockPlayer(helper, GameType.SURVIVAL);
+        BlockPos hallPos = isolatedCapital(helper, 27);
+        CommandCenterBlockEntity hall = placeCommandCenter(helper, hallPos);
+        hall.claim(player);
+        hall.setFaction("galacticwars:republic");
+        KingdomSavedData.get(helper.getLevel()).foundKingdom(
+                player.getUUID(), hall.factionId(),
+                helper.getLevel().dimension().identifier().toString(), hallPos);
+        ProgressionSavedData progression = ProgressionSavedData.get(helper.getLevel());
+        applyCampaignSetupEvent(progression, player,
+                ProgressionEventType.FACTION_PLEDGED, "galacticwars:republic");
+        String missionId = "republic_secure_starter_camp";
+        ProgressionState started = progression.state(player.getUUID());
+        if (!started.hasSubject(ProgressionEventType.MISSION_STARTED, missionId)
+                || !galacticwars.clonewars.progression.MissionRuntimeService.active(
+                started, missionId)) {
+            helper.fail("Chapter mission did not enter its persisted active state");
+            return;
+        }
+
+        MissionRuntimeEvents.failActiveMission(player, "player_defeated");
+        ProgressionState failed = progression.state(player.getUUID());
+        MissionAttemptSavedData.MissionAttempt cooldown = MissionAttemptSavedData
+                .get(helper.getLevel()).forPlayer(player.getUUID()).orElse(null);
+        if (cooldown == null || !cooldown.phase().equals("cooldown")
+                || failed.subjectTotal(ProgressionEventType.MISSION_FAILED, Set.of(missionId)) != 1
+                || galacticwars.clonewars.progression.MissionRuntimeService.active(
+                failed, missionId)) {
+            helper.fail("Mission failure did not persist a bounded retry cooldown");
+            return;
+        }
+        Tag encoded = MissionAttemptSavedData.CODEC.encodeStart(
+                NbtOps.INSTANCE, MissionAttemptSavedData.get(helper.getLevel())).getOrThrow();
+        MissionAttemptSavedData restored = MissionAttemptSavedData.CODEC.parse(
+                NbtOps.INSTANCE, encoded).getOrThrow();
+        if (restored.forPlayer(player.getUUID()).filter(attempt ->
+                attempt.missionId().equals(missionId)
+                        && attempt.retryAt() == cooldown.retryAt()).isEmpty()) {
+            helper.fail("Mission retry state did not survive codec reload");
+            return;
+        }
+
+        helper.onEachTick(() -> {
+            ProgressionState current = progression.state(player.getUUID());
+            if (current.subjectTotal(ProgressionEventType.MISSION_STARTED, Set.of(missionId)) >= 2) {
+                if (!galacticwars.clonewars.progression.MissionRuntimeService.active(
+                        current, missionId)) {
+                    helper.fail("Mission retry was recorded without reactivating the mission");
+                    return;
+                }
+                helper.succeed();
+            }
+        });
+    }
+
     private static void completeForceCampaign(
             ProgressionSavedData progression,
             ServerPlayer player,
@@ -3818,6 +3901,9 @@ public final class ModGameTests {
                 helper, hallPos, hall, owner, recruit)) {
             return;
         }
+        applyCampaignSetupEvent(progression, owner,
+                ProgressionEventType.MISSION_OBJECTIVE_COMPLETED,
+                "republic_secure_starter_camp");
         ProgressionState frontierState = progression.state(owner.getUUID());
         boolean chapterOneComplete = frontierState.hasSubject(
                 ProgressionEventType.QUEST_ADVANCED, "republic_chapter_1");
@@ -3973,11 +4059,14 @@ public final class ModGameTests {
         escort.setNoAi(true);
         escort.initializeFromSpawnEgg();
         escort.tame(owner);
-        var region = LaunchContentCatalog.data().conquestRegions().get("tatooine_spaceport");
+        var region = LaunchContentCatalog.data().conquestRegions().get("kamino_platform");
         ConquestSavedData.get(helper.getLevel()).put(new ConquestControlState(
                 region.id(), helper.getLevel().dimension().identifier().toString(),
                 beacon.getX(), beacon.getY(), beacon.getZ(), "galacticwars:hutt_cartel",
                 "", "", 0, 0L));
+        applyCampaignSetupEvent(progression, owner,
+                ProgressionEventType.MISSION_OBJECTIVE_COMPLETED,
+                "republic_assault_kamino_platform");
         helper.setTime(101L);
         ChapterThreeCampaignTestScenario scenario = new ChapterThreeCampaignTestScenario(
                 helper, area, owner, hallPos, hall, kingdom, merchant, escort,
@@ -3996,6 +4085,36 @@ public final class ModGameTests {
         if (!decision.accepted()) {
             throw new IllegalStateException(
                     "Campaign setup rejected " + type + "/" + subject + ": " + decision.reason());
+        }
+        if (type == ProgressionEventType.MISSION_OBJECTIVE_COMPLETED) {
+            return;
+        }
+        ProgressionState state = progression.state(player.getUUID());
+        for (LaunchContentDefinitions.MissionDefinition mission
+                : LaunchContentCatalog.data().missions().values()) {
+            if (!galacticwars.clonewars.progression.MissionRuntimeService.active(
+                    state, mission.id())
+                    || !galacticwars.clonewars.progression.MissionRuntimeService
+                    .requirementsComplete(state, mission)) {
+                continue;
+            }
+            ProgressionDecision objective = progression.apply(new ProgressionEvent(
+                    galacticwars.clonewars.progression.MissionRuntimeService
+                            .deterministicLifecycleEventId(
+                                    player.getUUID(),
+                                    ProgressionEventType.MISSION_OBJECTIVE_COMPLETED,
+                                    mission.id(),
+                                    state.subjectTotal(
+                                            ProgressionEventType.MISSION_STARTED,
+                                            Set.of(mission.id()))),
+                    player.getUUID(), ProgressionEventType.MISSION_OBJECTIVE_COMPLETED,
+                    mission.id(), 1));
+            if (!objective.accepted()) {
+                throw new IllegalStateException(
+                        "Campaign mission objective rejected " + mission.id()
+                                + ": " + objective.reason());
+            }
+            state = progression.state(player.getUUID());
         }
     }
 
@@ -4587,7 +4706,7 @@ public final class ModGameTests {
                         && bolt.getWeaponItem().is(ModItems.DC15_BLASTER.get()));
         if (!activated || !duplicateAcceptedWithoutChange || !cooldownRejected
                 || activatedState.resource() != 85
-                || activatedState.experience() != 15L
+                || activatedState.experience() != 3L
                 || !duplicateState.equals(activatedState)
                 || !fallbackWeaponApplied
                 || hud.cooldown1() <= 0
@@ -6633,7 +6752,7 @@ public final class ModGameTests {
     }
 
     private static final class ChapterThreeCampaignTestScenario {
-        private static final int EXPECTED_CAMPAIGN_REWARDS = 320;
+        private static final int EXPECTED_CAMPAIGN_REWARDS = 330;
         private final GameTestHelper helper;
         private final SmartBrainTestArea area;
         private final ServerPlayer owner;

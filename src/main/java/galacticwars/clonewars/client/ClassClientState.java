@@ -24,6 +24,9 @@ public final class ClassClientState {
         return new ClassHudPayload(
                 authoritative.classId(),
                 authoritative.rank(),
+                authoritative.experience(),
+                authoritative.experienceForNextRank(),
+                authoritative.nextMilestoneRank(),
                 authoritative.resource(),
                 authoritative.ability1Id(),
                 remaining(authoritative.cooldown1(), elapsedTicks),

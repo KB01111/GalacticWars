@@ -13,6 +13,9 @@ import net.minecraft.resources.Identifier;
 public record ClassHudPayload(
         String classId,
         int rank,
+        long experience,
+        long experienceForNextRank,
+        int nextMilestoneRank,
         int resource,
         String ability1Id,
         int cooldown1,
@@ -26,6 +29,9 @@ public record ClassHudPayload(
             (buffer, payload) -> {
                 buffer.writeUtf(payload.classId(), MAX_ID_LENGTH);
                 buffer.writeVarInt(payload.rank());
+                buffer.writeVarLong(payload.experience());
+                buffer.writeVarLong(payload.experienceForNextRank());
+                buffer.writeVarInt(payload.nextMilestoneRank());
                 buffer.writeVarInt(payload.resource());
                 buffer.writeUtf(payload.ability1Id(), MAX_ID_LENGTH);
                 buffer.writeVarInt(payload.cooldown1());
@@ -34,6 +40,9 @@ public record ClassHudPayload(
             },
             buffer -> new ClassHudPayload(
                     buffer.readUtf(MAX_ID_LENGTH),
+                    buffer.readVarInt(),
+                    buffer.readVarLong(),
+                    buffer.readVarLong(),
                     buffer.readVarInt(),
                     buffer.readVarInt(),
                     buffer.readUtf(MAX_ID_LENGTH),
@@ -48,6 +57,10 @@ public record ClassHudPayload(
         if (rank < 0 || rank > ClassProgressState.MAX_RANK) {
             throw new IllegalArgumentException("rank is outside the class progression range");
         }
+        if (experience < 0L || experienceForNextRank < 0L
+                || nextMilestoneRank < 0 || nextMilestoneRank > ClassProgressState.MAX_RANK) {
+            throw new IllegalArgumentException("class experience projection is invalid");
+        }
         if (resource < 0 || resource > ClassProgressState.MAX_RESOURCE) {
             throw new IllegalArgumentException("resource is outside the class progression range");
         }
@@ -60,7 +73,8 @@ public record ClassHudPayload(
     }
 
     public static ClassHudPayload unassigned() {
-        return new ClassHudPayload("", 0, ClassProgressState.MAX_RESOURCE, "", 0, "", 0);
+        return new ClassHudPayload("", 0, 0L, 0L, 0,
+                ClassProgressState.MAX_RESOURCE, "", 0, "", 0);
     }
 
     @Override

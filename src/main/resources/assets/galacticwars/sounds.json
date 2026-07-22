@@ -1,0 +1,10 @@
+{
+  "blaster_fire": {"subtitle": "subtitles.galacticwars.blaster_fire", "sounds": [{"name": "minecraft:item.crossbow.shoot", "type": "event"}]},
+  "lightsaber_swing": {"subtitle": "subtitles.galacticwars.lightsaber_swing", "sounds": [{"name": "minecraft:entity.player.attack.sweep", "type": "event"}]},
+  "force_use": {"subtitle": "subtitles.galacticwars.force_use", "sounds": [{"name": "minecraft:entity.breeze.wind_burst", "type": "event"}]},
+  "vehicle_engine": {"subtitle": "subtitles.galacticwars.vehicle_engine", "sounds": [{"name": "minecraft:entity.minecart.riding", "type": "event"}]},
+  "planet_travel": {"subtitle": "subtitles.galacticwars.planet_travel", "sounds": [{"name": "minecraft:block.portal.travel", "type": "event"}]},
+  "construction_complete": {"subtitle": "subtitles.galacticwars.construction_complete", "sounds": [{"name": "minecraft:block.anvil.place", "type": "event"}]},
+  "mission_update": {"subtitle": "subtitles.galacticwars.mission_update", "sounds": [{"name": "minecraft:block.note_block.pling", "type": "event"}]},
+  "planet_ambience": {"subtitle": "subtitles.galacticwars.planet_ambience", "sounds": [{"name": "minecraft:ambient.underwater.loop", "type": "event"}]}
+}

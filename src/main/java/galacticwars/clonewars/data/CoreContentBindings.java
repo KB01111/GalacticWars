@@ -201,6 +201,9 @@ public final class CoreContentBindings {
             case PLANET_VISITED -> launch.planets().keySet();
             case VEHICLE_ACQUIRED -> launch.vehicles().keySet();
             case FORCE_ABILITY_USED -> launch.forceAbilities().keySet();
+            case MISSION_STARTED, MISSION_FAILED, MISSION_OBJECTIVE_COMPLETED,
+                    MISSION_COMPLETED -> launch.missions().keySet();
+            case REGION_DEFENDED -> launch.conquestRegions().keySet();
             case QUEST_ADVANCED -> launch.quests().keySet();
             case CAMPAIGN_COMPLETED -> launch.quests().keySet().stream()
                     .map(CoreContentBindings::campaignId)

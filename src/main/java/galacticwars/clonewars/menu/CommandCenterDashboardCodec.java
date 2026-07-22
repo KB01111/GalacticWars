@@ -6,6 +6,7 @@ import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ActionAvailabi
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.BlueprintSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ClaimSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.CombatTargetSummary;
+import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.DiplomacyProposalSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.ForeignKingdomSummary;
 import galacticwars.clonewars.kingdom.CommandCenterDashboardState.InviteSummary;
@@ -84,6 +85,7 @@ public final class CommandCenterDashboardCodec {
         writeList(buffer, state.invites(), MAX_ENTRIES, CommandCenterDashboardCodec::writeInvite);
         writeList(buffer, state.diplomacyProposals(), MAX_ENTRIES,
                 CommandCenterDashboardCodec::writeDiplomacyProposal);
+        writeList(buffer, state.conflicts(), 16, CommandCenterDashboardCodec::writeConflict);
     }
 
     public static CommandCenterDashboardState read(FriendlyByteBuf buffer) {
@@ -124,7 +126,32 @@ public final class CommandCenterDashboardCodec {
                 readList(buffer, MAX_ENTRIES, CommandCenterDashboardCodec::readMember),
                 readList(buffer, MAX_ENTRIES, CommandCenterDashboardCodec::readForeignKingdom),
                 readList(buffer, MAX_ENTRIES, CommandCenterDashboardCodec::readInvite),
-                readList(buffer, MAX_ENTRIES, CommandCenterDashboardCodec::readDiplomacyProposal));
+                readList(buffer, MAX_ENTRIES, CommandCenterDashboardCodec::readDiplomacyProposal),
+                readList(buffer, 16, CommandCenterDashboardCodec::readConflict));
+    }
+
+    private static void writeConflict(FriendlyByteBuf buffer, ConflictSummary value) {
+        writeString(buffer, value.conflictId());
+        writeString(buffer, value.type());
+        writeString(buffer, value.dimensionId());
+        buffer.writeInt(value.x());
+        buffer.writeInt(value.z());
+        writeString(buffer, value.state());
+        buffer.writeVarInt(value.progress());
+        buffer.writeVarInt(value.goal());
+        buffer.writeVarLong(value.endsAt());
+        writeString(buffer, value.attacker());
+        writeString(buffer, value.defender());
+    }
+
+    private static ConflictSummary readConflict(FriendlyByteBuf buffer) {
+        return new ConflictSummary(
+                readString(buffer), readString(buffer), readString(buffer),
+                buffer.readInt(), buffer.readInt(), readString(buffer),
+                nonNegative(buffer.readVarInt(), "conflictProgress"),
+                Math.max(1, buffer.readVarInt()),
+                nonNegative(buffer.readVarLong(), "conflictEndsAt"),
+                readString(buffer), readString(buffer));
     }
 
     private static void writeAvailability(FriendlyByteBuf buffer, ActionAvailability value) {

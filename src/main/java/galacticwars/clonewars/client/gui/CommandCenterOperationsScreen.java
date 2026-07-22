@@ -579,7 +579,7 @@ public final class CommandCenterOperationsScreen extends Screen
         state.nextObjective().ifPresent(objective -> drawLine(
                 graphics, 6, Component.translatable(
                         "screen.galacticwars.operations.overview.next_objective",
-                        humanize(objective.objectiveId())), ACCENT));
+                        objectiveInstruction(objective.objectiveId())), ACCENT));
     }
 
     private void renderCampaign(GuiGraphicsExtractor graphics, CommandCenterDashboardState state) {
@@ -603,8 +603,11 @@ public final class CommandCenterOperationsScreen extends Screen
         }
         QuestSummary quest = active.orElseThrow();
         drawLine(graphics, 1, Component.translatable("screen.galacticwars.operations.campaign.active",
-                humanize(quest.questId()), quest.rewardCredits()), TEXT);
-        int line = 2;
+                questTitle(quest.questId()), quest.rewardCredits()), TEXT);
+        drawCentered(graphics, clipped(Component.translatable(
+                "quest.galacticwars." + path(quest.questId()) + ".briefing"), panelWidth - 20),
+                bodyTop + 29, MUTED);
+        int line = 3;
         for (var objective : quest.objectives()) {
             if (line > 5) break;
             drawLine(graphics, line++, Component.literal(
@@ -622,6 +625,12 @@ public final class CommandCenterOperationsScreen extends Screen
                             .reduce((left, right) -> left + ", " + right).orElse("")), panelWidth - 20),
                     bodyTop + 84, MUTED);
         }
+        state.activeForceTrainingQuest().ifPresent(training -> drawCentered(
+                graphics, clipped(Component.translatable(
+                        "screen.galacticwars.operations.campaign.force_training",
+                        questTitle(training.questId()), completedObjectives(training),
+                        training.objectives().size()), panelWidth - 20),
+                bodyTop + 95, MUTED));
     }
 
     private void renderConstruction(GuiGraphicsExtractor graphics, CommandCenterDashboardState state) {
@@ -716,6 +725,12 @@ public final class CommandCenterOperationsScreen extends Screen
                 Component.translatable("screen.galacticwars.operations.selector.claim",
                         selected(state.claims(), claimIndex).map(this::claimLabel)
                                 .orElse(Component.translatable("screen.galacticwars.operations.none"))));
+        state.conflicts().stream().filter(conflict -> conflict.state().equals("active"))
+                .findFirst().or(() -> state.conflicts().stream().findFirst())
+                .ifPresent(conflict -> drawCentered(graphics,
+                        clipped(conflictLabel(conflict), panelWidth - 20),
+                        afterSelectors(4) - 9,
+                        conflict.state().equals("active") ? WARNING : MUTED));
     }
 
     private void renderDiplomacy(GuiGraphicsExtractor graphics, CommandCenterDashboardState state) {
@@ -806,6 +821,14 @@ public final class CommandCenterOperationsScreen extends Screen
                 "screen.galacticwars.operations.objective." + path(objectiveId));
     }
 
+    private Component questTitle(String questId) {
+        return Component.translatable("quest.galacticwars." + path(questId) + ".title");
+    }
+
+    private static long completedObjectives(QuestSummary quest) {
+        return quest.objectives().stream().filter(objective -> objective.complete()).count();
+    }
+
     private String positionLabel(PositionSummary position) {
         return humanize(position.dimensionId()) + " "
                 + position.x() + "," + position.y() + "," + position.z();
@@ -830,6 +853,20 @@ public final class CommandCenterOperationsScreen extends Screen
                 : Component.translatable("screen.galacticwars.operations.claim.outpost").getString();
         return Component.literal(kind + " | " + humanize(claim.dimensionId()) + " | "
                 + claim.centerChunkX() + "," + claim.centerChunkZ() + " | " + claim.chunkCount());
+    }
+
+    private Component conflictLabel(
+            galacticwars.clonewars.kingdom.CommandCenterDashboardState.ConflictSummary conflict
+    ) {
+        long remainingTicks = Math.max(0L,
+                conflict.endsAt() - menu.dashboardState().generatedGameTime());
+        return Component.translatable("screen.galacticwars.operations.kingdom.conflict",
+                Component.translatable("screen.galacticwars.operations.kingdom.conflict."
+                        + conflict.type()),
+                Component.translatable("screen.galacticwars.operations.kingdom.conflict.state."
+                        + conflict.state()),
+                humanize(conflict.dimensionId()), conflict.x(), conflict.z(),
+                conflict.progress(), conflict.goal(), remainingTicks / 20L);
     }
 
     private Component inviteLabel(InviteSummary invite) {

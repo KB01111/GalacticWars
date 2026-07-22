@@ -13,6 +13,7 @@ import galacticwars.clonewars.client.gui.CommandCenterNavigationScreen
 import galacticwars.clonewars.client.gui.CommandCenterOperationsScreen
 import galacticwars.clonewars.client.gui.FactionSelectionScreen
 import galacticwars.clonewars.client.gui.ForceHud
+import galacticwars.clonewars.client.gui.ObjectiveMarkerHud
 import galacticwars.clonewars.client.gui.GalacticWarsConfigScreen
 import galacticwars.clonewars.client.gui.MerchantTradeScreen
 import galacticwars.clonewars.client.gui.RecruitCommandScreen
@@ -124,5 +125,9 @@ object GalacticWarsNeoForgeClient {
             VanillaGuiLayers.HOTBAR,
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "vehicle_hud"),
         ) { graphics, _ -> VehicleHud.render(graphics) }
+        event.registerAbove(
+            VanillaGuiLayers.HOTBAR,
+            Identifier.fromNamespaceAndPath(GalacticWars.MODID, "objective_marker"),
+        ) { graphics, _ -> ObjectiveMarkerHud.render(graphics) }
     }
 }

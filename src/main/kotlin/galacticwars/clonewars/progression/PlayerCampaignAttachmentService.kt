@@ -56,7 +56,9 @@ object PlayerCampaignAttachmentService {
             progression.eventTotals,
             progression.eventSubjects.entries
                 .asSequence()
-                .filter { (type, _) -> type != ProgressionEventType.DELIVERY_COMPLETED }
+                .filter { (type, _) ->
+                    type !in PlayerCampaignAttachmentState.SERVER_ONLY_EVENT_SUBJECT_TYPES
+                }
                 .sortedBy { (type, _) -> type.ordinal }
                 .associateTo(LinkedHashMap()) { (type, subjects) ->
                     type to boundedIdentifiers(

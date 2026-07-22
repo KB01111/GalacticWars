@@ -86,6 +86,14 @@ public final class GalacticNetwork {
                 GameplayCatalogPayload.TYPE,
                 GameplayCatalogPayload.STREAM_CODEC,
                 GalacticNetwork::handleGameplayCatalog);
+        NetworkManager.registerS2C(
+                ObjectiveMarkerPayload.TYPE,
+                ObjectiveMarkerPayload.STREAM_CODEC,
+                GalacticNetwork::handleObjectiveMarker);
+        NetworkManager.registerS2C(
+                ServerPolicyPayload.TYPE,
+                ServerPolicyPayload.STREAM_CODEC,
+                GalacticNetwork::handleServerPolicy);
         PlayerEvent.PLAYER_QUIT.register(player -> {
             ArmyFieldCommandService.clearReplayHistory(player.getUUID());
             ForceWorldEffectService.cancelAll(player.getUUID());
@@ -93,6 +101,7 @@ public final class GalacticNetwork {
             ForceShrineService.clearReplayHistory(player.getUUID());
         });
         GameplayCatalogSync.register();
+        ServerPolicySync.register();
     }
 
     public static boolean canPlayerReceive(
@@ -253,6 +262,20 @@ public final class GalacticNetwork {
             NetworkManager.PacketContext context
     ) {
         context.queue(() -> ClientPacketBridge.handleGameplayCatalog(payload));
+    }
+
+    private static void handleObjectiveMarker(
+            ObjectiveMarkerPayload payload,
+            NetworkManager.PacketContext context
+    ) {
+        context.queue(() -> ClientPacketBridge.handleObjectiveMarker(payload));
+    }
+
+    private static void handleServerPolicy(
+            ServerPolicyPayload payload,
+            NetworkManager.PacketContext context
+    ) {
+        context.queue(() -> ClientPacketBridge.handleServerPolicy(payload));
     }
 
     /** Compatibility surface retained for existing `.get()`-style menu and keybinding call sites. */

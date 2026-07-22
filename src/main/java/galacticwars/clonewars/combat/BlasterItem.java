@@ -15,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import galacticwars.clonewars.registry.ModSounds;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
@@ -110,7 +111,7 @@ public final class BlasterItem extends Item implements GeoItem {
             return InteractionResult.FAIL;
         }
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 0.65F,
+                ModSounds.BLASTER_FIRE.get(), SoundSource.PLAYERS, 0.65F,
                 1.45F + level.getRandom().nextFloat() * 0.15F);
         ServerLevel serverLevel = (ServerLevel) level;
         BlasterBoltEntity bolt = new BlasterBoltEntity(level, player, weapon, damage);
@@ -144,7 +145,7 @@ public final class BlasterItem extends Item implements GeoItem {
 
     public void fireAt(ServerLevel level, LivingEntity shooter, LivingEntity target, ItemStack weapon) {
         level.playSound(null, shooter.getX(), shooter.getY(), shooter.getZ(),
-                SoundEvents.CROSSBOW_SHOOT, SoundSource.NEUTRAL, 0.65F,
+                ModSounds.BLASTER_FIRE.get(), SoundSource.NEUTRAL, 0.65F,
                 1.45F + level.getRandom().nextFloat() * 0.15F);
         BlasterBoltEntity bolt = new BlasterBoltEntity(level, shooter, weapon, damage);
         double targetY = target.getY() + target.getBbHeight() * 0.6D;

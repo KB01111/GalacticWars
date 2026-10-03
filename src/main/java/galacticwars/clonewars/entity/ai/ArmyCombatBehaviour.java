@@ -8,6 +8,7 @@ import galacticwars.clonewars.army.ArmyTacticalPlanner;
 import galacticwars.clonewars.combat.BlasterHeatPolicy;
 import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
+import galacticwars.clonewars.combat.RecruitAmmunitionService;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.kingdom.KingdomSavedData;
 import galacticwars.clonewars.recruitment.RecruitDuty;
@@ -111,6 +112,10 @@ public final class ArmyCombatBehaviour extends ExtendedBehaviour<GalacticRecruit
             BrainUtil.clearMemory(recruit, MemoryModuleType.WALK_TARGET);
             if (weapon.getItem() instanceof BlasterItem blaster) {
                 if (attackCooldownTicks == 0 && BlasterHeatPolicy.canFire(blasterHeat)) {
+                    if (!RecruitAmmunitionService.tryConsumeForShot(recruit)) {
+                        holdOrRepositionRanged(recruit, state, target);
+                        return;
+                    }
                     blaster.fireAt(level, recruit, target, weapon);
                     blasterHeat = BlasterHeatPolicy.afterShot(blasterHeat);
                     attackCooldownTicks = ArmyBrainSupport.coordinatedCooldownTicks(
@@ -140,6 +145,23 @@ public final class ArmyCombatBehaviour extends ExtendedBehaviour<GalacticRecruit
             BrainUtil.setMemory(recruit, MemoryModuleType.WALK_TARGET,
                     new WalkTarget(new BlockPos(anchor.x(), anchor.y(), anchor.z()), 1.0F,
                             state.group().effectiveTactics().tightFormation() ? 1 : 2));
+            return;
+        }
+        double range = Math.max(
+                4.0D,
+                recruit.getAttributeValue(Attributes.FOLLOW_RANGE));
+        if (recruit.distanceToSqr(target) <= range * range
+                && recruit.getSensing().hasLineOfSight(target)) {
+            if (!RecruitAiCadence.shouldRecomputeArmyCover(recruit.tickCount)) {
+                return;
+            }
+            BrainUtil.setMemory(
+                    recruit,
+                    MemoryModuleType.WALK_TARGET,
+                    new WalkTarget(
+                            RecruitCombatMovement.coverOrDodge(recruit, target),
+                            1.1F,
+                            0));
             return;
         }
         int preferredRange = Math.max(4,
@@ -195,6 +217,7 @@ public final class ArmyCombatBehaviour extends ExtendedBehaviour<GalacticRecruit
         LivingEntity target = BrainUtil.getMemory(recruit, MemoryModuleType.ATTACK_TARGET);
         return state != null
                 && recruit.getRecruitDuty() != RecruitDuty.WORKER
+                && !recruit.isHazardAvoidanceActive()
                 && ArmyBrainSupport.canEngageGroupTarget(recruit, state, target);
     }
 

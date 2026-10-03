@@ -98,8 +98,17 @@ public final class PhysicalTradeService {
                 return TradePreview.rejected(trade, "regional_control_required", reaction);
             }
         }
+        if (merchant != null && !merchant.isMarketAvailable()) {
+            return TradePreview.rejected(trade, "merchant_unavailable", reaction);
+        }
         if (registeredItem(trade.itemId()) == null) {
             return TradePreview.rejected(trade, "unknown_trade_item", reaction);
+        }
+        Item tradeItem = registeredItem(trade.itemId());
+        if (merchant != null
+                && (tradeItem == null
+                        || !merchant.hasMerchantStock(tradeItem, trade.itemCount()))) {
+            return TradePreview.rejected(trade, "merchant_out_of_stock", reaction);
         }
         int creditPrice = adjustedCreditPrice(
                 trade, reaction == null ? 100 : reaction.tradePricePercent());
@@ -143,11 +152,11 @@ public final class PhysicalTradeService {
         }
 
         TradePreview preview = preview(player, tradeId, merchant);
-        if (expectedQuote != null && !expectedQuote.matches(preview)) {
-            return TradeResult.rejected("offer_changed");
-        }
         if (!preview.eligible()) {
             return TradeResult.rejected(preview.reason());
+        }
+        if (expectedQuote != null && !expectedQuote.matches(preview)) {
+            return TradeResult.rejected("offer_changed");
         }
         Item resultItem = registeredItem(preview.itemId());
         if (resultItem == null) {
@@ -163,7 +172,16 @@ public final class PhysicalTradeService {
         if (!evaluated.changed()) {
             return TradeResult.duplicate();
         }
+        GalacticRecruitEntity physicalStockMerchant = merchant;
+        ItemStack reservedStock = physicalStockMerchant == null
+                ? new ItemStack(resultItem, preview.itemCount())
+                : physicalStockMerchant.takeMerchantStock(
+                        resultItem, preview.itemCount());
+        if (reservedStock.getCount() != preview.itemCount()) {
+            return TradeResult.rejected("merchant_out_of_stock");
+        }
         if (!CreditTransactionService.withdrawPlayer(player, preview.creditPrice())) {
+            restoreMerchantStock(level, physicalStockMerchant, reservedStock);
             return TradeResult.rejected("insufficient_credits");
         }
 
@@ -172,16 +190,18 @@ public final class PhysicalTradeService {
             completion = progression.commitEvaluated(event, before, evaluated);
         } catch (RuntimeException failure) {
             CreditTransactionService.refundPlayer(player, preview.creditPrice());
+            restoreMerchantStock(level, physicalStockMerchant, reservedStock);
             return TradeResult.rejected("transaction_failed");
         }
         if (!completion.accepted() || !completion.changed()) {
             CreditTransactionService.refundPlayer(player, preview.creditPrice());
+            restoreMerchantStock(level, physicalStockMerchant, reservedStock);
             return completion.accepted()
                     ? TradeResult.duplicate()
                     : TradeResult.rejected(completion.reason());
         }
 
-        ItemStack result = new ItemStack(resultItem, preview.itemCount());
+        ItemStack result = reservedStock;
         player.getInventory().add(result);
         if (!result.isEmpty()) {
             player.spawnAtLocation(level, result);
@@ -207,6 +227,7 @@ public final class PhysicalTradeService {
                     "wary_merchant",
                     "veteran_trade_locked", "regional_control_required",
                     "unknown_trade_item", "insufficient_credits",
+                    "merchant_out_of_stock",
                     "offer_changed", "duplicate_event", "transaction_failed" ->
                     "reason.galacticwars.trade." + reason;
             default -> "reason.galacticwars.trade.unavailable";
@@ -223,6 +244,19 @@ public final class PhysicalTradeService {
         Item resultItem = BuiltInRegistries.ITEM.getValue(resultId);
         return resultItem != null && resultId.equals(BuiltInRegistries.ITEM.getKey(resultItem))
                 ? resultItem : null;
+    }
+
+    private static void restoreMerchantStock(
+            ServerLevel level,
+            GalacticRecruitEntity merchant,
+            ItemStack stock
+    ) {
+        if (merchant == null || stock.isEmpty()) {
+            return;
+        }
+        if (!merchant.restoreMerchantStock(stock)) {
+            merchant.spawnAtLocation(level, stock.copy());
+        }
     }
 
     private static int adjustedCreditPrice(

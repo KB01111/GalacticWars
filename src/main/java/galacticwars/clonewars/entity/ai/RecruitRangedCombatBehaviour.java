@@ -3,6 +3,7 @@ package galacticwars.clonewars.entity.ai;
 import galacticwars.clonewars.combat.BlasterHeatPolicy;
 import galacticwars.clonewars.combat.BlasterItem;
 import galacticwars.clonewars.combat.FactionRangedWeaponService;
+import galacticwars.clonewars.combat.RecruitAmmunitionService;
 import galacticwars.clonewars.entity.GalacticRecruitEntity;
 import galacticwars.clonewars.recruitment.RecruitDuty;
 import galacticwars.clonewars.registry.ModItems;
@@ -72,15 +73,38 @@ public final class RecruitRangedCombatBehaviour
             return;
         }
 
-        BrainUtil.clearMemories(
-                recruit, MemoryModuleType.WALK_TARGET, MemoryModuleType.PATH);
         ItemStack weapon = recruit.getMainHandItem();
-        if (weapon.getItem() instanceof BlasterItem blaster && BlasterHeatPolicy.canFire(heat)) {
-            blaster.fireAt(level, recruit, target, weapon);
-            heat = BlasterHeatPolicy.afterShot(heat);
-        } else if (weapon.is(ModItems.NIGHTSISTER_BOW.get()) && bowCooldownTicks == 0) {
+        if (weapon.getItem() instanceof BlasterItem blaster) {
+            if (BlasterHeatPolicy.canFire(heat)
+                    && RecruitAmmunitionService.tryConsumeForShot(recruit)) {
+                blaster.fireAt(level, recruit, target, weapon);
+                BrainUtil.clearMemories(
+                        recruit, MemoryModuleType.WALK_TARGET, MemoryModuleType.PATH);
+                heat = BlasterHeatPolicy.afterShot(heat);
+            } else if (recruit.tickCount % 8 == 0) {
+                BrainUtil.setMemory(
+                        recruit,
+                        MemoryModuleType.WALK_TARGET,
+                        new WalkTarget(
+                                RecruitCombatMovement.coverOrDodge(recruit, target),
+                                1.1F,
+                                0));
+            }
+            return;
+        }
+        if (weapon.is(ModItems.NIGHTSISTER_BOW.get()) && bowCooldownTicks == 0) {
+            BrainUtil.clearMemories(
+                    recruit, MemoryModuleType.WALK_TARGET, MemoryModuleType.PATH);
             FactionRangedWeaponService.fireNightsisterBow(level, recruit, target, weapon);
             bowCooldownTicks = 24;
+        } else if (recruit.tickCount % 8 == 0) {
+            BrainUtil.setMemory(
+                    recruit,
+                    MemoryModuleType.WALK_TARGET,
+                    new WalkTarget(
+                            RecruitCombatMovement.coverOrDodge(recruit, target),
+                            1.1F,
+                            0));
         }
     }
 
@@ -99,6 +123,7 @@ public final class RecruitRangedCombatBehaviour
         LivingEntity target = target(recruit);
         return recruit.getRecruitDuty() == RecruitDuty.SOLDIER
                 && !recruit.hasAuthoritativeArmyGroup()
+                && !recruit.isHazardAvoidanceActive()
                 && recruit.canUseLocalAttackTarget(target)
                 && FactionRangedWeaponService.supportsRecruitRangedCombat(
                         recruit.getMainHandItem());

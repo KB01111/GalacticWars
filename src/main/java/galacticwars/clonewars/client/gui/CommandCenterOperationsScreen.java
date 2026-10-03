@@ -381,7 +381,8 @@ public final class CommandCenterOperationsScreen extends Screen
         addSelector(selectorY(1), state.workOrders().size(),
                 () -> workOrderIndex = cycle(workOrderIndex, -1, state.workOrders().size()),
                 () -> workOrderIndex = cycle(workOrderIndex, 1, state.workOrders().size()));
-        Optional<UUID> worker = selected(state.workers(), workerIndex).map(WorkerSummary::entityId);
+        Optional<WorkerSummary> selectedWorker = selected(state.workers(), workerIndex);
+        Optional<UUID> worker = selectedWorker.map(WorkerSummary::entityId);
         addActionGrid(afterSelectors(2) + 34, List.of(
                 action("screen.galacticwars.operations.resume_worker",
                         CommandCenterOperationsMenu.RESUME_WORKER,
@@ -392,6 +393,10 @@ public final class CommandCenterOperationsScreen extends Screen
                 action("screen.galacticwars.operations.pause_worker",
                         CommandCenterOperationsMenu.PAUSE_WORKER,
                         worker, Optional.empty(), worker.isPresent()),
+                action("screen.galacticwars.operations.configure_worksite",
+                        CommandCenterOperationsMenu.CONFIGURE_WORKSITE,
+                        worker, Optional.empty(),
+                        CommandCenterActionAvailability.canConfigureWorksite(selectedWorker)),
                 action("screen.galacticwars.operations.open_storage",
                         CommandCenterOperationsMenu.STORAGE, true)));
     }
@@ -588,7 +593,7 @@ public final class CommandCenterOperationsScreen extends Screen
         } else if (actionId == CommandCenterOperationsMenu.CANCEL_BUILD_PROJECT) {
             permission = KingdomPermission.BUILD;
         } else if (actionId >= CommandCenterOperationsMenu.RESUME_WORKER
-                && actionId <= CommandCenterOperationsMenu.PAUSE_WORKER) {
+                && actionId <= CommandCenterOperationsMenu.CONFIGURE_WORKSITE) {
             permission = KingdomPermission.MANAGE_WORKSITES;
         } else if (actionId == CommandCenterOperationsMenu.REGISTER_OUTPOST) {
             permission = KingdomPermission.MANAGE_CLAIMS;

@@ -33,8 +33,7 @@ public final class FactionStructureLootTablesTest {
 
             require(pool(supplies, "credits").get("rolls").getAsInt() == 1,
                     faction.getKey() + " supplies must guarantee Credits");
-            JsonObject creditCount = firstItem(pool(supplies, "credits"))
-                    .getAsJsonArray("functions").get(0).getAsJsonObject()
+            JsonObject creditCount = modifier(firstItem(pool(supplies, "credits")))
                     .getAsJsonObject("count");
             require(creditCount.get("min").getAsInt() == 2
                             && creditCount.get("max").getAsInt() == 8,
@@ -107,6 +106,15 @@ public final class FactionStructureLootTablesTest {
 
     private static JsonObject firstItem(JsonObject pool) {
         return pool.getAsJsonArray("entries").get(0).getAsJsonObject();
+    }
+
+    private static JsonObject modifier(JsonObject entry) {
+        // 26.3 loot entries carry a singular "modifier" (object, or a
+        // single-element array for multi-modifier entries).
+        if (entry.get("modifier").isJsonArray()) {
+            return entry.getAsJsonArray("modifier").get(0).getAsJsonObject();
+        }
+        return entry.getAsJsonObject("modifier");
     }
 
     private static java.util.Set<String> itemNames(JsonObject object) {

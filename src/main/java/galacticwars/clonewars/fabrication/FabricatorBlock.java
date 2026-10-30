@@ -1,6 +1,5 @@
 package galacticwars.clonewars.fabrication;
 
-import com.mojang.serialization.MapCodec;
 import dev.architectury.registry.menu.MenuRegistry;
 import galacticwars.clonewars.menu.FabricatorMenuProvider;
 import java.util.function.BiConsumer;
@@ -24,15 +23,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.Nullable;
 
 public final class FabricatorBlock extends BaseEntityBlock {
-    public static final MapCodec<FabricatorBlock> CODEC = simpleCodec(FabricatorBlock::new);
-
     public FabricatorBlock(BlockBehaviour.Properties properties) {
         super(properties);
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override

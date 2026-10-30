@@ -12,17 +12,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 /** Rebindable active-class controls kept separate from Force and vehicle controls. */
 public final class ClassKeyMappings {
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "class_abilities"));
     private static final KeyMapping[] KEYS = {
-            new KeyMapping("key.galacticwars.class_1", InputConstants.Type.KEYSYM,
-                    GLFW.GLFW_KEY_V, CATEGORY),
-            new KeyMapping("key.galacticwars.class_2", InputConstants.Type.KEYSYM,
-                    GLFW.GLFW_KEY_B, CATEGORY)
+            new KeyMapping("key.galacticwars.class_1", InputConstants.Type.KEYBOARD,
+                    InputConstants.KEY_V, CATEGORY),
+            new KeyMapping("key.galacticwars.class_2", InputConstants.Type.KEYBOARD,
+                    InputConstants.KEY_B, CATEGORY)
     };
     private static final List<KeyMapping> MAPPINGS = List.of(KEYS);
     private static final AtomicBoolean MAPPINGS_REGISTERED = new AtomicBoolean();

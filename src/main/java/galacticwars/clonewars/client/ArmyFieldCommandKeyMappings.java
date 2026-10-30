@@ -11,14 +11,13 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 /** Rebindable in-world command panel toggle. */
 public final class ArmyFieldCommandKeyMappings {
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "army_commands"));
     private static final KeyMapping COMMAND_SCREEN = new KeyMapping(
-            "key.galacticwars.army_command", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
+            "key.galacticwars.army_command", InputConstants.Type.KEYBOARD, InputConstants.KEY_G, CATEGORY);
     private static final List<KeyMapping> MAPPINGS = List.of(COMMAND_SCREEN);
     private static final AtomicBoolean MAPPINGS_REGISTERED = new AtomicBoolean();
     private static final AtomicBoolean TICK_HANDLER_REGISTERED = new AtomicBoolean();

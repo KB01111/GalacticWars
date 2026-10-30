@@ -224,6 +224,7 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.util.Prediction;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
@@ -2198,7 +2199,7 @@ public class GalacticRecruitEntity extends TamableAnimal
                     projector = new ItemStack(ModItems.BLUEPRINT_PROJECTOR.get());
                     projector.set(ModDataComponents.CONSTRUCTION_PLAN.get(), plan);
                     if (!player.getInventory().add(projector)) {
-                        player.drop(projector, false);
+                        player.drop(projector, false, Prediction.SERVER_ONLY);
                     }
                 } else {
                     projector.set(ModDataComponents.CONSTRUCTION_PLAN.get(), plan);
@@ -4053,7 +4054,8 @@ public class GalacticRecruitEntity extends TamableAnimal
                 return;
             }
             this.workerCooldownTicks = 20;
-            this.swing(InteractionHand.MAIN_HAND);
+            this.swing(InteractionHand.MAIN_HAND,
+                    this.getItemInHand(InteractionHand.MAIN_HAND).getInteractAnimation());
             this.transitionWorker(WorkerPhase.INTERACT, "cook_station_wait", target);
             return;
         }
@@ -4065,7 +4067,8 @@ public class GalacticRecruitEntity extends TamableAnimal
                 return;
             }
             this.workerCooldownTicks = 100 + this.getRandom().nextInt(81);
-            this.swing(InteractionHand.MAIN_HAND);
+            this.swing(InteractionHand.MAIN_HAND,
+                    this.getItemInHand(InteractionHand.MAIN_HAND).getInteractAnimation());
             level.playSound(
                     null,
                     target,
@@ -4171,7 +4174,8 @@ public class GalacticRecruitEntity extends TamableAnimal
         if (this.workerCooldownTicks > 0) {
             this.workerCooldownTicks--;
             if (this.workerCooldownTicks % 20 == 0) {
-                this.swing(InteractionHand.MAIN_HAND);
+                this.swing(InteractionHand.MAIN_HAND,
+                        this.getItemInHand(InteractionHand.MAIN_HAND).getInteractAnimation());
                 level.sendParticles(
                         ParticleTypes.SPLASH,
                         target.getX() + 0.5D,
@@ -4205,7 +4209,8 @@ public class GalacticRecruitEntity extends TamableAnimal
         }
         this.workerInventory = nextInventory;
         rod.hurtAndBreak(1, this, EquipmentSlot.MAINHAND);
-        this.swing(InteractionHand.MAIN_HAND);
+        this.swing(InteractionHand.MAIN_HAND,
+                this.getItemInHand(InteractionHand.MAIN_HAND).getInteractAnimation());
         level.playSound(
                 null,
                 target,
@@ -5149,7 +5154,7 @@ public class GalacticRecruitEntity extends TamableAnimal
             this.blockWorker("worker_inventory_full");
             return;
         }
-        this.swing(InteractionHand.MAIN_HAND);
+        this.swingForAttack(InteractionHand.MAIN_HAND);
         level.playSound(
                 null,
                 animal.blockPosition(),
@@ -5174,7 +5179,8 @@ public class GalacticRecruitEntity extends TamableAnimal
         if (this.workerCooldownTicks > 0) {
             this.workerCooldownTicks--;
             if (this.workerCooldownTicks % 5 == 0) {
-                this.swing(InteractionHand.MAIN_HAND);
+                this.swing(InteractionHand.MAIN_HAND,
+                        this.getItemInHand(InteractionHand.MAIN_HAND).getInteractAnimation());
             }
             return;
         }
@@ -5906,7 +5912,7 @@ public class GalacticRecruitEntity extends TamableAnimal
 
     private net.minecraft.world.item.Item availableCarriedCookingFuel(ServerLevel level) {
         return this.workerInventory.stream()
-                .filter(stack -> !stack.isEmpty() && level.fuelValues().isFuel(stack))
+                .filter(stack -> !stack.isEmpty() && stack.has(DataComponents.COOKING_FUEL))
                 .map(ItemStack::getItem)
                 .findFirst()
                 .orElse(null);
@@ -5924,7 +5930,7 @@ public class GalacticRecruitEntity extends TamableAnimal
                 this.registeredStorageSlots(this.storageTarget));
         for (int slot = 0; slot < slotLimit; slot++) {
             ItemStack stack = container.getItem(slot);
-            if (!stack.isEmpty() && level.fuelValues().isFuel(stack)) {
+            if (!stack.isEmpty() && stack.has(DataComponents.COOKING_FUEL)) {
                 return stack.getItem();
             }
         }
@@ -7584,10 +7590,13 @@ public class GalacticRecruitEntity extends TamableAnimal
             for (int x = -radius; x <= radius; x++) {
                 for (int z = -radius; z <= radius; z++) {
                     BlockPos candidate = hall.offset(x, 1, z);
+                    BlockState ground = level.getBlockState(candidate.below());
                     if (level.isLoaded(candidate)
                             && level.getBlockState(candidate).isAir()
                             && level.getBlockState(candidate.above()).isAir()
-                            && level.getBlockState(candidate.below()).blocksMotion()) {
+                            && ground.isSolid()
+                            && ground.getBlock() != Blocks.COBWEB
+                            && ground.getBlock() != Blocks.BAMBOO_SAPLING) {
                         return Optional.of(candidate.immutable());
                     }
                 }

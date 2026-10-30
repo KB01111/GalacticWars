@@ -1,5 +1,6 @@
 package galacticwars.clonewars.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import galacticwars.clonewars.army.FieldCommandAction;
 import galacticwars.clonewars.army.ArmyPatrolPlan;
 import galacticwars.clonewars.client.ArmyFieldCommandKeyMappings;
@@ -20,7 +21,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Lightweight, in-world squad command panel. It shows only a server-owned projection and never
@@ -113,15 +113,15 @@ public final class ArmyFieldCommandScreen extends Screen {
             return true;
         }
         switch (event.key()) {
-            case GLFW.GLFW_KEY_1 -> selectCategory(0);
-            case GLFW.GLFW_KEY_2 -> selectCategory(1);
-            case GLFW.GLFW_KEY_3 -> selectCategory(2);
-            case GLFW.GLFW_KEY_4 -> selectCategory(3);
-            case GLFW.GLFW_KEY_A -> selectAllSquads();
-            case GLFW.GLFW_KEY_C -> clearSquadSelection();
-            case GLFW.GLFW_KEY_R -> requestRefresh();
-            case GLFW.GLFW_KEY_Q -> changeGroupPage(-1);
-            case GLFW.GLFW_KEY_E -> changeGroupPage(1);
+            case InputConstants.KEY_1 -> selectCategory(0);
+            case InputConstants.KEY_2 -> selectCategory(1);
+            case InputConstants.KEY_3 -> selectCategory(2);
+            case InputConstants.KEY_4 -> selectCategory(3);
+            case InputConstants.KEY_A -> selectAllSquads();
+            case InputConstants.KEY_C -> clearSquadSelection();
+            case InputConstants.KEY_R -> requestRefresh();
+            case InputConstants.KEY_Q -> changeGroupPage(-1);
+            case InputConstants.KEY_E -> changeGroupPage(1);
             default -> {
                 return super.keyPressed(event);
             }

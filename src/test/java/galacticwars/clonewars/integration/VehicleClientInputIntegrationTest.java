@@ -22,7 +22,7 @@ public final class VehicleClientInputIntegrationTest {
 
         assertContains(input, "key.galacticwars.vehicle_descend",
                 "dedicated vehicle descend mapping");
-        assertContains(input, "GLFW.GLFW_KEY_LEFT_CONTROL",
+        assertContains(input, "InputConstants.KEY_LCONTROL",
                 "non-dismount default key");
         assertContains(input, "MAPPINGS.forEach(KeyMappingRegistry::register)",
                 "complete client mapping registration");

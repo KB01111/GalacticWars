@@ -57,6 +57,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.Prediction;
 public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
     public static final int STORAGE = 0;
     public static final int CLAIM_REWARDS = 1;
@@ -470,7 +471,7 @@ public final class CommandCenterOperationsMenu extends AbstractContainerMenu {
                 projector.set(ModDataComponents.CONSTRUCTION_PLAN.get(), new ConstructionPlan(
                         blueprint.id(), rotationSteps, builderId, kingdom.id()));
                 if (!serverPlayer.getInventory().add(projector)) {
-                    serverPlayer.drop(projector, false);
+                    serverPlayer.drop(projector, false, Prediction.SERVER_ONLY);
                 }
             } else {
                 projector.set(ModDataComponents.CONSTRUCTION_PLAN.get(), new ConstructionPlan(

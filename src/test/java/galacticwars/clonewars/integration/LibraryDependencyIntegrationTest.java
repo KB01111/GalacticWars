@@ -19,18 +19,18 @@ public final class LibraryDependencyIntegrationTest {
                 Path.of("neoforge/src/main/resources/META-INF/neoforge.mods.toml"));
         String notice = Files.readString(Path.of("NOTICE.md"));
 
-        assertContains(rootBuild, "id(\"architectury-plugin\") version \"3.5.169\"",
+        assertContains(rootBuild, "id(\"architectury-plugin\") version \"3.5.170\"",
                 "Architectury build plugin");
         assertContains(commonBuild, "api(\"dev.architectury:architectury:$architecturyApiVersion\")",
                 "common Architectury API coordinate");
         assertContains(fabricBuild,
-                "implementation(\"net.tslat:smartbrainlib-fabric-26.2:$smartBrainLibVersion\")",
+                "implementation(\"net.tslat:smartbrainlib-fabric-26.3:$smartBrainLibVersion\")",
                 "Fabric SmartBrainLib coordinate");
         assertContains(neoForgeBuild,
-                "implementation(\"net.tslat:smartbrainlib-neoforge-26.2:$smartBrainLibVersion\")",
+                "implementation(\"net.tslat:smartbrainlib-neoforge-26.3:$smartBrainLibVersion\")",
                 "NeoForge SmartBrainLib coordinate");
-        assertContains(properties, "architecturyApiVersion=21.1.12", "Architectury API build pin");
-        assertContains(properties, "architectury_api_version=21.1.12", "Architectury API metadata pin");
+        assertContains(properties, "architecturyApiVersion=22.0.5", "Architectury API build pin");
+        assertContains(properties, "architectury_api_version=22.0.5", "Architectury API metadata pin");
         assertContains(properties, "smartBrainLibVersion=2.0.3", "SmartBrainLib pin");
         assertContains(fabricMetadata, "\"architectury\": \">=${architectury_api_version}\"",
                 "Fabric Architectury required metadata");

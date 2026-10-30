@@ -1,6 +1,5 @@
 package galacticwars.clonewars.world;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -16,15 +15,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.Nullable;
 
 public final class FactionCommandPostBlock extends BaseEntityBlock {
-    public static final MapCodec<FactionCommandPostBlock> CODEC = simpleCodec(FactionCommandPostBlock::new);
-
     public FactionCommandPostBlock(BlockBehaviour.Properties properties) {
         super(properties);
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override

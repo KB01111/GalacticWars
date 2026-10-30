@@ -194,7 +194,7 @@ public final class ArmyCombatBehaviour extends ExtendedBehaviour<GalacticRecruit
                 && recruit.getSensing().hasLineOfSight(target)) {
             BrainUtil.clearMemory(recruit, MemoryModuleType.WALK_TARGET);
             if (attackCooldownTicks == 0) {
-                recruit.swing(InteractionHand.MAIN_HAND);
+                recruit.swingForAttack(InteractionHand.MAIN_HAND);
                 recruit.doHurtTarget(level, target);
                 attackCooldownTicks = ArmyBrainSupport.coordinatedCooldownTicks(
                         recruit, level, data, group, MELEE_ATTACK_COOLDOWN_TICKS);

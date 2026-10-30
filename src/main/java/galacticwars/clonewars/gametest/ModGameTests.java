@@ -501,6 +501,7 @@ public final class ModGameTests {
             int runtimeTestIndex = smartBrainRuntimeTests.indexOf(testId);
             TestData<Holder<TestEnvironmentDefinition<?>>> data = new TestData<>(
                     isolatedEnvironments.getOrDefault(testId, environment),
+                    net.minecraft.world.level.Level.OVERWORLD,
                     EMPTY_STRUCTURE,
                     timeoutTicks,
                     runtimeTestIndex < 0
@@ -1784,7 +1785,7 @@ public final class ModGameTests {
         ServerPlayer owner = area.player();
         GalacticRecruitEntity recruit = spawnRecruitAt(
                 helper, ModEntityTypes.CLONE_TROOPER.get(), area.at(1, 1, 2));
-        recruit.setInvulnerable(true);
+        recruit.setPermanentlyInvulnerable(true);
         recruit.tame(owner);
         BlockPos ownerPos = area.at(8, 1, 2);
         owner.setNoGravity(true);
@@ -1920,7 +1921,7 @@ public final class ModGameTests {
         ServerPlayer owner = area.player();
         GalacticRecruitEntity recruit = spawnRecruitAt(
                 helper, ModEntityTypes.CLONE_TROOPER.get(), area.at(1, 1, 2));
-        recruit.setInvulnerable(true);
+        recruit.setPermanentlyInvulnerable(true);
         recruit.tame(owner);
         BlockPos target = area.at(3, 1, 4);
         setRecruitField(recruit, "moveTarget", target);
@@ -1952,7 +1953,7 @@ public final class ModGameTests {
         ServerPlayer owner = area.player();
         GalacticRecruitEntity recruit = spawnRecruitAt(
                 helper, ModEntityTypes.CLONE_TROOPER.get(), area.at(1, 1, 1));
-        recruit.setInvulnerable(true);
+        recruit.setPermanentlyInvulnerable(true);
         recruit.tame(owner);
         BlockPos unreachable = area.at(1, 20, 1);
         setRecruitField(recruit, "moveTarget", unreachable);
@@ -2048,8 +2049,8 @@ public final class ModGameTests {
                 helper, ModEntityTypes.CLONE_TROOPER.get(), commanderPosition);
         GalacticRecruitEntity staleTarget = spawnRecruitAt(
                 helper, ModEntityTypes.B1_BATTLE_DROID.get(), staleTargetPosition);
-        commander.setInvulnerable(true);
-        staleTarget.setInvulnerable(true);
+        commander.setPermanentlyInvulnerable(true);
+        staleTarget.setPermanentlyInvulnerable(true);
         staleTarget.setNoAi(true);
         commander.tame(owner);
         owner.setPos(commander.getX(), commander.getY(), commander.getZ());
@@ -2397,7 +2398,7 @@ public final class ModGameTests {
         soldierCargo.setItem(0, new ItemStack(
                 ModItems.ENERGY_CELL.get(), BlasterHeatPolicy.SHOTS_BEFORE_OVERHEAT + 1));
         target.setNoAi(true);
-        target.setInvulnerable(true);
+        target.setPermanentlyInvulnerable(true);
         target.getAttribute(Attributes.MAX_HEALTH).setBaseValue(4096.0D);
         target.setHealth(target.getMaxHealth());
         target.initializeNaturalFactionNpc(UUID.randomUUID(), NpcServiceBranch.MILITARY);
@@ -3270,7 +3271,7 @@ public final class ModGameTests {
             GalacticRecruitEntity recruit = spawned.getFirst();
             spawnedRecruitIds.add(recruit.getUUID());
             // GameTests share a server batch; isolate this lifecycle assertion from nearby combat tests.
-            recruit.setInvulnerable(true);
+            recruit.setPermanentlyInvulnerable(true);
             if (!recruit.isPersistenceRequired()) {
                 helper.fail("Spawn egg recruit was not marked persistent: " + testCase.type());
             }
@@ -3370,7 +3371,7 @@ public final class ModGameTests {
         GalacticRecruitEntity dispenserRecruit = dispenserRecruits.getFirst();
         spawnedRecruitIds.add(dispenserRecruit.getUUID());
         // Keep the dispenser case subject to normal AI ticking without allowing cross-test damage.
-        dispenserRecruit.setInvulnerable(true);
+        dispenserRecruit.setPermanentlyInvulnerable(true);
         if (!dispenserRecruit.isPersistenceRequired()
                 || dispenserRecruit.getServiceBranch() != NpcServiceBranch.MILITARY
                 || dispenserRecruit.getMainHandItem().isEmpty()) {
@@ -5726,14 +5727,14 @@ public final class ModGameTests {
         }
         GalacticRecruitEntity guard = spawnPlanetPolicyRecruitAt(
                 planet, ModEntityTypes.B1_SECURITY_DROID.get(), center, guardEvaluation);
-        guard.setInvulnerable(true);
+        guard.setPermanentlyInvulnerable(true);
         guard.setPos(center.getX() + 0.5D, center.getY(), center.getZ() - 2.5D);
         GalacticRecruitEntity civilian = spawnPlanetPolicyRecruitAt(
                 planet,
                 ModEntityTypes.SEPARATIST_TECHNICIAN.get(),
                 center.offset(3, 0, 0),
                 civilianEvaluation);
-        civilian.setInvulnerable(true);
+        civilian.setPermanentlyInvulnerable(true);
         civilian.setPos(center.getX() + 3.5D, center.getY(), center.getZ() + 0.5D);
         var hostile = EntityTypes.ZOMBIE.create(planet, EntitySpawnReason.EVENT);
         if (hostile == null) {
@@ -5745,7 +5746,7 @@ public final class ModGameTests {
         }
         hostile.setPos(center.getX() + 0.5D, center.getY(), center.getZ() - 5.5D);
         hostile.setNoAi(true);
-        hostile.setInvulnerable(true);
+        hostile.setPermanentlyInvulnerable(true);
         if (!planet.addFreshEntity(hostile)) {
             guard.discard();
             civilian.discard();
@@ -7528,7 +7529,7 @@ public final class ModGameTests {
 
         GalacticRecruitEntity recruit = spawnRecruitAt(
                 helper, ModEntityTypes.CLONE_TROOPER.get(), recruitPos);
-        recruit.setInvulnerable(true);
+        recruit.setPermanentlyInvulnerable(true);
         owner.setPos(recruit.getX(), recruit.getY(), recruit.getZ());
         if (!recruit.handleMenuButton(owner, RecruitCommandMenu.BUTTON_HIRE)) {
             helper.fail("Door-command recruit could not be hired");
@@ -8034,7 +8035,7 @@ public final class ModGameTests {
                 helper, ModEntityTypes.CLONE_TROOPER.get(), hazardPosition);
         escaping.initializeFromSpawnEgg();
         escaping.tame(owner);
-        escaping.setInvulnerable(true);
+        escaping.setPermanentlyInvulnerable(true);
         invokeRecruitCommand(escaping, RecruitmentAction.HOLD_POSITION);
         if (escaping.isInRecruitHazard()) {
             helper.fail("Unlit campfire field incorrectly activated recruit hazard avoidance");
@@ -8060,7 +8061,7 @@ public final class ModGameTests {
         for (GalacticRecruitEntity recruit : List.of(
                 following, holding, patrolling, combat)) {
             recruit.initializeFromSpawnEgg();
-            recruit.setInvulnerable(true);
+            recruit.setPermanentlyInvulnerable(true);
         }
         for (GalacticRecruitEntity recruit : List.of(following, holding, combat)) {
             recruit.tame(owner);
@@ -8662,7 +8663,7 @@ public final class ModGameTests {
             return;
         }
         recruit.setPos(hallPos.getX() + 2.5, hallPos.getY(), hallPos.getZ() + 0.5);
-        recruit.setInvulnerable(true);
+        recruit.setPermanentlyInvulnerable(true);
         helper.getLevel().addFreshEntity(recruit);
         owner.setPos(recruit.getX(), recruit.getY(), recruit.getZ());
         // Embedded GameTest clients never acknowledge this direct long-distance move. Update the
@@ -13683,7 +13684,7 @@ public final class ModGameTests {
             BlockPos commanderPosition = this.area.at(20, 1, 1);
             this.commander = spawnRecruitAt(
                     this.helper, ModEntityTypes.CLONE_TROOPER.get(), commanderPosition);
-            this.commander.setInvulnerable(true);
+            this.commander.setPermanentlyInvulnerable(true);
             this.commander.initializeBlueprintSiteResident(
                     this.mainOutpostId,
                     NpcServiceBranch.MILITARY,
@@ -13700,7 +13701,7 @@ public final class ModGameTests {
                         1 + (index / 7) * 2);
                 GalacticRecruitEntity responder = spawnRecruitAt(
                         this.helper, ModEntityTypes.CLONE_TROOPER.get(), position);
-                responder.setInvulnerable(true);
+                responder.setPermanentlyInvulnerable(true);
                 responder.initializeBlueprintSiteResident(
                         this.mainOutpostId,
                         NpcServiceBranch.MILITARY,
@@ -13715,7 +13716,7 @@ public final class ModGameTests {
             this.trader = spawnRecruitAt(
                     this.helper, ModEntityTypes.REPUBLIC_CIVILIAN.get(),
                     this.area.at(18, 1, 6));
-            this.trader.setInvulnerable(true);
+            this.trader.setPermanentlyInvulnerable(true);
             this.trader.initializeBlueprintSiteResident(
                     this.mainOutpostId,
                     NpcServiceBranch.CIVILIAN,
@@ -13729,7 +13730,7 @@ public final class ModGameTests {
             this.civilian = spawnRecruitAt(
                     this.helper, ModEntityTypes.REPUBLIC_CIVILIAN.get(),
                     this.area.at(18, 1, 8));
-            this.civilian.setInvulnerable(true);
+            this.civilian.setPermanentlyInvulnerable(true);
             this.civilian.initializeBlueprintSiteResident(
                     this.mainOutpostId,
                     NpcServiceBranch.CIVILIAN,
@@ -13754,7 +13755,7 @@ public final class ModGameTests {
             BlockPos fallbackPosition = this.area.at(5, 1, 10);
             this.fallbackTrooper = spawnRecruitAt(
                     this.helper, ModEntityTypes.CLONE_TROOPER.get(), fallbackPosition);
-            this.fallbackTrooper.setInvulnerable(true);
+            this.fallbackTrooper.setPermanentlyInvulnerable(true);
             this.fallbackTrooper.initializeBlueprintSiteResident(
                     fallbackOutpostId,
                     NpcServiceBranch.MILITARY,
@@ -13775,7 +13776,7 @@ public final class ModGameTests {
             BlockPos foreignPosition = this.area.at(44, 1, 10);
             this.foreignOutpostTrooper = spawnRecruitAt(
                     this.helper, ModEntityTypes.CLONE_TROOPER.get(), foreignPosition);
-            this.foreignOutpostTrooper.setInvulnerable(true);
+            this.foreignOutpostTrooper.setPermanentlyInvulnerable(true);
             this.foreignOutpostTrooper.initializeBlueprintSiteResident(
                     foreignOutpostId,
                     NpcServiceBranch.MILITARY,
@@ -13940,14 +13941,14 @@ public final class ModGameTests {
             this.shelterHome = this.area.at(4, 1, 4);
             this.sheltering = spawnRecruitAt(
                     this.helper, ModEntityTypes.REPUBLIC_CIVILIAN.get(), this.area.at(1, 1, 1));
-            this.sheltering.setInvulnerable(true);
+            this.sheltering.setPermanentlyInvulnerable(true);
             this.sheltering.initializeNaturalFactionNpc(
                     UUID.randomUUID(), NpcServiceBranch.CIVILIAN, this.shelterHome, 32);
             this.initialShelterDistance = this.sheltering.distanceToSqr(
                     Vec3.atCenterOf(this.shelterHome));
             this.threat = spawnRecruitAt(
                     this.helper, ModEntityTypes.B1_BATTLE_DROID.get(), this.area.at(1, 1, 2));
-            this.threat.setInvulnerable(true);
+            this.threat.setPermanentlyInvulnerable(true);
             this.threat.setNoAi(true);
             this.threat.initializeNaturalFactionNpc(
                     UUID.randomUUID(), NpcServiceBranch.MILITARY);
@@ -13972,7 +13973,7 @@ public final class ModGameTests {
             BlockPos workHome = this.area.at(3, 1, 0);
             this.worker = spawnRecruitAt(
                     this.helper, ModEntityTypes.HUTT_CIVILIAN.get(), this.area.at(1, 1, 1));
-            this.worker.setInvulnerable(true);
+            this.worker.setPermanentlyInvulnerable(true);
             this.worker.initializeNaturalFactionNpc(
                     UUID.randomUUID(), NpcServiceBranch.CIVILIAN, workHome, 32);
             this.workerSpawnTick = this.helper.getTick();

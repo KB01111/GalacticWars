@@ -3,7 +3,7 @@ package galacticwars.clonewars.client.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
@@ -29,7 +29,7 @@ public final class LightsaberClientExtensions implements IClientItemExtensions {
     @Override
     public boolean applyForgeHandTransform(
             PoseStack poseStack,
-            LocalPlayer player,
+            PlayerRenderState player,
             HumanoidArm arm,
             ItemStack stack,
             float partialTick,
@@ -39,14 +39,14 @@ public final class LightsaberClientExtensions implements IClientItemExtensions {
         float direction = arm == HumanoidArm.RIGHT ? 1.0F : -1.0F;
         float ready = 1.0F - Mth.clamp(equipProgress, 0.0F, 1.0F);
         float slash = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
-        float idle = Mth.sin((player.tickCount + partialTick) * 0.14F) * 0.008F * ready;
+        float idle = Mth.sin(player.avatarRenderState.ageInTicks * 0.14F) * 0.008F * ready;
 
         // The GeckoLib geometry now pivots through the middle of the hilt. Keep
         // the animation centered there so the hand stays wrapped around the
         // grip instead of orbiting the weapon during a slash.
         poseStack.translate(direction * 0.012F * ready, idle, -0.018F * ready);
-        poseStack.mulPose(Axis.ZP.rotationDegrees(direction * (-6.0F * ready - 20.0F * slash)));
-        poseStack.mulPose(Axis.XP.rotationDegrees(-3.0F * ready - 10.0F * slash));
+        poseStack.rotate(Axis.ZP.rotationDegrees(direction * (-6.0F * ready - 20.0F * slash)));
+        poseStack.rotate(Axis.XP.rotationDegrees(-3.0F * ready - 10.0F * slash));
         // Returning false preserves Minecraft's normal first-person hand and item
         // transforms after applying the subtle ready/slash offsets above.
         return false;

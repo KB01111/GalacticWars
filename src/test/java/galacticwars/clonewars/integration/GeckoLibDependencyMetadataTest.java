@@ -18,13 +18,13 @@ public final class GeckoLibDependencyMetadataTest {
         String notice = read("NOTICE.md");
         String readme = read("README.md");
 
-        assertContains(gradleProperties, "geckoLibVersion=5.5.5", "GeckoLib version property");
+        assertContains(gradleProperties, "geckoLibVersion=5.5.7", "GeckoLib version property");
         assertContains(rootBuild, "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/", "GeckoLib Maven repository");
         assertContains(fabricBuild,
-                "implementation(\"com.geckolib:geckolib-fabric-26.2:$geckoLibVersion\")",
+                "implementation(\"com.geckolib:geckolib-fabric-26.3:$geckoLibVersion\")",
                 "GeckoLib Fabric dependency");
         assertContains(neoForgeBuild,
-                "implementation(\"com.geckolib:geckolib-neoforge-26.2:$geckoLibVersion\")",
+                "implementation(\"com.geckolib:geckolib-neoforge-26.3:$geckoLibVersion\")",
                 "GeckoLib NeoForge dependency");
         assertContains(fabricMetadata, "\"geckolib\": \">=${geckolib_version}\"",
                 "Fabric GeckoLib metadata dependency");

@@ -57,8 +57,8 @@ dependencies {
 
     compileOnly("net.fabricmc:fabric-loader:$fabricLoaderVersion")
     api("dev.architectury:architectury:$architecturyApiVersion")
-    compileOnly("net.tslat:smartbrainlib-common-26.2:$smartBrainLibVersion")
-    compileOnly("com.geckolib:geckolib-common-26.2:$geckoLibVersion")
+    compileOnly("net.tslat:smartbrainlib-common-26.3:$smartBrainLibVersion")
+    compileOnly("com.geckolib:geckolib-common-26.3:$geckoLibVersion")
     compileOnly(kotlin("stdlib"))
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:$coroutinesVersion")
 }

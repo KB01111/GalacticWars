@@ -1,8 +1,18 @@
 {
   "type": "minecraft:block",
-  "pools": [{
-    "rolls": 1,
-    "entries": [{"type": "minecraft:item", "name": "galacticwars:nightsister_weave_log"}],
-    "conditions": [{"condition": "minecraft:survives_explosion"}]
-  }]
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "galacticwars:nightsister_weave_log"
+        }
+      ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      }
+    }
+  ],
+  "random_sequence": "galacticwars:blocks/nightsister_weave_log"
 }

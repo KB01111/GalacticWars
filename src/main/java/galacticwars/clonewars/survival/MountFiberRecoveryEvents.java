@@ -3,6 +3,7 @@ package galacticwars.clonewars.survival;
 import galacticwars.clonewars.registry.ModItems;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Prediction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
@@ -38,7 +39,7 @@ public final class MountFiberRecoveryEvents {
         }
         ItemStack hair = new ItemStack(ModItems.MANDALORIAN_FIBER.get());
         if (!player.addItem(hair)) {
-            player.drop(hair, false);
+            player.drop(hair, false, Prediction.SERVER_ONLY);
         }
         brush.hurtAndBreak(1, player, hand);
         return Optional.of(InteractionResult.SUCCESS);

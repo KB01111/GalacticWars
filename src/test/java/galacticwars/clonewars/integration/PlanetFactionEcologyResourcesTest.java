@@ -20,9 +20,10 @@ public final class PlanetFactionEcologyResourcesTest {
                     + "\"faction\"\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern CUSTOM_SPAWNER = Pattern.compile(
             "\\{\\s*\"type\"\\s*:\\s*\"(galacticwars:[^\"]+)\"\\s*,"
-                    + "\\s*\"maxCount\"\\s*:\\s*(\\d+)\\s*,"
-                    + "\\s*\"minCount\"\\s*:\\s*(\\d+)\\s*,"
-                    + "\\s*\"weight\"\\s*:\\s*(\\d+)\\s*}");
+                    + "\\s*\"count\"\\s*:\\s*(\\d+|\\{[^}]*\\})\\s*,"
+                    + "\\s*\"weight\"\\s*:\\s*(\\d+)\\s*\\}");
+    private static final Pattern UNIFORM_MIN = Pattern.compile("\"min_inclusive\"\\s*:\\s*(\\d+)");
+    private static final Pattern UNIFORM_MAX = Pattern.compile("\"max_inclusive\"\\s*:\\s*(\\d+)");
     private static final Map<String, String> PLANET_FEATURE_MARKERS = Map.of(
             "tatooine", "minecraft:patch_cactus_desert",
             "geonosis", "minecraft:ore_gold_extra",
@@ -60,7 +61,8 @@ public final class PlanetFactionEcologyResourcesTest {
                         planet.id() + " noise terrain");
             }
             assertContains(biome, "\"features\"", planet.id() + " biome features");
-            assertContains(biome, "\"spawners\"", planet.id() + " biome spawners");
+            assertContains(biome, "minecraft:gameplay/natural_mob_spawns",
+                    planet.id() + " biome spawners");
             assertContains(biome, PLANET_FEATURE_MARKERS.get(planet.id()),
                     planet.id() + " thematic generation feature");
             assertNotContains(biome, "neoforge:", planet.id() + " loader-neutral biome");
@@ -256,9 +258,23 @@ public final class PlanetFactionEcologyResourcesTest {
         LinkedHashSet<String> entities = new LinkedHashSet<>();
         Matcher matcher = CUSTOM_SPAWNER.matcher(biome);
         while (matcher.find()) {
-            int maxCount = Integer.parseInt(matcher.group(2));
-            int minCount = Integer.parseInt(matcher.group(3));
-            int weight = Integer.parseInt(matcher.group(4));
+            int minCount;
+            int maxCount;
+            String count = matcher.group(2).trim();
+            if (count.startsWith("{")) {
+                Matcher min = UNIFORM_MIN.matcher(count);
+                Matcher max = UNIFORM_MAX.matcher(count);
+                if (!min.find() || !max.find()) {
+                    throw new AssertionError("Invalid " + planetId + " spawner count for "
+                            + matcher.group(1));
+                }
+                minCount = Integer.parseInt(min.group(1));
+                maxCount = Integer.parseInt(max.group(1));
+            } else {
+                minCount = Integer.parseInt(count);
+                maxCount = minCount;
+            }
+            int weight = Integer.parseInt(matcher.group(3));
             if (minCount < 1 || maxCount < minCount || weight < 1) {
                 throw new AssertionError("Invalid " + planetId + " spawner values for " + matcher.group(1));
             }

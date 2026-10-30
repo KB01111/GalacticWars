@@ -59,7 +59,7 @@ public final class RecruitMeleeCombatBehaviour
             BrainUtil.clearMemories(
                     recruit, MemoryModuleType.WALK_TARGET, MemoryModuleType.PATH);
             if (attackCooldownTicks == 0) {
-                recruit.swing(InteractionHand.MAIN_HAND);
+                recruit.swingForAttack(InteractionHand.MAIN_HAND);
                 recruit.doHurtTarget(level, target);
                 attackCooldownTicks = 20;
             }

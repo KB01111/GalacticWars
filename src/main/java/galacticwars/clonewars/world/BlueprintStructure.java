@@ -44,8 +44,8 @@ public final class BlueprintStructure extends Structure {
         int z = context.chunkPos().getMiddleBlockZ();
         int y = context.chunkGenerator().getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG,
                 context.heightAccessor(), context.randomState());
-        Holder<?> biome = context.biomeSource().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y),
-                QuartPos.fromBlock(z), context.randomState().sampler());
+        Holder<?> biome = context.biomeResolver().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y),
+                QuartPos.fromBlock(z));
         String biomeId = biome.unwrapKey().map(key -> key.identifier().toString()).orElse("");
         if (nearProtectedPlanetPoi(biomeId, x, z)) {
             return Optional.empty();

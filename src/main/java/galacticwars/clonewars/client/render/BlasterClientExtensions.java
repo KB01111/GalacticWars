@@ -3,7 +3,7 @@ package galacticwars.clonewars.client.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
@@ -30,7 +30,7 @@ public final class BlasterClientExtensions implements IClientItemExtensions {
     @Override
     public boolean applyForgeHandTransform(
             PoseStack poseStack,
-            LocalPlayer player,
+            PlayerRenderState player,
             HumanoidArm arm,
             ItemStack stack,
             float partialTick,
@@ -40,11 +40,11 @@ public final class BlasterClientExtensions implements IClientItemExtensions {
         float direction = arm == HumanoidArm.RIGHT ? 1.0F : -1.0F;
         float ready = 1.0F - Mth.clamp(equipProgress, 0.0F, 1.0F);
         float recoil = Mth.sin(Mth.sqrt(swingProgress) * (float) Math.PI);
-        float breathing = Mth.sin((player.tickCount + partialTick) * 0.11F) * 0.004F * ready;
+        float breathing = Mth.sin(player.avatarRenderState.ageInTicks * 0.11F) * 0.004F * ready;
 
         poseStack.translate(direction * 0.012F * ready, breathing, -0.035F * ready + 0.055F * recoil);
-        poseStack.mulPose(Axis.XP.rotationDegrees(-2.0F * ready + 7.0F * recoil));
-        poseStack.mulPose(Axis.ZP.rotationDegrees(direction * -1.5F * ready));
+        poseStack.rotate(Axis.XP.rotationDegrees(-2.0F * ready + 7.0F * recoil));
+        poseStack.rotate(Axis.ZP.rotationDegrees(direction * -1.5F * ready));
         return false;
     }
 }

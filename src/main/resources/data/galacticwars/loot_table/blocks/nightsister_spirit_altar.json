@@ -1,1 +1,18 @@
-{"type":"minecraft:block","pools":[{"rolls":1,"entries":[{"type":"minecraft:item","name":"galacticwars:nightsister_spirit_altar"}],"conditions":[{"condition":"minecraft:survives_explosion"}]}]}
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "galacticwars:nightsister_spirit_altar"
+        }
+      ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      }
+    }
+  ],
+  "random_sequence": "galacticwars:blocks/nightsister_spirit_altar"
+}

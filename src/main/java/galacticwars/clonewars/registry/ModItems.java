@@ -14,11 +14,8 @@ import galacticwars.clonewars.vehicle.VehicleDeploymentKitItem;
 import galacticwars.clonewars.kingdom.ClaimTransponderItem;
 import galacticwars.clonewars.settlement.BlueprintProjectorItem;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.BowItem;
-import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.equipment.ArmorType;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
@@ -116,11 +113,11 @@ public final class ModItems {
     public static final RegistrySupplier<Item> POWER_DRILL =
             registerSimpleItem("power_drill", properties -> properties.pickaxe(ModEquipmentMaterials.REPUBLIC.tool(), 1.0F, -2.8F));
     public static final RegistrySupplier<Item> PLASMA_CUTTER =
-            registerItem("plasma_cutter", properties -> new AxeItem(ModEquipmentMaterials.REPUBLIC.tool(), 6.0F, -3.0F, properties));
+            registerItem("plasma_cutter", properties -> new Item(properties.axe(ModEquipmentMaterials.REPUBLIC.tool(), 6.0F, -3.0F)));
     public static final RegistrySupplier<Item> SONIC_EXCAVATOR =
-            registerItem("sonic_excavator", properties -> new ShovelItem(ModEquipmentMaterials.REPUBLIC.tool(), 1.5F, -3.0F, properties));
+            registerItem("sonic_excavator", properties -> new Item(properties.shovel(ModEquipmentMaterials.REPUBLIC.tool(), 1.5F, -3.0F)));
     public static final RegistrySupplier<Item> HYDROSPANNER =
-            registerItem("hydrospanner", properties -> new HoeItem(ModEquipmentMaterials.REPUBLIC.tool(), -2.0F, -1.0F, properties));
+            registerItem("hydrospanner", properties -> new Item(properties.hoe(ModEquipmentMaterials.REPUBLIC.tool(), -2.0F, -1.0F)));
     public static final RegistrySupplier<Item> REPUBLIC_PLASTOID_INGOT =
             registerSimpleItem("republic_plastoid_ingot", properties -> properties);
     public static final RegistrySupplier<Item> MANDALORIAN_FIBER =
@@ -313,12 +310,12 @@ public final class ModItems {
                 prefix + "_sword", properties -> properties.sword(family.tool(), 3.0F, -2.4F)));
         items.put(prefix + "_pickaxe", registerSimpleItem(
                 prefix + "_pickaxe", properties -> properties.pickaxe(family.tool(), 1.0F, -2.8F)));
-        items.put(prefix + "_axe", registerItem(
-                prefix + "_axe", properties -> new AxeItem(family.tool(), 6.0F, -3.1F, properties)));
-        items.put(prefix + "_shovel", registerItem(
-                prefix + "_shovel", properties -> new ShovelItem(family.tool(), 1.5F, -3.0F, properties)));
-        items.put(prefix + "_hoe", registerItem(
-                prefix + "_hoe", properties -> new HoeItem(family.tool(), -2.0F, -1.0F, properties)));
+        items.put(prefix + "_axe", registerSimpleItem(
+                prefix + "_axe", properties -> properties.axe(family.tool(), 6.0F, -3.1F)));
+        items.put(prefix + "_shovel", registerSimpleItem(
+                prefix + "_shovel", properties -> properties.shovel(family.tool(), 1.5F, -3.0F)));
+        items.put(prefix + "_hoe", registerSimpleItem(
+                prefix + "_hoe", properties -> properties.hoe(family.tool(), -2.0F, -1.0F)));
         items.put(prefix + "_helmet", registerItem(
                 prefix + "_helmet", properties -> new GalacticArmorItem(
                         prefix, properties.humanoidArmor(family.armor(), ArmorType.HELMET))));

@@ -1,6 +1,5 @@
 package galacticwars.clonewars.world;
 
-import com.mojang.serialization.MapCodec;
 import galacticwars.clonewars.registry.ModBlockEntityTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -14,15 +13,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jspecify.annotations.Nullable;
 
 public final class BlueprintSiteAnchorBlock extends BaseEntityBlock {
-    public static final MapCodec<BlueprintSiteAnchorBlock> CODEC = simpleCodec(BlueprintSiteAnchorBlock::new);
-
     public BlueprintSiteAnchorBlock(BlockBehaviour.Properties properties) {
         super(properties);
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override

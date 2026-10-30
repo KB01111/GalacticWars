@@ -99,8 +99,8 @@ dependencies {
     neoForge("net.neoforged:neoforge:$neoForgeVersion")
     implementation("dev.architectury:architectury-neoforge:$architecturyApiVersion")
     implementation("thedarkcolour:kotlinforforge-neoforge:$kotlinForForgeVersion")
-    implementation("net.tslat:smartbrainlib-neoforge-26.2:$smartBrainLibVersion")
-    implementation("com.geckolib:geckolib-neoforge-26.2:$geckoLibVersion")
+    implementation("net.tslat:smartbrainlib-neoforge-26.3:$smartBrainLibVersion")
+    implementation("com.geckolib:geckolib-neoforge-26.3:$geckoLibVersion")
     implementation("dev.isxander:yet-another-config-lib:$yaclVersion-neoforge")
 
     testImplementation(kotlin("test-junit5"))

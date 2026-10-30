@@ -1,6 +1,5 @@
 package galacticwars.clonewars.settlement;
 
-import com.mojang.serialization.MapCodec;
 import dev.architectury.registry.menu.MenuRegistry;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,17 +42,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.Nullable;
 
 public final class CommandCenterBlock extends BaseEntityBlock {
-    public static final MapCodec<CommandCenterBlock> CODEC = simpleCodec(CommandCenterBlock::new);
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     public CommandCenterBlock(BlockBehaviour.Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override
@@ -219,8 +212,8 @@ public final class CommandCenterBlock extends BaseEntityBlock {
 
     @Override
     public void playerDestroy(
-            Level level,
-            Player player,
+            ServerLevel level,
+            ServerPlayer player,
             BlockPos pos,
             BlockState state,
             @Nullable BlockEntity blockEntity,

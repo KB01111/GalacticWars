@@ -18,7 +18,7 @@ public final class ArmyFieldCommandClientIntegrationTest {
         String neoForge = read("neoforge/src/main/kotlin/galacticwars/clonewars/neoforge/GalacticWarsNeoForgeClient.kt");
         String language = read("src/main/resources/assets/galacticwars/lang/en_us.json");
 
-        assertContains(mappings, "GLFW.GLFW_KEY_G", "default G field command key");
+        assertContains(mappings, "InputConstants.KEY_G", "default G field command key");
         assertContains(mappings, "ArmyFieldCommandScreen", "field command screen opening");
         assertContains(mappings, "matchesCommandScreen(KeyEvent", "rebindable screen toggle handling");
         assertNotContains(mappings, "boolean acceptsGameplayInput", "stale buffered-click input state");

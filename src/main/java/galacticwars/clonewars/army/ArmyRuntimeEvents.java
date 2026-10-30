@@ -26,6 +26,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /** Loader-neutral server runtime for live and virtual army groups. */
@@ -260,11 +261,17 @@ public final class ArmyRuntimeEvents {
             BlockPos surface = new BlockPos(block.getX(), y, block.getZ());
             if (level.getBlockState(surface).isAir()
                     && level.getBlockState(surface.above()).isAir()
-                    && level.getBlockState(surface.below()).blocksMotion()) {
+                    && blocksMotion(level.getBlockState(surface.below()))) {
                 standable++;
             }
         }
         return standable * 4 >= positions.size() * 3;
+    }
+
+    private static boolean blocksMotion(net.minecraft.world.level.block.state.BlockState state) {
+        return state.getBlock() != Blocks.COBWEB
+                && state.getBlock() != Blocks.BAMBOO_SAPLING
+                && state.isSolid();
     }
 
     private static double readinessMultiplier(ArmyGroupRecord group) {

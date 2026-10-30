@@ -46,7 +46,7 @@ public final class SurvivalContentRoadmapTest {
             assertTrue(Files.exists(ASSETS.resolve("blockstates/" + block + ".json")), block + " blockstate");
             assertTrue(Files.exists(DATA.resolve("loot_table/blocks/" + block + ".json")), block + " loot");
         }
-        assertTrue(Files.exists(DATA.resolve("worldgen/configured_feature/nightsister_weave_tree.json")), "NightsisterWeave tree feature");
+        assertTrue(Files.exists(DATA.resolve("worldgen/feature/nightsister_weave_tree.json")), "NightsisterWeave tree feature");
     }
 
     private static void everyEquipmentFamilyHasRecipesModelsIconsAndArmorLayers() throws Exception {

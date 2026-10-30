@@ -4,8 +4,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     base
-    id("architectury-plugin") version "3.5.169" apply false
-    id("dev.architectury.loom-no-remap") version "1.17.491" apply false
+    id("architectury-plugin") version "3.5.170" apply false
+    id("dev.architectury.loom-no-remap") version "1.17.493" apply false
     kotlin("jvm") version "2.4.21" apply false
 }
 

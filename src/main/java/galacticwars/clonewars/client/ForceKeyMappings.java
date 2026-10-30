@@ -12,7 +12,6 @@ import galacticwars.clonewars.vehicle.GalacticVehicleEntity;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,19 +21,19 @@ public final class ForceKeyMappings {
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath(GalacticWars.MODID, "abilities"));
     private static final KeyMapping[] KEYS = {
-            new KeyMapping("key.galacticwars.force_1", InputConstants.Type.KEYSYM,
-                    GLFW.GLFW_KEY_Z, CATEGORY),
-            new KeyMapping("key.galacticwars.force_2", InputConstants.Type.KEYSYM,
-                    GLFW.GLFW_KEY_X, CATEGORY),
-            new KeyMapping("key.galacticwars.force_3", InputConstants.Type.KEYSYM,
-                    GLFW.GLFW_KEY_C, CATEGORY)
+            new KeyMapping("key.galacticwars.force_1", InputConstants.Type.KEYBOARD,
+                    InputConstants.KEY_Z, CATEGORY),
+            new KeyMapping("key.galacticwars.force_2", InputConstants.Type.KEYBOARD,
+                    InputConstants.KEY_X, CATEGORY),
+            new KeyMapping("key.galacticwars.force_3", InputConstants.Type.KEYBOARD,
+                    InputConstants.KEY_C, CATEGORY)
     };
     private static final KeyMapping VEHICLE_FIRE = new KeyMapping(
-            "key.galacticwars.vehicle_fire", InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_R, CATEGORY);
+            "key.galacticwars.vehicle_fire", InputConstants.Type.KEYBOARD,
+            InputConstants.KEY_R, CATEGORY);
     private static final KeyMapping VEHICLE_DESCEND = new KeyMapping(
-            "key.galacticwars.vehicle_descend", InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_LEFT_CONTROL, CATEGORY);
+            "key.galacticwars.vehicle_descend", InputConstants.Type.KEYBOARD,
+            InputConstants.KEY_LCONTROL, CATEGORY);
     private static final List<KeyMapping> MAPPINGS = List.of(
             KEYS[0], KEYS[1], KEYS[2], VEHICLE_FIRE, VEHICLE_DESCEND);
     private static final AtomicBoolean MAPPINGS_REGISTERED = new AtomicBoolean();

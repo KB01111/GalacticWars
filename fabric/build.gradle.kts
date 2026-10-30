@@ -69,8 +69,8 @@ dependencies {
     implementation("net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
     implementation("net.fabricmc:fabric-language-kotlin:$fabricLanguageKotlinVersion")
     implementation("dev.architectury:architectury-fabric:$architecturyApiVersion")
-    implementation("net.tslat:smartbrainlib-fabric-26.2:$smartBrainLibVersion")
-    implementation("com.geckolib:geckolib-fabric-26.2:$geckoLibVersion")
+    implementation("net.tslat:smartbrainlib-fabric-26.3:$smartBrainLibVersion")
+    implementation("com.geckolib:geckolib-fabric-26.3:$geckoLibVersion")
     implementation("dev.isxander:yet-another-config-lib:$yaclVersion-fabric")
 
     add(commonCode.name, project(path = ":common", configuration = "apiElements")) {

@@ -1,1 +1,18 @@
-{"type":"minecraft:block","pools":[{"rolls":1,"entries":[{"type":"minecraft:item","name":"galacticwars:jedi_meditation_shrine"}],"conditions":[{"condition":"minecraft:survives_explosion"}]}]}
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "galacticwars:jedi_meditation_shrine"
+        }
+      ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      }
+    }
+  ],
+  "random_sequence": "galacticwars:blocks/jedi_meditation_shrine"
+}

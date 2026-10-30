@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.SandBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.UntintedParticleLeavesBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.sounds.AmbientLeavesBlockSoundPlayer;
 import net.minecraft.world.level.material.MapColor;
 
 import java.util.function.Function;
@@ -47,7 +48,7 @@ public final class ModBlocks {
                     .mapColor(MapColor.COLOR_YELLOW).strength(2.0F, 3.0F).sound(SoundType.WOOD));
     public static final RegistrySupplier<UntintedParticleLeavesBlock> NIGHTSISTER_WEAVE_LEAVES = register(
             "nightsister_weave_leaves", properties -> new UntintedParticleLeavesBlock(
-                    0.02F, ParticleTypes.CHERRY_LEAVES,
+                    0.02F, ParticleTypes.CHERRY_LEAVES, AmbientLeavesBlockSoundPlayer.noAmbientSound(),
                     properties.mapColor(MapColor.COLOR_YELLOW).strength(0.2F).randomTicks()
                             .sound(SoundType.GRASS).noOcclusion()));
     public static final RegistrySupplier<PlayerTriggeredSaplingBlock> NIGHTSISTER_WEAVE_SAPLING = register(

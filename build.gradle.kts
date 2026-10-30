@@ -6,7 +6,7 @@ plugins {
     base
     id("architectury-plugin") version "3.5.169" apply false
     id("dev.architectury.loom-no-remap") version "1.17.491" apply false
-    kotlin("jvm") version "2.4.0" apply false
+    kotlin("jvm") version "2.4.21" apply false
 }
 
 val modVersion: String by project

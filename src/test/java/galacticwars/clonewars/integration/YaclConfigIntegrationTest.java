@@ -24,7 +24,7 @@ public final class YaclConfigIntegrationTest {
         String language = read("src/main/resources/assets/galacticwars/lang/en_us.json");
         String notice = read("NOTICE.md");
 
-        assertContains(gradleProperties, "yaclVersion=3.9.5+26.2", "YACL version");
+        assertContains(gradleProperties, "yaclVersion=3.9.7+26.2", "YACL version");
         assertContains(rootBuild, "https://maven.isxander.dev/releases", "YACL Maven repository");
         assertContains(fabricBuild,
                 "implementation(\"dev.isxander:yet-another-config-lib:$yaclVersion-fabric\")",

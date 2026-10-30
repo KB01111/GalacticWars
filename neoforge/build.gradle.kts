@@ -104,8 +104,8 @@ dependencies {
     implementation("dev.isxander:yet-another-config-lib:$yaclVersion-neoforge")
 
     testImplementation(kotlin("test-junit5"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.14.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.14.4")
 
     add(commonCode.name, project(path = ":common", configuration = "apiElements")) {
         isTransitive = false

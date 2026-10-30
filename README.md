@@ -6,9 +6,9 @@ This is a clean-break conversion. Existing KingdomWars-Middle-Earth worlds and r
 
 ## Installation
 
-1. Install Java 25 and Minecraft 26.2 with either Fabric Loader 0.19.3+ or NeoForge 26.2.0.25-beta+.
+1. Install Java 25 and Minecraft 26.2 with either Fabric Loader 0.20.1+ or NeoForge 26.2.0.93+.
 2. Install the matching `galacticwars-fabric` or `galacticwars-neoforge` JAR.
-3. Install the loader-matched Architectury API 21.0.4+, GeckoLib 5.5.3+, SmartBrainLib 2.0.x, and YACL 3.9.5+ builds. Fabric also requires Fabric API and Fabric Language Kotlin; NeoForge requires Kotlin for Forge.
+3. Install the loader-matched Architectury API 21.1.12+, GeckoLib 5.5.5+, SmartBrainLib 2.0.3+, and YACL 3.9.7+ builds. Fabric also requires Fabric API and Fabric Language Kotlin; NeoForge requires Kotlin for Forge.
 4. Remove earlier KingdomWars-Middle-Earth builds and start a fresh world.
 5. Keep the same loader, Galactic Wars build, and dependency versions on every multiplayer client and server.
 
@@ -16,11 +16,11 @@ This is a clean-break conversion. Existing KingdomWars-Middle-Earth worlds and r
 
 - Minecraft 26.2
 - Java 25
-- Architectury API 21.0.4 or newer compatible release
-- Fabric Loader 0.19.3, Fabric API 0.155.2+26.2, and Fabric Language Kotlin 1.13.13+kotlin.2.4.10; or NeoForge 26.2.0.25-beta and Kotlin for Forge 6.3.0
-- GeckoLib 5.5.3 or newer compatible release
-- SmartBrainLib 2.0.x for the selected loader
-- YACL 3.9.5 or newer compatible 26.2 release for the selected loader
+- Architectury API 21.1.12 or newer compatible release
+- Fabric Loader 0.20.1, Fabric API 0.161.0+26.2, and Fabric Language Kotlin 1.14.2+kotlin.2.4.21; or NeoForge 26.2.0.93 and Kotlin for Forge 6.3.0
+- GeckoLib 5.5.5 or newer compatible release
+- SmartBrainLib 2.0.3 for the selected loader
+- YACL 3.9.7 or newer compatible 26.2 release for the selected loader
 
 ## Controls
 
